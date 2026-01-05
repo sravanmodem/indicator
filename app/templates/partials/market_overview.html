@@ -1,0 +1,56 @@
+{% if error %}
+<div class="text-red-400 text-sm">{{ error }}</div>
+{% else %}
+<div class="flex items-center space-x-6">
+    <!-- NIFTY -->
+    <div class="flex items-center space-x-2">
+        <span class="text-slate-400 text-sm">NIFTY</span>
+        <span class="text-white font-mono font-bold">
+            {{ "%.2f"|format(nifty.last_price) if nifty.last_price else '--' }}
+        </span>
+        {% if nifty.change %}
+        <span class="px-1.5 py-0.5 rounded text-xs font-medium
+            {% if nifty.change > 0 %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+            {{ "%.2f"|format(nifty.change) }}%
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="w-px h-6 bg-slate-700"></div>
+
+    <!-- BANK NIFTY -->
+    <div class="flex items-center space-x-2">
+        <span class="text-slate-400 text-sm">BANKNIFTY</span>
+        <span class="text-white font-mono font-bold">
+            {{ "%.2f"|format(banknifty.last_price) if banknifty.last_price else '--' }}
+        </span>
+        {% if banknifty.change %}
+        <span class="px-1.5 py-0.5 rounded text-xs font-medium
+            {% if banknifty.change > 0 %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+            {{ "%.2f"|format(banknifty.change) }}%
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="w-px h-6 bg-slate-700"></div>
+
+    <!-- SENSEX -->
+    <div class="flex items-center space-x-2">
+        <span class="text-slate-400 text-sm">SENSEX</span>
+        <span class="text-white font-mono font-bold">
+            {{ "%.2f"|format(sensex.last_price) if sensex.last_price else '--' }}
+        </span>
+        {% if sensex.change %}
+        <span class="px-1.5 py-0.5 rounded text-xs font-medium
+            {% if sensex.change > 0 %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+            {{ "%.2f"|format(sensex.change) }}%
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="w-px h-6 bg-slate-700"></div>
+
+    <!-- Time -->
+    <span class="text-slate-500 text-xs">{{ timestamp }}</span>
+</div>
+{% endif %}

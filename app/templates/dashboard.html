@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Options Indicator{% endblock %}
+
+{% block content %}
+<div x-data="{ activeTab: 'nifty', tradingStyle: 'intraday' }">
+    <!-- Header Row -->
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+        <!-- Index Tabs -->
+        <div class="flex items-center space-x-2 bg-surface-800 rounded-xl p-1">
+            <button @click="activeTab = 'nifty'; switchTab('nifty')"
+                    :class="activeTab === 'nifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                    class="px-6 py-2 rounded-lg font-medium transition-all">
+                NIFTY
+            </button>
+            <button @click="activeTab = 'banknifty'; switchTab('banknifty')"
+                    :class="activeTab === 'banknifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                    class="px-6 py-2 rounded-lg font-medium transition-all">
+                BANK NIFTY
+            </button>
+            <button @click="activeTab = 'sensex'; switchTab('sensex')"
+                    :class="activeTab === 'sensex' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                    class="px-6 py-2 rounded-lg font-medium transition-all">
+                SENSEX
+            </button>
+        </div>
+
+        <!-- Trading Style -->
+        <div class="flex items-center space-x-4">
+            <span class="text-slate-400 text-sm">Style:</span>
+            <div class="flex items-center space-x-2 bg-surface-800 rounded-xl p-1">
+                <button @click="tradingStyle = 'scalping'; switchStyle('scalping')"
+                        :class="tradingStyle === 'scalping' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                    Scalping
+                </button>
+                <button @click="tradingStyle = 'intraday'; switchStyle('intraday')"
+                        :class="tradingStyle === 'intraday' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                    Intraday
+                </button>
+                <button @click="tradingStyle = 'swing'; switchStyle('swing')"
+                        :class="tradingStyle === 'swing' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                    Swing
+                </button>
+            </div>
+        </div>
+
+        <!-- WebSocket Status -->
+        <div id="ws-status"
+             hx-get="/htmx/ws-status"
+             hx-trigger="load, every 10s"
+             hx-swap="innerHTML">
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <!-- Left Column - Signal Card -->
+        <div class="xl:col-span-1 space-y-6">
+            <!-- Primary Signal Card -->
+            <div id="signal-card"
+                 hx-get="/htmx/signal-card/nifty?style=intraday"
+                 hx-trigger="load"
+                 hx-swap="innerHTML transition:true">
+                <div class="glass rounded-2xl p-6">
+                    <div class="h-40 bg-surface-700 rounded-xl"></div>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="glass rounded-2xl p-6">
+                <h3 class="text-lg font-semibold text-white mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="refreshSignal()"
+                            class="px-4 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-white font-medium transition-colors">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Refresh
+                    </button>
+                    <button onclick="connectWS()"
+                            class="px-4 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-white font-medium transition-colors">
+                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Connect WS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column - Indicators & Option Chain -->
+        <div class="xl:col-span-2 space-y-6">
+            <!-- Indicator Panel -->
+            <div id="indicator-panel"
+                 hx-get="/htmx/indicator-panel/nifty"
+                 hx-trigger="load"
+                 hx-swap="innerHTML transition:true">
+                <div class="glass rounded-2xl p-6">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="h-24 bg-surface-700 rounded-xl"></div>
+                        <div class="h-24 bg-surface-700 rounded-xl"></div>
+                        <div class="h-24 bg-surface-700 rounded-xl"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Option Chain Table -->
+            <div id="option-chain"
+                 hx-get="/htmx/option-chain-table/nifty"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="glass rounded-2xl p-6">
+                    <div class="h-64 bg-surface-700 rounded-xl"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row - Additional Info -->
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Trading Rules Reminder -->
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-slate-400 mb-2">CE Entry Rules</h4>
+            <ul class="text-xs text-slate-300 space-y-1">
+                <li>- Price above VWAP</li>
+                <li>- SuperTrend green</li>
+                <li>- RSI > 50</li>
+                <li>- ADX > 25</li>
+            </ul>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-slate-400 mb-2">PE Entry Rules</h4>
+            <ul class="text-xs text-slate-300 space-y-1">
+                <li>- Price below VWAP</li>
+                <li>- SuperTrend red</li>
+                <li>- RSI < 50</li>
+                <li>- ADX > 25</li>
+            </ul>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-slate-400 mb-2">Avoid Trading When</h4>
+            <ul class="text-xs text-slate-300 space-y-1">
+                <li>- First 15 mins</li>
+                <li>- Last 30 mins</li>
+                <li>- ADX < 20</li>
+                <li>- VIX > 25</li>
+            </ul>
+        </div>
+        <div class="glass rounded-xl p-4">
+            <h4 class="text-sm font-semibold text-slate-400 mb-2">Risk Management</h4>
+            <ul class="text-xs text-slate-300 space-y-1">
+                <li>- Max 1-2% per trade</li>
+                <li>- 1:2 Risk-Reward min</li>
+                <li>- Max 3 trades/day</li>
+                <li>- 3% daily loss limit</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Current tab state for polling
+    let currentTab = 'nifty';
+    let currentStyle = 'intraday';
+
+    function switchTab(tab) {
+        currentTab = tab;
+        // Use htmx.ajax to directly fetch with correct URLs
+        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/indicator-panel/' + tab, {target: '#indicator-panel', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/option-chain-table/' + tab, {target: '#option-chain', swap: 'innerHTML'});
+    }
+
+    function switchStyle(style) {
+        currentStyle = style;
+        // Only signal card uses style parameter
+        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
+    }
+
+    async function refreshSignal() {
+        switchTab(currentTab);
+    }
+
+    async function connectWS() {
+        try {
+            const response = await fetch('/market/ws/connect', { method: 'POST' });
+            const data = await response.json();
+            if (data.success) {
+                showToast('WebSocket connected!', 'success');
+            } else {
+                showToast('Connection failed', 'error');
+            }
+        } catch (e) {
+            showToast('Connection error: ' + e.message, 'error');
+        }
+    }
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const colors = {
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500',
+            info: 'bg-blue-500'
+        };
+
+        const toast = document.createElement('div');
+        toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+        toast.textContent = message;
+
+        container.appendChild(toast);
+
+        // Animate in
+        setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+
+        // Remove after 3s
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    // Setup polling with current tab
+    document.addEventListener('DOMContentLoaded', () => {
+        // Poll signal card and indicator panel every second
+        setInterval(() => {
+            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/indicator-panel/' + currentTab, {target: '#indicator-panel', swap: 'innerHTML'});
+        }, 1000);
+
+        // Poll option chain every 30 seconds
+        setInterval(() => {
+            htmx.ajax('GET', '/htmx/option-chain-table/' + currentTab, {target: '#option-chain', swap: 'innerHTML'});
+        }, 30000);
+    });
+</script>
+{% endblock %}

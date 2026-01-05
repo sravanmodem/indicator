@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NIFTY Options Indicator{% endblock %}</title>
+
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand': {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            200: '#bbf7d0',
+                            300: '#86efac',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        'ce': {
+                            light: '#22c55e',
+                            DEFAULT: '#16a34a',
+                            dark: '#15803d',
+                        },
+                        'pe': {
+                            light: '#ef4444',
+                            DEFAULT: '#dc2626',
+                            dark: '#b91c1c',
+                        },
+                        'surface': {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        }
+                    },
+                    fontFamily: {
+                        'mono': ['JetBrains Mono', 'Fira Code', 'monospace'],
+                        'sans': ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-ce': 'pulse-ce 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'pulse-pe': 'pulse-pe 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        'pulse-ce': {
+                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(34, 197, 94, 0.4)' },
+                            '50%': { boxShadow: '0 0 0 8px rgba(34, 197, 94, 0)' },
+                        },
+                        'pulse-pe': {
+                            '0%, 100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.4)' },
+                            '50%': { boxShadow: '0 0 0 8px rgba(239, 68, 68, 0)' },
+                        },
+                        'glow': {
+                            '0%': { boxShadow: '0 0 5px rgba(34, 197, 94, 0.5)' },
+                            '100%': { boxShadow: '0 0 20px rgba(34, 197, 94, 0.8)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
+
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        [x-cloak] { display: none !important; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        /* Gradient backgrounds */
+        .gradient-ce {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        }
+        .gradient-pe {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        .gradient-neutral {
+            background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        }
+
+        /* Glass morphism */
+        .glass {
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Number animations */
+        .number-up { color: #22c55e; }
+        .number-down { color: #ef4444; }
+
+        /* Indicator badges */
+        .badge-ce {
+            @apply bg-green-500/20 text-green-400 border border-green-500/30;
+        }
+        .badge-pe {
+            @apply bg-red-500/20 text-red-400 border border-red-500/30;
+        }
+        .badge-neutral {
+            @apply bg-slate-500/20 text-slate-400 border border-slate-500/30;
+        }
+    </style>
+
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-surface-950 text-slate-100 font-sans min-h-screen antialiased">
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-slate-700/50">
+        <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl gradient-ce flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white">NIFTY Indicator</h1>
+                        <p class="text-xs text-slate-400">Institutional Grade</p>
+                    </div>
+                </div>
+
+                <!-- Center - Market Status -->
+                <div id="market-status" class="hidden md:flex items-center space-x-6"
+                     hx-get="/htmx/market-overview"
+                     hx-trigger="load, every 5s"
+                     hx-swap="innerHTML">
+                    <div class="text-slate-400 text-sm">Loading market data...</div>
+                </div>
+
+                <!-- Right - Auth Status -->
+                <div id="auth-status"
+                     hx-get="/htmx/auth-status"
+                     hx-trigger="load"
+                     hx-swap="innerHTML">
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-8 px-4 sm:px-6 lg:px-8 max-w-screen-2xl mx-auto">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+    <!-- HTMX Configuration -->
+    <script>
+        document.body.addEventListener('htmx:responseError', function(event) {
+            console.error('HTMX Error:', event.detail);
+        });
+
+        // Add loading indicator
+        document.body.addEventListener('htmx:beforeRequest', function(event) {
+            event.target.classList.add('opacity-50');
+        });
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            event.target.classList.remove('opacity-50');
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

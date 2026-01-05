@@ -1,0 +1,128 @@
+{% if error %}
+<div class="glass rounded-2xl p-6">
+    <div class="text-center py-4">
+        <p class="text-red-400">{{ error }}</p>
+    </div>
+</div>
+{% elif chain %}
+<div class="glass rounded-2xl overflow-hidden">
+    <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
+        <div>
+            <h3 class="text-lg font-semibold text-white">Option Chain</h3>
+            <p class="text-sm text-slate-400">{{ chain.index }} | Expiry: {{ chain.expiry }}</p>
+        </div>
+        <div class="flex items-center space-x-6 text-sm">
+            <div>
+                <span class="text-slate-400">PCR:</span>
+                <span class="font-bold {% if chain.pcr > 1.2 %}text-green-400{% elif chain.pcr < 0.8 %}text-red-400{% else %}text-white{% endif %}">
+                    {{ chain.pcr }}
+                </span>
+            </div>
+            <div>
+                <span class="text-slate-400">Spot:</span>
+                <span class="font-bold text-white">{{ "%.2f"|format(chain.spot_price) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-surface-800 text-slate-400 text-xs uppercase">
+                <tr>
+                    <th class="px-3 py-3 text-right">OI</th>
+                    <th class="px-3 py-3 text-right">Chg%</th>
+                    <th class="px-3 py-3 text-right">LTP</th>
+                    <th class="px-3 py-3 text-center bg-surface-700 text-white font-bold">Strike</th>
+                    <th class="px-3 py-3 text-left">LTP</th>
+                    <th class="px-3 py-3 text-left">Chg%</th>
+                    <th class="px-3 py-3 text-left">OI</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-700/30">
+                {% for row in chain.chain %}
+                <tr class="{% if row.is_atm %}bg-yellow-500/10{% else %}hover:bg-surface-800/50{% endif %} transition-colors">
+                    <!-- CE Side -->
+                    <td class="px-3 py-2 text-right">
+                        <span class="text-green-400 font-mono">{{ "{:,}".format(row.ce.oi if row.ce.oi else 0) }}</span>
+                    </td>
+                    <td class="px-3 py-2 text-right">
+                        <span class="{% if row.ce.change_pct and row.ce.change_pct > 0 %}text-green-400{% elif row.ce.change_pct and row.ce.change_pct < 0 %}text-red-400{% else %}text-slate-400{% endif %} font-mono text-xs">
+                            {{ "%.1f"|format(row.ce.change_pct if row.ce.change_pct else 0) }}%
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 text-right">
+                        <span class="text-white font-mono font-medium">{{ "%.2f"|format(row.ce.ltp if row.ce.ltp else 0) }}</span>
+                    </td>
+
+                    <!-- Strike -->
+                    <td class="px-3 py-2 text-center bg-surface-800/50">
+                        <span class="text-white font-bold {% if row.is_atm %}text-yellow-400{% endif %}">{{ row.strike }}</span>
+                        {% if row.is_atm %}
+                        <span class="ml-1 text-xs text-yellow-400">ATM</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- PE Side -->
+                    <td class="px-3 py-2 text-left">
+                        <span class="text-white font-mono font-medium">{{ "%.2f"|format(row.pe.ltp if row.pe.ltp else 0) }}</span>
+                    </td>
+                    <td class="px-3 py-2 text-left">
+                        <span class="{% if row.pe.change_pct and row.pe.change_pct > 0 %}text-green-400{% elif row.pe.change_pct and row.pe.change_pct < 0 %}text-red-400{% else %}text-slate-400{% endif %} font-mono text-xs">
+                            {{ "%.1f"|format(row.pe.change_pct if row.pe.change_pct else 0) }}%
+                        </span>
+                    </td>
+                    <td class="px-3 py-2 text-left">
+                        <span class="text-red-400 font-mono">{{ "{:,}".format(row.pe.oi if row.pe.oi else 0) }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot class="bg-surface-800 text-xs font-medium">
+                <tr>
+                    <td class="px-3 py-2 text-right text-green-400">{{ "{:,}".format(chain.total_ce_oi) }}</td>
+                    <td class="px-3 py-2 text-right text-slate-400">Total</td>
+                    <td class="px-3 py-2"></td>
+                    <td class="px-3 py-2 text-center text-slate-400">CE | PE</td>
+                    <td class="px-3 py-2"></td>
+                    <td class="px-3 py-2 text-left text-slate-400">Total</td>
+                    <td class="px-3 py-2 text-left text-red-400">{{ "{:,}".format(chain.total_pe_oi) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- OI Analysis Footer -->
+    <div class="p-4 bg-surface-800/50 border-t border-slate-700/50">
+        <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-400">Max Call OI:</span>
+                {% set max_ce_oi = namespace(value=0, strike=0) %}
+                {% for row in chain.chain %}
+                    {% if row.ce.oi and row.ce.oi > max_ce_oi.value %}
+                        {% set max_ce_oi.value = row.ce.oi %}
+                        {% set max_ce_oi.strike = row.strike %}
+                    {% endif %}
+                {% endfor %}
+                <span class="text-green-400 font-medium">{{ max_ce_oi.strike }}</span>
+                <span class="text-slate-500">(Resistance)</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-400">Max Put OI:</span>
+                {% set max_pe_oi = namespace(value=0, strike=0) %}
+                {% for row in chain.chain %}
+                    {% if row.pe.oi and row.pe.oi > max_pe_oi.value %}
+                        {% set max_pe_oi.value = row.pe.oi %}
+                        {% set max_pe_oi.strike = row.strike %}
+                    {% endif %}
+                {% endfor %}
+                <span class="text-red-400 font-medium">{{ max_pe_oi.strike }}</span>
+                <span class="text-slate-500">(Support)</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-2xl p-6 animate-pulse">
+    <div class="h-64 bg-surface-700 rounded-xl"></div>
+</div>
+{% endif %}

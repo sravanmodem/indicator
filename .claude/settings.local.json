@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(timeout:*)",
+      "Bash(ping:*)",
+      "Bash(tasklist /FI \"IMAGENAME eq python.exe\" /FO CSV)",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(cmd /c \"taskkill /F /IM python.exe\")",
+      "Bash(powershell -Command \"Stop-Process -Name python -Force\")"
+    ]
+  }
+}

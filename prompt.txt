@@ -1,0 +1,1904 @@
+# INSTITUTIONAL-GRADE CE/PE BUYING INDICATORS
+## Complete Detailed Guide for NIFTY Options Trading
+
+---
+
+# TABLE OF CONTENTS
+
+1. [Trend Indicators](#1-trend-indicators)
+2. [Momentum Indicators](#2-momentum-indicators)
+3. [Volume-Based Indicators](#3-volume-based-indicators)
+4. [Options-Specific Indicators](#4-options-specific-indicators)
+5. [Volatility Indicators](#5-volatility-indicators)
+6. [Market Structure Indicators](#6-market-structure-indicators)
+7. [Sentiment Indicators](#7-sentiment-indicators)
+8. [Combined Strategy Systems](#8-combined-strategy-systems)
+9. [Risk Management Rules](#9-risk-management-rules)
+10. [Timeframe Selection](#10-timeframe-selection)
+
+---
+
+# 1. TREND INDICATORS
+
+## 1.1 SUPERTREND
+
+### What It Is
+SuperTrend is an ATR-based trend-following indicator that plots a trailing stop line above or below price. It's the single most effective indicator for NIFTY intraday option buying.
+
+### Parameters
+| Parameter | Scalping | Intraday | Swing |
+|-----------|----------|----------|-------|
+| ATR Period | 7 | 10 | 10 |
+| Multiplier | 2.0 | 3.0 | 3.0 |
+| Timeframe | 3 min | 5-15 min | 1 hour |
+
+### Calculation
+```
+ATR = Average True Range over N periods
+
+Upper Band = (High + Low) / 2 + (Multiplier × ATR)
+Lower Band = (High + Low) / 2 - (Multiplier × ATR)
+
+SuperTrend = Lower Band (in uptrend)
+SuperTrend = Upper Band (in downtrend)
+```
+
+### CE/PE Signal Logic
+| Condition | Action |
+|-----------|--------|
+| Price closes ABOVE SuperTrend line | **BUY CE** |
+| Price closes BELOW SuperTrend line | **BUY PE** |
+| SuperTrend flips from red to green | Fresh CE entry |
+| SuperTrend flips from green to red | Fresh PE entry |
+
+### Entry Rules
+```
+CE ENTRY:
+- Wait for candle to CLOSE above SuperTrend (not just touch)
+- Enter on next candle open
+- Stop loss: SuperTrend line value
+- Target: 1:2 risk-reward minimum
+
+PE ENTRY:
+- Wait for candle to CLOSE below SuperTrend
+- Enter on next candle open
+- Stop loss: SuperTrend line value
+- Target: 1:2 risk-reward minimum
+```
+
+### Avoid When
+- ADX < 20 (ranging market, SuperTrend will whipsaw)
+- First 15 minutes of market open
+- Last 30 minutes before close
+- Around major news events
+
+### Pro Tips
+- Use ATR multiplier 2.0 for aggressive entries, 3.0 for conservative
+- In strong trends, trail your stop using SuperTrend value
+- Combine with VWAP for confirmation
+
+---
+
+## 1.2 EMA CROSSOVER SYSTEM
+
+### What It Is
+Exponential Moving Averages give more weight to recent prices. Crossovers signal momentum shifts before price confirms.
+
+### Recommended EMA Combinations
+| Style | Fast EMA | Slow EMA | Signal EMA |
+|-------|----------|----------|------------|
+| Scalping | 5 | 13 | 8 |
+| Intraday | 9 | 21 | 13 |
+| Swing | 21 | 50 | 34 |
+| Positional | 50 | 200 | 100 |
+
+### Calculation
+```
+EMA = Price(t) × k + EMA(y) × (1 − k)
+
+Where:
+k = 2 ÷ (N + 1)
+N = number of periods
+t = today
+y = yesterday
+```
+
+### CE/PE Signal Logic
+
+#### PRIMARY SIGNALS
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| Fast EMA crosses ABOVE Slow EMA | **BUY CE** | Strong |
+| Fast EMA crosses BELOW Slow EMA | **BUY PE** | Strong |
+| Price above both EMAs + EMAs rising | CE bias | Confirmation |
+| Price below both EMAs + EMAs falling | PE bias | Confirmation |
+
+#### ADVANCED: TRIPLE EMA SYSTEM
+```
+CE SIGNAL (All must be true):
+✓ 9 EMA > 21 EMA > 50 EMA
+✓ Price pulls back to 9 EMA and bounces
+✓ All EMAs sloping upward
+
+PE SIGNAL (All must be true):
+✓ 9 EMA < 21 EMA < 50 EMA
+✓ Price pulls back to 9 EMA and rejects
+✓ All EMAs sloping downward
+```
+
+### Entry Technique
+```
+AGGRESSIVE ENTRY:
+- Enter immediately on crossover candle close
+
+CONSERVATIVE ENTRY:
+- Wait for pullback to fast EMA after crossover
+- Enter on bounce/rejection from EMA
+- This gives better risk-reward
+```
+
+### Stop Loss Placement
+| Entry Type | Stop Loss Location |
+|------------|-------------------|
+| Crossover entry | Below slow EMA (CE) / Above slow EMA (PE) |
+| Pullback entry | Below swing low (CE) / Above swing high (PE) |
+| Fixed points | 20-30 NIFTY points |
+
+---
+
+## 1.3 VWAP (Volume Weighted Average Price)
+
+### What It Is
+VWAP represents the average price weighted by volume - the "fair value" for the day. Institutional traders use VWAP as benchmark for execution.
+
+### Calculation
+```
+VWAP = Σ(Price × Volume) ÷ Σ(Volume)
+
+Calculated cumulatively from market open
+Resets each trading day
+```
+
+### VWAP Bands (Standard Deviation)
+```
+Upper Band 1 = VWAP + 1 × StdDev
+Upper Band 2 = VWAP + 2 × StdDev
+Lower Band 1 = VWAP - 1 × StdDev
+Lower Band 2 = VWAP - 2 × StdDev
+```
+
+### CE/PE Signal Logic
+
+| Condition | Action | Context |
+|-----------|--------|---------|
+| Price crosses ABOVE VWAP | **BUY CE** | Trend day starting |
+| Price crosses BELOW VWAP | **BUY PE** | Trend day starting |
+| Price at VWAP + 2σ band | Avoid CE / Consider PE | Overextended |
+| Price at VWAP - 2σ band | Avoid PE / Consider CE | Overextended |
+| Price hovering at VWAP | NO TRADE | Indecision |
+
+### VWAP Trading Rules
+```
+TRENDING DAY (ADX > 25):
+- Price above VWAP: Only buy CE, buy dips to VWAP
+- Price below VWAP: Only buy PE, sell rallies to VWAP
+
+RANGING DAY (ADX < 20):
+- Fade moves at ±2σ bands
+- Buy CE at lower band, Buy PE at upper band
+
+FIRST CROSS STRATEGY:
+- First VWAP cross of the day often signals daily direction
+- If first cross is bullish → CE bias for the day
+- If first cross is bearish → PE bias for the day
+```
+
+### Pro Tips
+- Anchored VWAP from swing high/low gives key S/R levels
+- VWAP slope indicates intraday trend strength
+- High volume candles near VWAP = strong institutional interest
+
+---
+
+## 1.4 ADX (Average Directional Index) + DI System
+
+### What It Is
+ADX measures trend STRENGTH (not direction). +DI and -DI measure directional movement.
+
+### Parameters
+| Setting | Value |
+|---------|-------|
+| Period | 14 (standard) |
+| Trend threshold | 25 |
+| Strong trend | 40+ |
+
+### Calculation
+```
++DM = Current High - Previous High (if positive)
+-DM = Previous Low - Current Low (if positive)
+
++DI = 100 × Smoothed(+DM) ÷ ATR
+-DI = 100 × Smoothed(-DM) ÷ ATR
+
+DX = 100 × |+DI - -DI| ÷ (+DI + -DI)
+ADX = Smoothed DX over N periods
+```
+
+### CE/PE Signal Logic
+
+| ADX Value | +DI vs -DI | Action |
+|-----------|------------|--------|
+| ADX > 25 | +DI > -DI | **BUY CE** (trending up) |
+| ADX > 25 | -DI > +DI | **BUY PE** (trending down) |
+| ADX < 20 | Any | NO TREND TRADE |
+| ADX rising | +DI crossing above -DI | Fresh CE signal |
+| ADX rising | -DI crossing above +DI | Fresh PE signal |
+
+### ADX Interpretation Matrix
+```
+ADX < 20:     Weak/No trend → Avoid directional options
+ADX 20-25:    Trend developing → Prepare for entry
+ADX 25-40:    Strong trend → Ideal for option buying
+ADX 40-50:    Very strong trend → Trail positions
+ADX > 50:     Extreme trend → Watch for exhaustion
+ADX falling:  Trend weakening → Book profits
+```
+
+### Entry Strategy
+```
+BEST CE ENTRY:
+- ADX crosses above 25 from below
+- +DI already above -DI
+- Price confirms with higher high
+
+BEST PE ENTRY:
+- ADX crosses above 25 from below
+- -DI already above +DI
+- Price confirms with lower low
+
+AVOID:
+- ADX declining from high levels (trend exhaustion)
+- DI lines too close together (no clear direction)
+```
+
+---
+
+# 2. MOMENTUM INDICATORS
+
+## 2.1 RSI (Relative Strength Index)
+
+### What It Is
+RSI measures the speed and magnitude of price changes on a 0-100 scale. It identifies momentum shifts and overbought/oversold conditions.
+
+### Parameters
+| Setting | Scalping | Intraday | Swing |
+|---------|----------|----------|-------|
+| Period | 7 | 14 | 14 |
+| Overbought | 70 | 70 | 70 |
+| Oversold | 30 | 30 | 30 |
+| Neutral | 50 | 50 | 50 |
+
+### Calculation
+```
+RS = Average Gain over N periods ÷ Average Loss over N periods
+RSI = 100 - (100 ÷ (1 + RS))
+```
+
+### CE/PE Signal Logic
+
+#### MOMENTUM SIGNALS (Trending Markets)
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| RSI crosses ABOVE 50 | **BUY CE** | Medium |
+| RSI crosses BELOW 50 | **BUY PE** | Medium |
+| RSI crosses ABOVE 60 | **BUY CE** | Strong |
+| RSI crosses BELOW 40 | **BUY PE** | Strong |
+
+#### REVERSAL SIGNALS (Ranging Markets)
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| RSI < 30, then crosses above 30 | **BUY CE** | Strong reversal |
+| RSI > 70, then crosses below 70 | **BUY PE** | Strong reversal |
+
+#### DIVERGENCE SIGNALS (High Accuracy)
+```
+BULLISH DIVERGENCE → BUY CE:
+- Price makes LOWER LOW
+- RSI makes HIGHER LOW
+- Entry: When RSI crosses above prior swing high
+
+BEARISH DIVERGENCE → BUY PE:
+- Price makes HIGHER HIGH
+- RSI makes LOWER HIGH
+- Entry: When RSI crosses below prior swing low
+```
+
+### RSI Range Shift Strategy
+```
+BULLISH MARKET:
+- RSI oscillates between 40-80
+- Buy CE when RSI touches 40-50 zone
+- Avoid PE when RSI stays above 40
+
+BEARISH MARKET:
+- RSI oscillates between 20-60
+- Buy PE when RSI touches 50-60 zone
+- Avoid CE when RSI stays below 60
+```
+
+### Pro Tips
+- RSI 50 level is the most important for momentum
+- Look for RSI holding above 40 in uptrends (40-80 range)
+- Look for RSI holding below 60 in downtrends (20-60 range)
+- Hidden divergence = trend continuation signal
+
+---
+
+## 2.2 MACD (Moving Average Convergence Divergence)
+
+### What It Is
+MACD shows the relationship between two EMAs. It identifies trend direction, momentum, and potential reversals.
+
+### Parameters
+| Setting | Standard | Fast | Slow |
+|---------|----------|------|------|
+| Fast EMA | 12 | 8 | 19 |
+| Slow EMA | 26 | 17 | 39 |
+| Signal | 9 | 9 | 9 |
+
+### Calculation
+```
+MACD Line = 12 EMA - 26 EMA
+Signal Line = 9 EMA of MACD Line
+Histogram = MACD Line - Signal Line
+```
+
+### CE/PE Signal Logic
+
+#### CROSSOVER SIGNALS
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| MACD crosses ABOVE Signal line | **BUY CE** | Medium |
+| MACD crosses BELOW Signal line | **BUY PE** | Medium |
+| Crossover above zero line | CE more reliable | Strong |
+| Crossover below zero line | PE more reliable | Strong |
+
+#### ZERO LINE SIGNALS
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| MACD crosses ABOVE zero | **BUY CE** | Strong trend |
+| MACD crosses BELOW zero | **BUY PE** | Strong trend |
+
+#### HISTOGRAM SIGNALS
+```
+CE SIGNAL:
+- Histogram bars turning from negative to positive
+- Histogram bars growing larger (green)
+- First positive histogram bar after series of negative
+
+PE SIGNAL:
+- Histogram bars turning from positive to negative
+- Histogram bars growing larger (red)
+- First negative histogram bar after series of positive
+```
+
+#### DIVERGENCE SIGNALS
+```
+BULLISH DIVERGENCE → BUY CE:
+- Price: Lower Low
+- MACD: Higher Low
+- Confirmation: MACD crosses above signal line
+
+BEARISH DIVERGENCE → BUY PE:
+- Price: Higher High
+- MACD: Lower High
+- Confirmation: MACD crosses below signal line
+```
+
+### MACD Histogram Strategy
+```
+MOMENTUM BUILDING:
+- Histogram bars increasing = momentum strengthening
+- Stay in position
+
+MOMENTUM FADING:
+- Histogram bars decreasing = momentum weakening
+- Prepare to exit or reverse
+
+BEST ENTRY:
+- When histogram just turns positive/negative
+- After pullback with histogram compression
+```
+
+---
+
+## 2.3 STOCHASTIC OSCILLATOR
+
+### What It Is
+Stochastic compares closing price to the high-low range over a period. It's excellent for identifying reversal points.
+
+### Parameters
+| Setting | Fast | Slow | Full |
+|---------|------|------|------|
+| %K Period | 5 | 14 | 14 |
+| %D Period | 3 | 3 | 3 |
+| Smooth | 1 | 3 | 3 |
+
+### Calculation
+```
+%K = 100 × (Close - Lowest Low) ÷ (Highest High - Lowest Low)
+%D = 3-period SMA of %K
+```
+
+### CE/PE Signal Logic
+
+#### CROSSOVER SIGNALS
+| Condition | Action | Zone |
+|-----------|--------|------|
+| %K crosses ABOVE %D in oversold (<20) | **BUY CE** | High probability |
+| %K crosses BELOW %D in overbought (>80) | **BUY PE** | High probability |
+| %K crosses ABOVE %D in neutral zone | CE bias | Lower probability |
+| %K crosses BELOW %D in neutral zone | PE bias | Lower probability |
+
+#### ZONE SIGNALS
+```
+OVERSOLD ZONE (< 20):
+- Wait for %K to cross above %D
+- Wait for both lines to exit oversold zone
+- BUY CE on confirmation
+
+OVERBOUGHT ZONE (> 80):
+- Wait for %K to cross below %D
+- Wait for both lines to exit overbought zone
+- BUY PE on confirmation
+```
+
+#### DIVERGENCE SIGNALS
+```
+BULLISH DIVERGENCE → BUY CE:
+- Price: Lower Low
+- Stochastic: Higher Low in oversold zone
+- Very high probability reversal signal
+
+BEARISH DIVERGENCE → BUY PE:
+- Price: Higher High
+- Stochastic: Lower High in overbought zone
+- Very high probability reversal signal
+```
+
+### Pro Tips
+- Most reliable signals come from oversold/overbought zones
+- In strong trends, Stochastic can stay overbought/oversold for extended periods
+- Use in conjunction with trend indicator to filter signals
+- 14,3,3 settings work best for NIFTY
+
+---
+
+## 2.4 CCI (Commodity Channel Index)
+
+### What It Is
+CCI measures price deviation from statistical mean. It identifies cyclical trends and extreme price movements.
+
+### Parameters
+| Setting | Value |
+|---------|-------|
+| Period | 20 (standard) |
+| Overbought | +100 |
+| Oversold | -100 |
+| Extreme OB | +200 |
+| Extreme OS | -200 |
+
+### Calculation
+```
+Typical Price = (High + Low + Close) ÷ 3
+SMA = 20-period SMA of Typical Price
+Mean Deviation = Average of absolute deviations from SMA
+CCI = (Typical Price - SMA) ÷ (0.015 × Mean Deviation)
+```
+
+### CE/PE Signal Logic
+
+#### BREAKOUT SIGNALS
+| Condition | Action | Strength |
+|-----------|--------|----------|
+| CCI crosses ABOVE +100 | **BUY CE** | Breakout |
+| CCI crosses BELOW -100 | **BUY PE** | Breakdown |
+| CCI > +200 | Extreme strength, trail CE | Overbought |
+| CCI < -200 | Extreme weakness, trail PE | Oversold |
+
+#### ZERO LINE SIGNALS
+| Condition | Action | Use Case |
+|-----------|--------|----------|
+| CCI crosses above zero | CE bias | Trend confirmation |
+| CCI crosses below zero | PE bias | Trend confirmation |
+
+#### REVERSAL SIGNALS
+```
+CE REVERSAL ENTRY:
+- CCI drops below -100
+- CCI crosses back above -100
+- Indicates selling exhaustion → BUY CE
+
+PE REVERSAL ENTRY:
+- CCI rises above +100
+- CCI crosses back below +100
+- Indicates buying exhaustion → BUY PE
+```
+
+### CCI Divergence
+```
+BULLISH DIVERGENCE → BUY CE:
+- Price: Lower Low
+- CCI: Higher Low (especially if below -100)
+
+BEARISH DIVERGENCE → BUY PE:
+- Price: Higher High
+- CCI: Lower High (especially if above +100)
+```
+
+---
+
+# 3. VOLUME-BASED INDICATORS
+
+## 3.1 OBV (On Balance Volume)
+
+### What It Is
+OBV adds volume on up days and subtracts on down days. It shows whether volume is flowing into or out of a security.
+
+### Calculation
+```
+If Close > Previous Close: OBV = Previous OBV + Volume
+If Close < Previous Close: OBV = Previous OBV - Volume
+If Close = Previous Close: OBV = Previous OBV
+```
+
+### CE/PE Signal Logic
+
+#### TREND SIGNALS
+| Condition | Action | Meaning |
+|-----------|--------|---------|
+| OBV rising + Price rising | **BUY CE** | Confirmed uptrend |
+| OBV falling + Price falling | **BUY PE** | Confirmed downtrend |
+| OBV making new highs | CE strength | Accumulation |
+| OBV making new lows | PE strength | Distribution |
+
+#### DIVERGENCE SIGNALS (MOST POWERFUL)
+```
+BULLISH DIVERGENCE → BUY CE:
+- Price: Making lower lows or flat
+- OBV: Making higher lows or rising
+- Meaning: Smart money accumulating
+- Action: Buy CE on price confirmation
+
+BEARISH DIVERGENCE → BUY PE:
+- Price: Making higher highs or flat
+- OBV: Making lower highs or falling
+- Meaning: Smart money distributing
+- Action: Buy PE on price confirmation
+```
+
+#### OBV BREAKOUT STRATEGY
+```
+OBV BREAKOUT:
+- Draw trendlines on OBV
+- OBV breaks above trendline before price → Early CE signal
+- OBV breaks below trendline before price → Early PE signal
+- OBV often leads price by 1-3 candles
+```
+
+---
+
+## 3.2 VOLUME PROFILE (ADVANCED)
+
+### What It Is
+Volume Profile shows volume traded at each price level, identifying high-volume nodes (support/resistance) and low-volume areas (price moves quickly through).
+
+### Key Levels
+```
+POC (Point of Control): Price with highest volume → Strong S/R
+VAH (Value Area High): Upper boundary of 70% volume → Resistance
+VAL (Value Area Low): Lower boundary of 70% volume → Support
+HVN (High Volume Node): High activity zone → Price tends to stay
+LVN (Low Volume Node): Low activity zone → Price moves fast through
+```
+
+### CE/PE Signal Logic
+
+| Condition | Action | Reasoning |
+|-----------|--------|-----------|
+| Price breaks above VAH with volume | **BUY CE** | Breakout confirmed |
+| Price breaks below VAL with volume | **BUY PE** | Breakdown confirmed |
+| Price at POC, momentum up | CE bias | Strong support holding |
+| Price at POC, momentum down | PE bias | Failed to hold support |
+| Price in LVN zone | Quick move expected | Direction per other indicators |
+
+### Volume Profile Strategy
+```
+BREAKOUT TRADE:
+- Price consolidating at POC
+- Break above VAH → BUY CE, target next HVN
+- Break below VAL → BUY PE, target next HVN
+
+FADE TRADE:
+- Price at extreme (above VAH or below VAL)
+- Rejection candle forms
+- Fade back to POC
+```
+
+---
+
+## 3.3 VOLUME SPREAD ANALYSIS (VSA)
+
+### What It Is
+VSA analyzes the relationship between price range, closing position, and volume to identify smart money activity.
+
+### Key Patterns
+
+#### BULLISH VSA → BUY CE
+```
+NO SUPPLY (Bullish):
+- Down bar (close < open)
+- Narrow spread
+- High volume
+- Close near high of bar
+- Meaning: Selling absorbed by buyers
+
+STOPPING VOLUME (Bullish):
+- Down bar
+- Very high volume
+- Close well off lows
+- Meaning: Demand stopping the selling
+
+SPRING/SHAKEOUT (Bullish):
+- Price breaks below support
+- High volume
+- Quick recovery above support
+- Meaning: Weak hands cleared, markup begins
+```
+
+#### BEARISH VSA → BUY PE
+```
+NO DEMAND (Bearish):
+- Up bar (close > open)
+- Narrow spread
+- Low volume
+- Meaning: No buying interest, weakness
+
+UPTHRUST (Bearish):
+- Price makes new high
+- High volume
+- Close near low of bar
+- Meaning: Supply overwhelming demand
+
+END OF RISING MARKET:
+- Very high volume
+- Wide spread up bar
+- But next bar fails to follow through
+- Meaning: Distribution complete, decline begins
+```
+
+---
+
+# 4. OPTIONS-SPECIFIC INDICATORS
+
+## 4.1 OPEN INTEREST ANALYSIS
+
+### What It Is
+Open Interest shows the total number of outstanding contracts. Changes in OI indicate whether money is flowing in or out.
+
+### OI Change Interpretation
+| Price | OI | Interpretation | Action |
+|-------|-----|----------------|--------|
+| ↑ Up | ↑ Up | Long buildup | **BUY CE** |
+| ↑ Up | ↓ Down | Short covering | Book CE profits |
+| ↓ Down | ↑ Up | Short buildup | **BUY PE** |
+| ↓ Down | ↓ Down | Long unwinding | Book PE profits |
+
+### Strike-Wise OI Analysis
+```
+SUPPORT IDENTIFICATION:
+- Find strike with highest PUT OI
+- This is PUT WALL = Strong support
+- Price unlikely to break below this level
+- Break of put wall with volume → Strong PE signal
+
+RESISTANCE IDENTIFICATION:
+- Find strike with highest CALL OI
+- This is CALL WALL = Strong resistance
+- Price unlikely to break above this level
+- Break of call wall with volume → Strong CE signal
+```
+
+### OI Change Strategy
+```
+INTRADAY OI MONITORING:
+- Check OI every 30 minutes
+- Significant call OI addition at strike → Resistance
+- Significant put OI addition at strike → Support
+- OI unwinding = Directional move incoming
+
+ENTRY RULES:
+CE ENTRY:
+- Put OI unwinding at support + Price bouncing
+- Call OI adding at higher strikes (bullish bets)
+- Short covering (price up + call OI down at ATM)
+
+PE ENTRY:
+- Call OI unwinding at resistance + Price rejecting
+- Put OI adding at lower strikes (bearish bets)
+- Long unwinding (price down + put OI down at ATM)
+```
+
+---
+
+## 4.2 PUT-CALL RATIO (PCR)
+
+### What It Is
+PCR measures the ratio of put options to call options. It's a sentiment indicator showing crowd positioning.
+
+### Calculation
+```
+PCR (OI) = Total Put OI ÷ Total Call OI
+PCR (Volume) = Put Volume ÷ Call Volume
+```
+
+### Interpretation
+| PCR Value | Sentiment | Contrarian Signal |
+|-----------|-----------|-------------------|
+| > 1.5 | Extreme fear | **BUY CE** (bottom near) |
+| 1.2 - 1.5 | Bearish | CE bias |
+| 0.8 - 1.2 | Neutral | No bias |
+| 0.5 - 0.8 | Bullish | PE bias |
+| < 0.5 | Extreme greed | **BUY PE** (top near) |
+
+### PCR Strategy
+```
+CONTRARIAN STRATEGY:
+- PCR > 1.3 and rising → Market oversold → BUY CE
+- PCR < 0.7 and falling → Market overbought → BUY PE
+- Works best at extremes
+
+TREND CONFIRMATION:
+- PCR rising from 0.8 to 1.0 → Put buying increasing → Bearish
+- PCR falling from 1.2 to 1.0 → Call buying increasing → Bullish
+
+INTRADAY PCR SHIFT:
+- Monitor PCR every hour
+- Rapid PCR increase → Fear spike → CE opportunity
+- Rapid PCR decrease → Greed spike → PE opportunity
+```
+
+### Pro Tips
+- Use NIFTY weekly expiry PCR for short-term signals
+- Use NIFTY monthly expiry PCR for swing signals
+- Combine with technical levels for high-probability trades
+
+---
+
+## 4.3 MAX PAIN
+
+### What It Is
+Max Pain is the strike price where option buyers (both calls and puts) would lose the maximum money. Markets tend to gravitate toward max pain at expiry.
+
+### Calculation
+```
+For each strike:
+- Calculate total put buyer loss if price expires there
+- Calculate total call buyer loss if price expires there
+- Sum both losses
+- Max Pain = Strike with highest combined loss
+```
+
+### CE/PE Signal Logic
+
+| Spot vs Max Pain | Days to Expiry | Action |
+|------------------|----------------|--------|
+| Spot << Max Pain | > 3 days | **BUY CE** (magnet effect) |
+| Spot >> Max Pain | > 3 days | **BUY PE** (magnet effect) |
+| Spot = Max Pain | Any | Range-bound, avoid buying |
+| Spot << Max Pain | < 2 days | CE for magnet effect |
+| Spot >> Max Pain | < 2 days | PE for magnet effect |
+
+### Max Pain Strategy
+```
+WEEKLY EXPIRY (Thursday):
+Monday-Tuesday:
+- Spot far from max pain → Directional trade toward max pain
+- CE if spot below max pain
+- PE if spot above max pain
+
+Wednesday:
+- If spot near max pain → Avoid directional, sell premium
+- If spot still far → Continue directional trade
+
+Thursday:
+- Strong magnet effect → Price pins near max pain
+- Avoid option buying, theta burn high
+```
+
+### Important Notes
+- Max pain shifts daily as OI changes
+- More reliable for weekly expiry than monthly
+- Works best when combined with OI analysis
+- Not reliable in strong trending markets (gamma squeeze can override)
+
+---
+
+## 4.4 INDIA VIX
+
+### What It Is
+India VIX measures expected 30-day volatility derived from NIFTY option prices. Higher VIX = higher expected volatility = higher option premiums.
+
+### VIX Interpretation
+| VIX Level | Market State | Option Strategy |
+|-----------|--------------|-----------------|
+| < 12 | Very low vol, complacent | Options cheap, buy breakouts |
+| 12 - 15 | Low vol, calm | Premium fair |
+| 15 - 20 | Normal vol | Standard strategies |
+| 20 - 25 | Elevated vol | Premium expensive, careful buying |
+| > 25 | High vol, fear | Premium very expensive |
+| > 35 | Extreme fear | Contrarian CE opportunities |
+
+### VIX-Based CE/PE Signals
+```
+VIX SPIKE STRATEGY:
+- VIX spikes > 20% in a day → Fear extreme
+- Look for reversal signals in NIFTY
+- BUY CE if NIFTY shows reversal (contrarian)
+
+VIX CRUSH STRATEGY:
+- VIX falling from high levels
+- Avoid option buying (IV crush will hurt)
+- Existing positions lose value even if direction correct
+
+VIX BREAKOUT:
+- VIX breaks above recent range
+- Expect big move in NIFTY
+- Direction: Usually down (VIX up = market down)
+- BUY PE on VIX breakout
+```
+
+### VIX Term Structure
+```
+CONTANGO (Normal):
+- Near-term VIX < Long-term VIX
+- Market calm, normal conditions
+- Standard trading
+
+BACKWARDATION (Warning):
+- Near-term VIX > Long-term VIX
+- Market expects imminent volatility
+- Hedge positions, careful buying
+- Often precedes market decline
+```
+
+---
+
+## 4.5 GAMMA EXPOSURE (GEX) - INSTITUTIONAL INDICATOR
+
+### What It Is
+GEX measures the total gamma exposure of market makers. It predicts volatility and likely support/resistance levels.
+
+### Calculation
+```
+For each strike:
+GEX at Strike = (Call Gamma × Call OI × 100) - (Put Gamma × Put OI × 100)
+Total GEX = Sum of GEX at all strikes
+```
+
+### GEX Interpretation
+| GEX | Market Maker Position | Expected Market Behavior |
+|-----|----------------------|-------------------------|
+| Positive (high) | Long gamma | Low volatility, mean reversion |
+| Positive (low) | Slightly long gamma | Normal volatility |
+| Negative | Short gamma | High volatility, trending |
+| Very negative | Very short gamma | Explosive moves possible |
+
+### GEX Strategy
+```
+POSITIVE GEX ENVIRONMENT:
+- Market makers hedge against them
+- Rallies get sold, dips get bought
+- Range-bound, mean reversion
+- Option buying: Buy extremes, expect snapback
+
+NEGATIVE GEX ENVIRONMENT:
+- Market makers hedge with them
+- Rallies get bought more, dips get sold more
+- Trending, momentum
+- Option buying: Buy breakouts, trend following
+- Moves can be violent and extended
+
+FLIP POINT:
+- Level where GEX flips from positive to negative
+- Above flip point: Positive GEX behavior
+- Below flip point: Negative GEX behavior
+- Key level for intraday direction
+```
+
+### GEX Trading Rules
+```
+IF GEX > 0 (Positive):
+- Fade rallies to resistance → Buy PE
+- Fade dips to support → Buy CE
+- Expect range-bound action
+- Option buying less effective (low vol)
+
+IF GEX < 0 (Negative):
+- Buy breakouts
+- CE on break above resistance
+- PE on break below support
+- Trends extend further than expected
+```
+
+---
+
+# 5. VOLATILITY INDICATORS
+
+## 5.1 BOLLINGER BANDS
+
+### What It Is
+Bollinger Bands plot standard deviations around a moving average. They identify volatility and potential reversal zones.
+
+### Parameters
+| Setting | Standard | Tight | Wide |
+|---------|----------|-------|------|
+| Period | 20 | 10 | 20 |
+| Std Dev | 2 | 1.5 | 2.5 |
+
+### Calculation
+```
+Middle Band = 20-period SMA
+Upper Band = Middle Band + (2 × Standard Deviation)
+Lower Band = Middle Band - (2 × Standard Deviation)
+Bandwidth = (Upper - Lower) / Middle × 100
+%B = (Price - Lower) / (Upper - Lower)
+```
+
+### CE/PE Signal Logic
+
+#### MEAN REVERSION SIGNALS (Range Markets)
+| Condition | Action | Probability |
+|-----------|--------|-------------|
+| Price touches lower band + reversal candle | **BUY CE** | High |
+| Price touches upper band + reversal candle | **BUY PE** | High |
+| Price closes outside lower band | CE (oversold) | Medium |
+| Price closes outside upper band | PE (overbought) | Medium |
+
+#### BREAKOUT SIGNALS (Trending Markets)
+```
+SQUEEZE SETUP:
+- Bandwidth contracts to 6-month low
+- Bands narrow significantly (squeeze)
+- Expect big move coming
+
+CE BREAKOUT:
+- Price breaks above upper band AFTER squeeze
+- Volume confirms breakout
+- Buy CE, ride the trend
+
+PE BREAKOUT:
+- Price breaks below lower band AFTER squeeze
+- Volume confirms breakdown
+- Buy PE, ride the trend
+```
+
+#### %B INDICATOR
+```
+%B > 1.0 = Above upper band (overbought)
+%B = 0.5 = At middle band
+%B < 0.0 = Below lower band (oversold)
+
+CE Signal: %B crosses above 0 from below
+PE Signal: %B crosses below 1 from above
+```
+
+### Walking the Band
+```
+WALKING UPPER BAND (Strong Uptrend):
+- Price stays at or above upper band
+- Middle band acts as support
+- Buy CE on dips to middle band
+- Don't short, trend too strong
+
+WALKING LOWER BAND (Strong Downtrend):
+- Price stays at or below lower band
+- Middle band acts as resistance
+- Buy PE on rallies to middle band
+- Don't go long, trend too strong
+```
+
+---
+
+## 5.2 ATR (Average True Range)
+
+### What It Is
+ATR measures volatility by looking at the range of price movement. Higher ATR = higher volatility = larger stop losses needed.
+
+### Parameters
+| Setting | Scalping | Intraday | Swing |
+|---------|----------|----------|-------|
+| Period | 7 | 14 | 14 |
+
+### Calculation
+```
+True Range = Maximum of:
+1. Current High - Current Low
+2. |Current High - Previous Close|
+3. |Current Low - Previous Close|
+
+ATR = Moving Average of True Range
+```
+
+### ATR Applications
+
+#### STOP LOSS CALCULATION
+```
+CE STOP LOSS:
+Entry Price - (1.5 × ATR to 2 × ATR)
+
+PE STOP LOSS:
+Entry Price + (1.5 × ATR to 2 × ATR)
+
+EXAMPLE:
+NIFTY at 24,000
+ATR (14) = 150 points
+CE Stop = 24,000 - (2 × 150) = 23,700
+PE Stop = 24,000 + (2 × 150) = 24,300
+```
+
+#### POSITION SIZING
+```
+Risk per trade = Account Size × 1%
+Position Size = Risk per trade ÷ (ATR × 2)
+```
+
+#### VOLATILITY BREAKOUT
+```
+ATR BREAKOUT STRATEGY:
+- Current bar range > 1.5 × ATR
+- Indicates volatility expansion
+- Trade in direction of breakout bar
+- High range up bar → CE
+- High range down bar → PE
+```
+
+#### ATR TREND FILTER
+```
+ATR RISING:
+- Volatility increasing
+- Trend accelerating
+- Good for option buying
+- Larger targets possible
+
+ATR FALLING:
+- Volatility decreasing
+- Trend slowing
+- Avoid option buying
+- Theta will dominate
+```
+
+---
+
+## 5.3 IV RANK / IV PERCENTILE
+
+### What It Is
+IV Rank shows where current implied volatility stands relative to its 52-week range. It tells you if options are cheap or expensive.
+
+### Calculation
+```
+IV Rank = (Current IV - 52-week Low IV) ÷ (52-week High IV - 52-week Low IV) × 100
+
+IV Percentile = % of days in past year that IV was below current IV
+```
+
+### Interpretation
+| IV Rank | Options | Strategy |
+|---------|---------|----------|
+| 0 - 20% | Cheap | Good for buying CE/PE |
+| 20 - 40% | Below average | Buying favorable |
+| 40 - 60% | Normal | Neutral |
+| 60 - 80% | Expensive | Avoid buying, IV crush risk |
+| 80 - 100% | Very expensive | Don't buy, sell premium |
+
+### IV Strategy for Option Buying
+```
+IDEAL CONDITIONS FOR BUYING:
+- IV Rank < 30%
+- Direction clear (trend + momentum)
+- Expect volatility expansion
+
+AVOID BUYING WHEN:
+- IV Rank > 70%
+- After major news events (IV inflated)
+- Before weekends/holidays (IV crush)
+
+IV CRUSH TRAP:
+- Buying options when IV Rank > 70%
+- Even if direction correct, IV crush kills profits
+- Example: Buy CE before results, stock rises but IV drops 40% → Loss
+```
+
+---
+
+# 6. MARKET STRUCTURE INDICATORS
+
+## 6.1 PIVOT POINTS
+
+### What It Is
+Pivot Points are calculated support/resistance levels based on previous day's high, low, close. Widely used by institutional traders.
+
+### Calculation
+```
+Pivot (P) = (High + Low + Close) ÷ 3
+
+Resistance 1 (R1) = (2 × P) - Low
+Support 1 (S1) = (2 × P) - High
+
+Resistance 2 (R2) = P + (High - Low)
+Support 2 (S2) = P - (High - Low)
+
+Resistance 3 (R3) = High + 2 × (P - Low)
+Support 3 (S3) = Low - 2 × (P - High)
+```
+
+### Pivot Point Types
+| Type | Use Case | Best For |
+|------|----------|----------|
+| Standard | General trading | All styles |
+| Fibonacci | Trending markets | Swing trading |
+| Camarilla | Intraday reversals | Scalping |
+| Woodie | Mean reversion | Range trading |
+
+### CE/PE Signal Logic
+```
+ABOVE PIVOT:
+- Daily bias = Bullish
+- Trade CE on dips to pivot/S1
+- Pivot acts as support
+
+BELOW PIVOT:
+- Daily bias = Bearish
+- Trade PE on rallies to pivot/R1
+- Pivot acts as resistance
+
+BREAKOUT STRATEGY:
+- Price breaks above R1 with volume → BUY CE, target R2
+- Price breaks below S1 with volume → BUY PE, target S2
+
+REVERSAL STRATEGY:
+- Price reaches R2/R3 + reversal candle → BUY PE
+- Price reaches S2/S3 + reversal candle → BUY CE
+```
+
+### Camarilla Pivots (For Scalping)
+```
+Camarilla Levels:
+H4/L4 = Breakout levels
+H3/L3 = Reversal levels
+
+STRATEGY:
+- Price opens between H3 and L3 → Range day
+- Buy CE at L3 with stop below L4
+- Buy PE at H3 with stop above H4
+- If price breaks H4 → Strong CE
+- If price breaks L4 → Strong PE
+```
+
+---
+
+## 6.2 CPR (Central Pivot Range)
+
+### What It Is
+CPR is a floor trader's tool that shows a range around the pivot. Width of CPR indicates expected volatility.
+
+### Calculation
+```
+Pivot = (High + Low + Close) ÷ 3
+BC (Bottom CPR) = (High + Low) ÷ 2
+TC (Top CPR) = (Pivot - BC) + Pivot
+
+CPR Width = TC - BC
+```
+
+### CPR Width Interpretation
+| CPR Width | Expected Day | Strategy |
+|-----------|--------------|----------|
+| Narrow (< 20 points) | Trending day | Trade breakouts |
+| Wide (> 50 points) | Ranging day | Trade reversals |
+| Very narrow (< 10 points) | Big move expected | Wait for direction, trade aggressively |
+
+### CE/PE Signal Logic
+```
+PRICE ABOVE CPR:
+- Bullish bias
+- TC acts as support
+- Buy CE on dips to TC
+- Target: Day's R1, R2
+
+PRICE BELOW CPR:
+- Bearish bias
+- BC acts as resistance
+- Buy PE on rallies to BC
+- Target: Day's S1, S2
+
+VIRGIN CPR:
+- CPR that wasn't touched previous day
+- Acts as strong magnet
+- Price tends to test virgin CPR
+```
+
+### Opening vs CPR
+```
+GAP UP ABOVE CPR:
+- Strong bullish
+- Buy CE on pullback
+- Avoid PE
+
+GAP DOWN BELOW CPR:
+- Strong bearish
+- Buy PE on pullback
+- Avoid CE
+
+OPENS INSIDE CPR:
+- Wait for breakout
+- Direction unclear
+- Trade only after CPR break
+```
+
+---
+
+## 6.3 PRICE ACTION PATTERNS
+
+### Reversal Patterns → Trade the reversal direction
+
+#### BULLISH PATTERNS → BUY CE
+```
+HAMMER:
+- Small body, long lower wick (2x body)
+- Appears at support/after downtrend
+- Entry: Above hammer high
+- Stop: Below hammer low
+
+BULLISH ENGULFING:
+- Red candle followed by larger green candle
+- Green body engulfs red body completely
+- Entry: Above engulfing high
+- Stop: Below engulfing low
+
+MORNING STAR:
+- Three candles: Red, small (any color), Green
+- Third candle closes above midpoint of first
+- Entry: Above third candle high
+- Stop: Below pattern low
+
+PIERCING LINE:
+- Red candle followed by green candle
+- Green opens below red low, closes above red midpoint
+- Entry: Above green candle high
+- Stop: Below green candle low
+
+TWEEZER BOTTOM:
+- Two or more candles with matching lows
+- Shows support holding
+- Entry: Above pattern high
+- Stop: Below matching lows
+```
+
+#### BEARISH PATTERNS → BUY PE
+```
+SHOOTING STAR:
+- Small body, long upper wick (2x body)
+- Appears at resistance/after uptrend
+- Entry: Below shooting star low
+- Stop: Above shooting star high
+
+BEARISH ENGULFING:
+- Green candle followed by larger red candle
+- Red body engulfs green body completely
+- Entry: Below engulfing low
+- Stop: Above engulfing high
+
+EVENING STAR:
+- Three candles: Green, small (any color), Red
+- Third candle closes below midpoint of first
+- Entry: Below third candle low
+- Stop: Above pattern high
+
+DARK CLOUD COVER:
+- Green candle followed by red candle
+- Red opens above green high, closes below green midpoint
+- Entry: Below red candle low
+- Stop: Above red candle high
+
+TWEEZER TOP:
+- Two or more candles with matching highs
+- Shows resistance holding
+- Entry: Below pattern low
+- Stop: Above matching highs
+```
+
+### Continuation Patterns
+
+#### BULLISH CONTINUATION → BUY CE
+```
+BULL FLAG:
+- Strong up move (flagpole)
+- Consolidation trending slightly down (flag)
+- Entry: Break above flag resistance
+- Target: Flagpole length from breakout
+
+ASCENDING TRIANGLE:
+- Flat resistance, rising support
+- Entry: Break above flat resistance
+- Volume should increase on breakout
+```
+
+#### BEARISH CONTINUATION → BUY PE
+```
+BEAR FLAG:
+- Strong down move (flagpole)
+- Consolidation trending slightly up (flag)
+- Entry: Break below flag support
+- Target: Flagpole length from breakdown
+
+DESCENDING TRIANGLE:
+- Flat support, falling resistance
+- Entry: Break below flat support
+- Volume should increase on breakdown
+```
+
+---
+
+# 7. SENTIMENT INDICATORS
+
+## 7.1 FII/DII DATA
+
+### What It Is
+Foreign Institutional Investors (FII) and Domestic Institutional Investors (DII) data shows smart money flow.
+
+### Data Points
+```
+CASH MARKET DATA:
+- FII Net Buy/Sell
+- DII Net Buy/Sell
+
+F&O DATA:
+- FII Index Futures (Long/Short)
+- FII Index Options (CE OI / PE OI)
+- FII Stock Futures
+```
+
+### CE/PE Signal Logic
+| FII Index Futures | FII Cash | Signal |
+|-------------------|----------|--------|
+| Net Long | Net Buy | **Strong CE** |
+| Net Long | Net Sell | Neutral/CE |
+| Net Short | Net Buy | Neutral/PE |
+| Net Short | Net Sell | **Strong PE** |
+
+### FII F&O Analysis
+```
+BULLISH SETUP:
+- FII adding index futures long
+- FII unwinding index futures short
+- FII put writing > Call writing
+- Action: BUY CE
+
+BEARISH SETUP:
+- FII adding index futures short
+- FII unwinding index futures long
+- FII call writing > Put writing
+- Action: BUY PE
+
+IMPORTANT:
+- FII data released after market hours
+- Use for next day positioning
+- More reliable for swing trading
+```
+
+---
+
+## 7.2 MARKET BREADTH
+
+### Advance-Decline Ratio
+```
+A/D Ratio = Advancing Stocks ÷ Declining Stocks
+
+> 2.0 = Strong bullish breadth → CE bias
+1.5 - 2.0 = Bullish breadth → CE bias
+1.0 - 1.5 = Neutral
+0.5 - 1.0 = Bearish breadth → PE bias
+< 0.5 = Strong bearish breadth → PE bias
+```
+
+### Advance-Decline Line
+```
+A/D Line = Previous A/D Line + (Advances - Declines)
+
+BULLISH DIVERGENCE:
+- NIFTY making new low
+- A/D Line making higher low
+- Underlying strength → BUY CE
+
+BEARISH DIVERGENCE:
+- NIFTY making new high
+- A/D Line making lower high
+- Underlying weakness → BUY PE
+```
+
+### New Highs - New Lows
+```
+NH-NL = New 52-week Highs - New 52-week Lows
+
+> 50 = Bullish → CE bias
+< -50 = Bearish → PE bias
+Expanding NH-NL = Trend strengthening
+Contracting NH-NL = Trend weakening
+```
+
+---
+
+## 7.3 NIFTY vs BANK NIFTY CORRELATION
+
+### What It Is
+Divergence between NIFTY and Bank NIFTY often signals sector rotation and potential trend changes.
+
+### Correlation Signals
+```
+BOTH RISING:
+- Broad market strength
+- Confirmed uptrend
+- BUY CE on either index
+
+BOTH FALLING:
+- Broad market weakness
+- Confirmed downtrend
+- BUY PE on either index
+
+NIFTY UP, BANK NIFTY DOWN:
+- Defensive rotation
+- Possible top forming
+- Cautious on CE
+
+NIFTY DOWN, BANK NIFTY UP:
+- Risk-on rotation
+- Possible bottom forming
+- Bank NIFTY CE may lead recovery
+```
+
+### Bank NIFTY Lead Indicator
+```
+Bank NIFTY often leads NIFTY direction:
+- Bank NIFTY breaks out first → Expect NIFTY to follow
+- Bank NIFTY breaks down first → Expect NIFTY to follow
+
+STRATEGY:
+- Bank NIFTY breaks resistance → BUY NIFTY CE
+- Bank NIFTY breaks support → BUY NIFTY PE
+```
+
+---
+
+# 8. COMBINED STRATEGY SYSTEMS
+
+## 8.1 SCALPING SYSTEM (3-5 MIN CHARTS)
+
+### Indicators
+- VWAP + Bands
+- SuperTrend (7, 2.0)
+- Volume
+- OI Change (real-time)
+
+### CE Entry Rules
+```
+ALL conditions must be true:
+✓ Price above VWAP
+✓ SuperTrend is green
+✓ Last candle has above-average volume
+✓ No major resistance in next 20 points
+✓ IV Rank < 60%
+
+ENTRY: Above high of signal candle
+STOP: Below VWAP or SuperTrend
+TARGET: VWAP +1σ or 1:1.5 risk-reward
+```
+
+### PE Entry Rules
+```
+ALL conditions must be true:
+✓ Price below VWAP
+✓ SuperTrend is red
+✓ Last candle has above-average volume
+✓ No major support in next 20 points
+✓ IV Rank < 60%
+
+ENTRY: Below low of signal candle
+STOP: Above VWAP or SuperTrend
+TARGET: VWAP -1σ or 1:1.5 risk-reward
+```
+
+---
+
+## 8.2 INTRADAY SYSTEM (15 MIN CHARTS)
+
+### Indicators
+- EMA 9/21
+- RSI (14)
+- ADX + DI
+- OI Data
+- Pivot Points
+
+### CE Entry Rules
+```
+PRIMARY CONDITIONS:
+✓ 9 EMA > 21 EMA
+✓ Price above both EMAs
+✓ RSI > 50
+✓ ADX > 25 and +DI > -DI
+
+CONFIRMATION (any 2):
+✓ Price above CPR
+✓ Put OI unwinding at support
+✓ Price bouncing from pivot support
+✓ Volume above average
+
+ENTRY: Break above previous candle high
+STOP: Below 21 EMA or pivot support
+TARGET: Next pivot resistance or 1:2 RR
+```
+
+### PE Entry Rules
+```
+PRIMARY CONDITIONS:
+✓ 9 EMA < 21 EMA
+✓ Price below both EMAs
+✓ RSI < 50
+✓ ADX > 25 and -DI > +DI
+
+CONFIRMATION (any 2):
+✓ Price below CPR
+✓ Call OI unwinding at resistance
+✓ Price rejecting from pivot resistance
+✓ Volume above average
+
+ENTRY: Break below previous candle low
+STOP: Above 21 EMA or pivot resistance
+TARGET: Next pivot support or 1:2 RR
+```
+
+---
+
+## 8.3 SWING SYSTEM (1 HR / DAILY CHARTS)
+
+### Indicators
+- EMA 21/50/200
+- MACD
+- RSI (14)
+- Weekly Pivot Points
+- FII Data
+
+### CE Entry Rules
+```
+TREND CONDITIONS:
+✓ Price above 200 EMA (long-term uptrend)
+✓ 21 EMA > 50 EMA (medium-term uptrend)
+✓ MACD above zero line
+
+ENTRY TRIGGER:
+✓ Price pulls back to 21 or 50 EMA
+✓ RSI between 40-50 (not oversold)
+✓ Reversal candle forms at EMA
+✓ FII net long in index futures
+
+ENTRY: Above reversal candle high
+STOP: Below 50 EMA or swing low
+TARGET: Previous swing high or 1:3 RR
+HOLD: Until MACD crosses below signal line
+```
+
+### PE Entry Rules
+```
+TREND CONDITIONS:
+✓ Price below 200 EMA (long-term downtrend)
+✓ 21 EMA < 50 EMA (medium-term downtrend)
+✓ MACD below zero line
+
+ENTRY TRIGGER:
+✓ Price rallies back to 21 or 50 EMA
+✓ RSI between 50-60 (not overbought)
+✓ Reversal candle forms at EMA
+✓ FII net short in index futures
+
+ENTRY: Below reversal candle low
+STOP: Above 50 EMA or swing high
+TARGET: Previous swing low or 1:3 RR
+HOLD: Until MACD crosses above signal line
+```
+
+---
+
+## 8.4 BREAKOUT SYSTEM
+
+### Indicators
+- Bollinger Band Squeeze
+- ATR
+- Volume
+- OI Buildup
+
+### Squeeze Breakout Rules
+```
+SETUP:
+- Bollinger Bandwidth at 20-day low
+- ATR declining for 5+ days
+- OI building at nearby strikes
+- Coiling pattern visible
+
+CE BREAKOUT:
+- Price closes above upper Bollinger Band
+- Volume > 1.5× average
+- Call OI addition at strike above
+- Entry: Above breakout candle
+- Stop: Middle Bollinger Band
+- Target: 2× Bollinger Band width
+
+PE BREAKOUT:
+- Price closes below lower Bollinger Band
+- Volume > 1.5× average
+- Put OI addition at strike below
+- Entry: Below breakdown candle
+- Stop: Middle Bollinger Band
+- Target: 2× Bollinger Band width
+```
+
+---
+
+## 8.5 REVERSAL SYSTEM
+
+### Indicators
+- RSI Divergence
+- Support/Resistance
+- Volume Analysis
+- Candlestick Patterns
+
+### CE Reversal Rules
+```
+SETUP:
+✓ Price at key support (previous swing low, pivot, put wall)
+✓ RSI bullish divergence present
+✓ Volume spike on final selloff
+✓ Bullish reversal candle (hammer, engulfing, etc.)
+
+ENTRY: Above reversal candle high
+STOP: Below support level
+TARGET: Previous swing high or 1:3 RR
+
+ADDITIONAL CONFIRMATION:
+- VIX spike > 15% (fear extreme)
+- PCR > 1.3 (oversold sentiment)
+- Put OI unwinding at support
+```
+
+### PE Reversal Rules
+```
+SETUP:
+✓ Price at key resistance (previous swing high, pivot, call wall)
+✓ RSI bearish divergence present
+✓ Volume declining on final rally
+✓ Bearish reversal candle (shooting star, engulfing, etc.)
+
+ENTRY: Below reversal candle low
+STOP: Above resistance level
+TARGET: Previous swing low or 1:3 RR
+
+ADDITIONAL CONFIRMATION:
+- VIX at lows (complacency extreme)
+- PCR < 0.7 (overbought sentiment)
+- Call OI unwinding at resistance
+```
+
+---
+
+# 9. RISK MANAGEMENT RULES
+
+## 9.1 POSITION SIZING
+
+### Fixed Risk Method
+```
+Risk per trade = 1-2% of capital
+
+CALCULATION:
+Capital = ₹5,00,000
+Risk = 1% = ₹5,000
+Option premium = ₹100
+Stop loss = ₹30 (30% of premium)
+Lot size = 25
+
+Risk per lot = 25 × 30 = ₹750
+Maximum lots = ₹5,000 ÷ ₹750 = 6.66 → 6 lots
+```
+
+### ATR-Based Position Sizing
+```
+Risk per trade = ₹5,000
+ATR = 150 points
+ATR Stop = 1.5 × ATR = 225 points
+Delta = 0.4 (assuming ATM option)
+
+Option Move = 225 × 0.4 = 90 points
+Position Size = ₹5,000 ÷ (90 × 25) = 2.2 → 2 lots
+```
+
+## 9.2 STOP LOSS RULES
+
+### Types of Stop Loss
+| Type | Method | Best For |
+|------|--------|----------|
+| Percentage | 30-40% of premium | Scalping |
+| Technical | Below support/resistance | Intraday |
+| ATR-based | 1.5-2 × ATR | Swing |
+| Time-based | Exit if no move in X candles | All |
+| Trailing | Move stop as trade profits | Trending |
+
+### Stop Loss Guidelines
+```
+INTRADAY:
+- Maximum loss: 30-40% of premium
+- Time stop: Exit if no move in 3-5 candles
+- Trail stop: Move to cost after 1:1 profit
+
+SWING:
+- Maximum loss: 50% of premium
+- Technical stop: Below swing low (CE) / Above swing high (PE)
+- Trail stop: Move below each higher low (CE) / above each lower high (PE)
+```
+
+## 9.3 PROFIT TAKING RULES
+
+### Fixed Target Method
+```
+SCALPING: 1:1 to 1:1.5 risk-reward
+INTRADAY: 1:2 risk-reward
+SWING: 1:3 risk-reward
+```
+
+### Partial Profit Method
+```
+1st Target (50% position): 1:1 RR - Move stop to cost
+2nd Target (30% position): 1:2 RR - Trail stop
+Final Target (20% position): Let it run with trailing stop
+```
+
+### Time-Based Exit
+```
+WEEKLY EXPIRY TRADES:
+- Monday-Wednesday: Hold if profitable
+- Thursday: Exit by 2 PM regardless
+- Never hold overnight on expiry day
+
+MONTHLY EXPIRY:
+- Exit 3-5 days before expiry (theta acceleration)
+- Or roll to next month if trend continues
+```
+
+## 9.4 DAILY LOSS LIMITS
+
+```
+HARD RULES:
+- Maximum loss per day: 3% of capital
+- Maximum loss per trade: 1% of capital
+- Maximum trades per day: 3-5
+- Stop trading after 2 consecutive losses
+
+IF DAILY LIMIT HIT:
+- Stop trading immediately
+- Review trades
+- Return next day fresh
+```
+
+---
+
+# 10. TIMEFRAME SELECTION
+
+## 10.1 TIMEFRAME CHARACTERISTICS
+
+| Timeframe | Style | Hold Time | Indicators |
+|-----------|-------|-----------|------------|
+| 1-3 min | Scalping | Minutes | VWAP, SuperTrend |
+| 5-15 min | Intraday | Hours | EMA, RSI, OI |
+| 1 hour | Positional | Days | MACD, ADX |
+| Daily | Swing | Weeks | Moving Averages, FII |
+
+## 10.2 MULTI-TIMEFRAME ANALYSIS
+
+### Top-Down Approach
+```
+STEP 1: Determine TREND on Higher TF
+- Daily chart for intraday trades
+- Weekly chart for swing trades
+- Identify: Trend direction, key S/R levels
+
+STEP 2: Find SETUP on Trading TF
+- 15 min for intraday
+- Daily for swing
+- Look for entry signals aligned with higher TF trend
+
+STEP 3: ENTRY on Lower TF
+- 3-5 min for intraday
+- 1 hour for swing
+- Fine-tune entry for best risk-reward
+```
+
+### Example
+```
+SWING TRADE SETUP:
+
+WEEKLY (Trend):
+- NIFTY in uptrend (higher highs, higher lows)
+- Above 50 EMA
+- Conclusion: Only look for CE
+
+DAILY (Setup):
+- Pullback to 21 EMA
+- RSI at 45 (not oversold)
+- Bullish engulfing at EMA
+- Conclusion: CE setup formed
+
+HOURLY (Entry):
+- Wait for break above daily candle high
+- Enter with stop below daily candle low
+- Conclusion: Execute CE entry
+
+TARGET:
+- Daily chart: Previous swing high
+- Weekly chart: Potential to upper channel
+```
+
+---
+
+# QUICK REFERENCE CARD
+
+## BEST CE SETUPS
+```
+1. SuperTrend green + Price above VWAP + RSI > 50
+2. EMA crossover (9 above 21) + ADX > 25 + Volume
+3. Break above call wall with high volume
+4. Bullish divergence at support + VIX spike
+5. Price at max pain support + Put OI unwinding
+```
+
+## BEST PE SETUPS
+```
+1. SuperTrend red + Price below VWAP + RSI < 50
+2. EMA crossover (9 below 21) + ADX > 25 + Volume
+3. Break below put wall with high volume
+4. Bearish divergence at resistance + Low VIX
+5. Price at max pain resistance + Call OI unwinding
+```
+
+## AVOID TRADING WHEN
+```
+- First 15 minutes of market
+- Last 30 minutes before close
+- During major news events
+- ADX < 20 (no trend)
+- IV Rank > 80% (expensive premium)
+- Weekly expiry Thursday afternoon
+- Price stuck between support and resistance
+```
+
+## IDEAL CONDITIONS
+```
+- ADX > 25 (trending)
+- IV Rank < 40% (cheap premium)
+- Clear support/resistance levels
+- Volume above average
+- Multiple indicator confluence
+- FII/DII data aligned with direction
+```
+
+---
+
+*Document Version: 2.0*
+*Last Updated: 2025*
+*For Educational Purposes Only*
