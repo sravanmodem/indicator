@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block title %}Signal History{% endblock %}
+{% block page_title %}Signal History{% endblock %}
+{% block page_subtitle %}Performance analytics and signal tracking{% endblock %}
+
+{% block content %}
+<div x-data="signalHistory()" class="space-y-6 animate-fade-in">
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Total Signals</span>
+                <i data-lucide="zap" class="w-4 h-4 text-primary-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" id="total-signals">--</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Win Rate</span>
+                <i data-lucide="target" class="w-4 h-4 text-bullish-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-bullish-400" id="win-rate">--%</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Avg. Score</span>
+                <i data-lucide="bar-chart" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" id="avg-score">--</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Target Hit</span>
+                <i data-lucide="check-circle" class="w-4 h-4 text-bullish-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" id="target-hit">--</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Stop Loss Hit</span>
+                <i data-lucide="x-circle" class="w-4 h-4 text-bearish-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-bearish-400" id="sl-hit">--</span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <!-- Index Filter -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500">Index</span>
+                <select x-model="filters.index" @change="applyFilters()" class="input-sm w-32">
+                    <option value="">All Indices</option>
+                    <option value="NIFTY">NIFTY</option>
+                    <option value="BANKNIFTY">BANKNIFTY</option>
+                    <option value="SENSEX">SENSEX</option>
+                </select>
+            </div>
+
+            <!-- Signal Type Filter -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500">Signal</span>
+                <select x-model="filters.type" @change="applyFilters()" class="input-sm w-28">
+                    <option value="">All Types</option>
+                    <option value="CE">CE Only</option>
+                    <option value="PE">PE Only</option>
+                </select>
+            </div>
+
+            <!-- Quality Filter -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500">Quality</span>
+                <select x-model="filters.quality" @change="applyFilters()" class="input-sm w-32">
+                    <option value="">All Scores</option>
+                    <option value="high">High (70+)</option>
+                    <option value="medium">Medium (50-69)</option>
+                    <option value="low">Low (< 50)</option>
+                </select>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500">Status</span>
+                <select x-model="filters.status" @change="applyFilters()" class="input-sm w-32">
+                    <option value="">All Status</option>
+                    <option value="target_hit">Target Hit</option>
+                    <option value="stop_loss">Stop Loss</option>
+                    <option value="partial">Partial</option>
+                    <option value="active">Active</option>
+                </select>
+            </div>
+
+            <!-- Date Range -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500">Period</span>
+                <select x-model="filters.period" @change="applyFilters()" class="input-sm w-28">
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month" selected>This Month</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+
+            <button @click="resetFilters()" class="btn-ghost text-xs ml-auto">
+                <i data-lucide="x" class="w-3 h-3"></i>
+                Clear Filters
+            </button>
+
+            <button @click="exportData()" class="btn-secondary text-xs">
+                <i data-lucide="download" class="w-3 h-3"></i>
+                Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Signals Table -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-800">
+            <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-white">Signal History</h3>
+                <span class="text-xs text-surface-500" id="result-count">Loading...</span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th class="cursor-pointer hover:text-surface-300" @click="sort('timestamp')">
+                            <div class="flex items-center gap-1">
+                                Time
+                                <i data-lucide="chevrons-up-down" class="w-3 h-3"></i>
+                            </div>
+                        </th>
+                        <th>Index</th>
+                        <th>Signal</th>
+                        <th>Strike</th>
+                        <th>Entry</th>
+                        <th>Target</th>
+                        <th>Stop Loss</th>
+                        <th class="cursor-pointer hover:text-surface-300" @click="sort('score')">
+                            <div class="flex items-center gap-1">
+                                Score
+                                <i data-lucide="chevrons-up-down" class="w-3 h-3"></i>
+                            </div>
+                        </th>
+                        <th>R:R</th>
+                        <th>Result</th>
+                        <th>P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-table" hx-get="/htmx/signals-history" hx-trigger="load">
+                    <tr>
+                        <td colspan="11" class="text-center py-8 text-surface-500">
+                            <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                            Loading history...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="p-4 border-t border-surface-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm text-surface-500">Rows per page:</span>
+                    <select x-model="pageSize" @change="loadPage(1)" class="input-sm w-20">
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        @click="loadPage(currentPage - 1)"
+                        :disabled="currentPage <= 1"
+                        class="btn-ghost p-2"
+                    >
+                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    <span class="text-sm text-surface-400">
+                        Page <span x-text="currentPage">1</span> of <span x-text="totalPages">1</span>
+                    </span>
+                    <button
+                        @click="loadPage(currentPage + 1)"
+                        :disabled="currentPage >= totalPages"
+                        class="btn-ghost p-2"
+                    >
+                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Charts (Placeholder) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="card p-5">
+            <h3 class="font-semibold text-white mb-4">Win Rate by Index</h3>
+            <div class="h-48 flex items-center justify-center text-surface-500">
+                <div class="text-center">
+                    <i data-lucide="bar-chart-3" class="w-12 h-12 mx-auto mb-2 text-surface-700"></i>
+                    <p class="text-sm">Chart visualization</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <h3 class="font-semibold text-white mb-4">Signal Quality Distribution</h3>
+            <div class="h-48 flex items-center justify-center text-surface-500">
+                <div class="text-center">
+                    <i data-lucide="pie-chart" class="w-12 h-12 mx-auto mb-2 text-surface-700"></i>
+                    <p class="text-sm">Chart visualization</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function signalHistory() {
+    return {
+        filters: {
+            index: '',
+            type: '',
+            quality: '',
+            status: '',
+            period: 'month'
+        },
+        sortBy: 'timestamp',
+        sortDir: 'desc',
+        currentPage: 1,
+        pageSize: 25,
+        totalPages: 1,
+
+        init() {
+            this.loadStats();
+        },
+
+        loadStats() {
+            fetch('/signals/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('total-signals').textContent = data.total || '0';
+                    document.getElementById('win-rate').textContent = (data.win_rate || 0) + '%';
+                    document.getElementById('avg-score').textContent = (data.avg_score || 0).toFixed(1);
+                    document.getElementById('target-hit').textContent = data.target_hit || '0';
+                    document.getElementById('sl-hit').textContent = data.sl_hit || '0';
+                })
+                .catch(() => {
+                    // Set to default values if API fails
+                    document.getElementById('total-signals').textContent = '0';
+                    document.getElementById('win-rate').textContent = '0%';
+                    document.getElementById('avg-score').textContent = '0';
+                    document.getElementById('target-hit').textContent = '0';
+                    document.getElementById('sl-hit').textContent = '0';
+                });
+        },
+
+        applyFilters() {
+            this.currentPage = 1;
+            this.loadSignals();
+        },
+
+        resetFilters() {
+            this.filters = { index: '', type: '', quality: '', status: '', period: 'month' };
+            this.applyFilters();
+        },
+
+        sort(field) {
+            if (this.sortBy === field) {
+                this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                this.sortBy = field;
+                this.sortDir = 'desc';
+            }
+            this.loadSignals();
+        },
+
+        loadPage(page) {
+            if (page < 1 || page > this.totalPages) return;
+            this.currentPage = page;
+            this.loadSignals();
+        },
+
+        loadSignals() {
+            const params = new URLSearchParams({
+                ...this.filters,
+                sort: this.sortBy,
+                dir: this.sortDir,
+                page: this.currentPage,
+                size: this.pageSize
+            });
+            htmx.ajax('GET', `/htmx/signals-history?${params}`, '#signals-table');
+        },
+
+        exportData() {
+            const params = new URLSearchParams(this.filters);
+            window.location.href = `/api/signals/export?${params}`;
+        }
+    }
+}
+</script>
+{% endblock %}

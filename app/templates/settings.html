@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block page_subtitle %}Configure trading parameters and preferences{% endblock %}
+
+{% block content %}
+<div x-data="settingsManager()" class="space-y-6 animate-fade-in">
+
+    <!-- Settings Navigation Tabs -->
+    <div class="card p-1">
+        <div class="flex bg-surface-800 rounded-lg p-1">
+            <button
+                @click="activeTab = 'trading'"
+                :class="activeTab === 'trading' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-all"
+            >
+                <i data-lucide="settings-2" class="w-4 h-4 inline-block mr-2"></i>
+                Trading Settings
+            </button>
+            <button
+                @click="activeTab = 'risk'"
+                :class="activeTab === 'risk' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-all"
+            >
+                <i data-lucide="shield" class="w-4 h-4 inline-block mr-2"></i>
+                Risk Management
+            </button>
+            <button
+                @click="activeTab = 'automation'"
+                :class="activeTab === 'automation' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-all"
+            >
+                <i data-lucide="bot" class="w-4 h-4 inline-block mr-2"></i>
+                Automation
+            </button>
+            <button
+                @click="activeTab = 'broker'"
+                :class="activeTab === 'broker' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                class="flex-1 px-4 py-2.5 text-sm font-medium rounded-lg transition-all"
+            >
+                <i data-lucide="link" class="w-4 h-4 inline-block mr-2"></i>
+                Broker Connection
+            </button>
+        </div>
+    </div>
+
+    <!-- Trading Settings Tab -->
+    <div x-show="activeTab === 'trading'" x-transition class="space-y-6">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Trading Configuration</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Capital -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Trading Capital</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                        <input
+                            type="number"
+                            x-model="settings.capital"
+                            class="input pl-8"
+                            placeholder="1000000"
+                        >
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">Capital allocated for options trading</p>
+                </div>
+
+                <!-- Daily Profit Target -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Daily Profit Target</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                        <input
+                            type="number"
+                            x-model="settings.daily_target"
+                            class="input pl-8"
+                            placeholder="10000"
+                        >
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">Stop trading after reaching this profit</p>
+                </div>
+
+                <!-- Default Trading Style -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Default Trading Style</label>
+                    <select x-model="settings.trading_style" class="input">
+                        <option value="scalping">Scalping (1-5 min)</option>
+                        <option value="intraday">Intraday (15-60 min)</option>
+                        <option value="swing">Swing (1+ days)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-surface-500">Affects signal calculation and targets</p>
+                </div>
+
+                <!-- Minimum Signal Quality -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Minimum Signal Quality</label>
+                    <select x-model="settings.min_quality" class="input">
+                        <option value="50">50+ (Medium & High)</option>
+                        <option value="60">60+ (Above Average)</option>
+                        <option value="70">70+ (High Quality Only)</option>
+                        <option value="80">80+ (Premium Only)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-surface-500">Only show signals above this score</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Indices & Markets</h3>
+
+            <div class="space-y-4">
+                <label class="block text-sm font-medium text-surface-300 mb-3">Active Indices</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <label class="flex items-center gap-3 p-4 bg-surface-800 rounded-lg cursor-pointer hover:bg-surface-750 transition-colors">
+                        <input type="checkbox" x-model="settings.indices" value="NIFTY" class="w-4 h-4 rounded border-surface-600 text-primary-600 focus:ring-primary-500">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-bullish-400"></i>
+                            <span class="font-medium text-white">NIFTY 50</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-3 p-4 bg-surface-800 rounded-lg cursor-pointer hover:bg-surface-750 transition-colors">
+                        <input type="checkbox" x-model="settings.indices" value="BANKNIFTY" class="w-4 h-4 rounded border-surface-600 text-primary-600 focus:ring-primary-500">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="landmark" class="w-5 h-5 text-primary-400"></i>
+                            <span class="font-medium text-white">BANKNIFTY</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-3 p-4 bg-surface-800 rounded-lg cursor-pointer hover:bg-surface-750 transition-colors">
+                        <input type="checkbox" x-model="settings.indices" value="SENSEX" class="w-4 h-4 rounded border-surface-600 text-primary-600 focus:ring-primary-500">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-400"></i>
+                            <span class="font-medium text-white">SENSEX</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Management Tab -->
+    <div x-show="activeTab === 'risk'" x-transition class="space-y-6">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Risk Parameters</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Max Risk Per Trade -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Risk Per Trade</label>
+                    <div class="relative">
+                        <input
+                            type="number"
+                            x-model="settings.max_risk_per_trade"
+                            class="input pr-8"
+                            placeholder="2"
+                            step="0.5"
+                            min="0.5"
+                            max="10"
+                        >
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">Maximum % of capital to risk on single trade</p>
+                </div>
+
+                <!-- Daily Loss Limit -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Daily Loss Limit</label>
+                    <div class="relative">
+                        <input
+                            type="number"
+                            x-model="settings.daily_loss_limit"
+                            class="input pr-8"
+                            placeholder="5"
+                            step="0.5"
+                            min="1"
+                            max="20"
+                        >
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">Stop trading after losing this % of capital</p>
+                </div>
+
+                <!-- Max Open Positions -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Open Positions</label>
+                    <input
+                        type="number"
+                        x-model="settings.max_positions"
+                        class="input"
+                        placeholder="3"
+                        min="1"
+                        max="10"
+                    >
+                    <p class="mt-1 text-xs text-surface-500">Maximum simultaneous open positions</p>
+                </div>
+
+                <!-- Position Size Method -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Position Sizing</label>
+                    <select x-model="settings.position_sizing" class="input">
+                        <option value="fixed">Fixed Quantity</option>
+                        <option value="risk_based">Risk-Based (% of Capital)</option>
+                        <option value="kelly">Kelly Criterion</option>
+                    </select>
+                    <p class="mt-1 text-xs text-surface-500">How to calculate position size</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Stop Loss & Target Settings</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- SL Method -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Stop Loss Type</label>
+                    <select x-model="settings.sl_type" class="input">
+                        <option value="atr">ATR-Based (Dynamic)</option>
+                        <option value="percentage">Fixed Percentage</option>
+                        <option value="support">Support/Resistance</option>
+                    </select>
+                </div>
+
+                <!-- Default SL % -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Default Stop Loss</label>
+                    <div class="relative">
+                        <input
+                            type="number"
+                            x-model="settings.default_sl"
+                            class="input pr-8"
+                            placeholder="20"
+                            step="5"
+                        >
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                </div>
+
+                <!-- Target Method -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Target Type</label>
+                    <select x-model="settings.target_type" class="input">
+                        <option value="rr_ratio">Risk:Reward Ratio</option>
+                        <option value="percentage">Fixed Percentage</option>
+                        <option value="resistance">Resistance Level</option>
+                    </select>
+                </div>
+
+                <!-- Default Risk:Reward -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Target Risk:Reward</label>
+                    <select x-model="settings.target_rr" class="input">
+                        <option value="1.5">1:1.5</option>
+                        <option value="2">1:2</option>
+                        <option value="2.5">1:2.5</option>
+                        <option value="3">1:3</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Automation Tab -->
+    <div x-show="activeTab === 'automation'" x-transition class="space-y-6">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Trading Automation</h3>
+
+            <div class="space-y-6">
+                <!-- Automation Mode -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-3">Automation Mode</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <label
+                            class="flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-colors"
+                            :class="settings.automation_mode === 'manual' ? 'bg-primary-500/10 border-primary-500' : 'bg-surface-800 border-surface-700 hover:border-surface-600'"
+                        >
+                            <input type="radio" x-model="settings.automation_mode" value="manual" class="sr-only">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="hand" class="w-5 h-5 text-surface-400"></i>
+                                <span class="font-medium text-white">Manual</span>
+                            </div>
+                            <p class="text-xs text-surface-400">View signals only. Execute trades manually.</p>
+                        </label>
+
+                        <label
+                            class="flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-colors"
+                            :class="settings.automation_mode === 'semi' ? 'bg-primary-500/10 border-primary-500' : 'bg-surface-800 border-surface-700 hover:border-surface-600'"
+                        >
+                            <input type="radio" x-model="settings.automation_mode" value="semi" class="sr-only">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="user-check" class="w-5 h-5 text-amber-400"></i>
+                                <span class="font-medium text-white">Semi-Auto</span>
+                            </div>
+                            <p class="text-xs text-surface-400">Alerts for signals. One-click execution.</p>
+                        </label>
+
+                        <label
+                            class="flex flex-col p-4 rounded-lg border-2 cursor-pointer transition-colors"
+                            :class="settings.automation_mode === 'full' ? 'bg-primary-500/10 border-primary-500' : 'bg-surface-800 border-surface-700 hover:border-surface-600'"
+                        >
+                            <input type="radio" x-model="settings.automation_mode" value="full" class="sr-only">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="bot" class="w-5 h-5 text-bullish-400"></i>
+                                <span class="font-medium text-white">Full Auto</span>
+                            </div>
+                            <p class="text-xs text-surface-400">Auto-execute high-quality signals.</p>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Auto Trading Rules -->
+                <div x-show="settings.automation_mode === 'full'" class="p-4 bg-surface-800 rounded-lg border border-amber-500/30">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 mt-0.5"></i>
+                        <div>
+                            <h4 class="font-medium text-white mb-1">Full Automation Active</h4>
+                            <p class="text-sm text-surface-400">Trades will be executed automatically for signals with quality score above your threshold. Ensure broker is connected and risk limits are properly configured.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Trading Hours</h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Start Time</label>
+                    <input type="time" x-model="settings.trading_start" class="input" value="09:15">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">End Time</label>
+                    <input type="time" x-model="settings.trading_end" class="input" value="15:15">
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="flex items-center gap-3">
+                    <input type="checkbox" x-model="settings.avoid_expiry" class="w-4 h-4 rounded border-surface-600 text-primary-600">
+                    <span class="text-sm text-surface-300">Avoid trading on expiry day (high volatility)</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Broker Connection Tab -->
+    <div x-show="activeTab === 'broker'" x-transition class="space-y-6">
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Broker Connection</h3>
+
+            <div id="broker-status" hx-get="/htmx/broker-status" hx-trigger="load" class="mb-6">
+                <!-- Status will be loaded here -->
+            </div>
+
+            <div class="flex gap-4">
+                <a href="/auth/login" class="btn-primary">
+                    <i data-lucide="link" class="w-4 h-4"></i>
+                    Connect Zerodha
+                </a>
+                <button @click="testConnection()" class="btn-secondary">
+                    <i data-lucide="wifi" class="w-4 h-4"></i>
+                    Test Connection
+                </button>
+            </div>
+        </div>
+
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">API Configuration</h3>
+            <p class="text-sm text-surface-400 mb-4">API credentials are stored securely and encrypted. Never share these with anyone.</p>
+
+            <div class="grid grid-cols-1 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">API Key</label>
+                    <input type="text" class="input" placeholder="Enter Zerodha API Key" disabled>
+                    <p class="mt-1 text-xs text-surface-500">Configured via environment variables</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Button -->
+    <div class="flex justify-end gap-4">
+        <button @click="resetToDefaults()" class="btn-secondary">
+            Reset to Defaults
+        </button>
+        <button @click="saveSettings()" class="btn-primary" :disabled="saving">
+            <i data-lucide="save" class="w-4 h-4" :class="saving && 'animate-spin'"></i>
+            <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function settingsManager() {
+    return {
+        activeTab: 'trading',
+        saving: false,
+        settings: {
+            capital: 1000000,
+            daily_target: 10000,
+            trading_style: 'intraday',
+            min_quality: '70',
+            indices: ['NIFTY', 'BANKNIFTY'],
+            max_risk_per_trade: 2,
+            daily_loss_limit: 5,
+            max_positions: 3,
+            position_sizing: 'risk_based',
+            sl_type: 'atr',
+            default_sl: 20,
+            target_type: 'rr_ratio',
+            target_rr: '2',
+            automation_mode: 'manual',
+            trading_start: '09:15',
+            trading_end: '15:15',
+            avoid_expiry: true
+        },
+
+        init() {
+            this.loadSettings();
+        },
+
+        loadSettings() {
+            fetch('/api/settings/get')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) {
+                        this.settings = { ...this.settings, ...data };
+                    }
+                })
+                .catch(() => {});
+        },
+
+        saveSettings() {
+            this.saving = true;
+            fetch('/api/settings/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.settings)
+            })
+            .then(r => r.json())
+            .then(data => {
+                showToast('Settings saved successfully!', 'success');
+            })
+            .catch(() => {
+                showToast('Failed to save settings', 'error');
+            })
+            .finally(() => {
+                this.saving = false;
+            });
+        },
+
+        resetToDefaults() {
+            if (confirm('Reset all settings to defaults?')) {
+                this.settings = {
+                    capital: 1000000,
+                    daily_target: 10000,
+                    trading_style: 'intraday',
+                    min_quality: '70',
+                    indices: ['NIFTY', 'BANKNIFTY'],
+                    max_risk_per_trade: 2,
+                    daily_loss_limit: 5,
+                    max_positions: 3,
+                    position_sizing: 'risk_based',
+                    sl_type: 'atr',
+                    default_sl: 20,
+                    target_type: 'rr_ratio',
+                    target_rr: '2',
+                    automation_mode: 'manual',
+                    trading_start: '09:15',
+                    trading_end: '15:15',
+                    avoid_expiry: true
+                };
+            }
+        },
+
+        testConnection() {
+            showToast('Testing broker connection...', 'info');
+            fetch('/auth/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.authenticated) {
+                        showToast('Connection successful!', 'success');
+                    } else {
+                        showToast('Not connected. Please login.', 'warning');
+                    }
+                })
+                .catch(() => {
+                    showToast('Connection test failed', 'error');
+                });
+        }
+    }
+}
+</script>
+{% endblock %}

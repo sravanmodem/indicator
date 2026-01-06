@@ -1,27 +1,31 @@
-{% if status.is_authenticated %}
-<div class="flex items-center space-x-3">
-    <div class="text-right">
-        <p class="text-sm font-medium text-white">{{ status.user_name or status.user_id }}</p>
-        <p class="text-xs text-green-400">Connected</p>
+{% if authenticated %}
+<div class="space-y-2">
+    <div class="flex items-center gap-2 px-4 py-2">
+        <span class="w-2 h-2 rounded-full bg-bullish-500"></span>
+        <span class="text-sm text-bullish-400">Connected</span>
     </div>
-    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center">
-        <span class="text-white font-bold">{{ (status.user_name or 'U')[0] }}</span>
+    <div class="px-4 py-2">
+        <p class="text-xs text-surface-500">User ID</p>
+        <p class="text-sm text-surface-200">{{ user_id|default('--') }}</p>
     </div>
-    <button hx-post="/auth/logout"
-            hx-swap="innerHTML"
-            hx-target="#auth-status"
-            class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-400 hover:text-white transition-colors">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-        </svg>
+    <hr class="border-surface-700">
+    <button
+        onclick="fetch('/auth/logout', {method: 'POST'}).then(() => location.reload())"
+        class="flex items-center gap-2 w-full px-4 py-2 text-sm text-bearish-400 hover:bg-surface-700 transition-colors"
+    >
+        <i data-lucide="log-out" class="w-4 h-4"></i>
+        Disconnect Broker
     </button>
 </div>
 {% else %}
-<a href="/auth/login"
-   class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
-    </svg>
-    <span>Login</span>
-</a>
+<div class="space-y-2">
+    <div class="flex items-center gap-2 px-4 py-2">
+        <span class="w-2 h-2 rounded-full bg-surface-500"></span>
+        <span class="text-sm text-surface-400">Not Connected</span>
+    </div>
+    <a href="/auth/login" class="flex items-center gap-2 w-full px-4 py-2 text-sm text-primary-400 hover:bg-surface-700 transition-colors">
+        <i data-lucide="log-in" class="w-4 h-4"></i>
+        Connect Zerodha
+    </a>
+</div>
 {% endif %}

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Trading Terminal{% endblock %}
+{% block page_title %}Trading Terminal{% endblock %}
+{% block page_subtitle %}Multi-index analysis and signal generation{% endblock %}
+
+{% block content %}
+<div x-data="tradingTerminal()" class="space-y-6 animate-fade-in">
+
+    <!-- Trading Controls Bar -->
+    <div class="card p-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <!-- Index Selection -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500 uppercase tracking-wider">Index</span>
+                <div class="flex bg-surface-800 rounded-lg p-1">
+                    <button
+                        @click="activeIndex = 'NIFTY'"
+                        :class="activeIndex === 'NIFTY' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
+                    >
+                        NIFTY
+                    </button>
+                    <button
+                        @click="activeIndex = 'BANKNIFTY'"
+                        :class="activeIndex === 'BANKNIFTY' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
+                    >
+                        BANKNIFTY
+                    </button>
+                    <button
+                        @click="activeIndex = 'SENSEX'"
+                        :class="activeIndex === 'SENSEX' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
+                    >
+                        SENSEX
+                    </button>
+                </div>
+            </div>
+
+            <!-- Trading Style -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500 uppercase tracking-wider">Style</span>
+                <div class="flex bg-surface-800 rounded-lg p-1">
+                    <button
+                        @click="tradingStyle = 'scalping'"
+                        :class="tradingStyle === 'scalping' ? 'bg-amber-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Scalping
+                    </button>
+                    <button
+                        @click="tradingStyle = 'intraday'"
+                        :class="tradingStyle === 'intraday' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Intraday
+                    </button>
+                    <button
+                        @click="tradingStyle = 'swing'"
+                        :class="tradingStyle === 'swing' ? 'bg-bullish-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Swing
+                    </button>
+                </div>
+            </div>
+
+            <!-- Capital Input -->
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-medium text-surface-500 uppercase tracking-wider">Capital</span>
+                <div class="relative">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                    <input
+                        type="number"
+                        x-model="capital"
+                        class="input-sm pl-7 w-32"
+                        placeholder="100000"
+                    >
+                </div>
+            </div>
+
+            <!-- Refresh Button -->
+            <button
+                @click="refreshSignal()"
+                class="btn-primary ml-auto"
+                :disabled="loading"
+            >
+                <i data-lucide="refresh-cw" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                <span x-text="loading ? 'Analyzing...' : 'Refresh Signal'"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Terminal Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+        <!-- Left Panel - Signal & Recommended Option -->
+        <div class="xl:col-span-4 space-y-6">
+
+            <!-- Current Signal Card -->
+            <div class="card overflow-hidden">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Active Signal</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="status-dot" :class="signalActive ? 'status-online' : 'status-offline'"></span>
+                            <span class="text-xs text-surface-400" x-text="signalActive ? 'Live' : 'Inactive'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    id="signal-card"
+                    hx-get="/htmx/signal-card/NIFTY"
+                    hx-trigger="load"
+                    hx-vals='js:{index: activeIndex, style: tradingStyle}'
+                    class="p-5"
+                >
+                    {% include 'partials/signal_card.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Recommended Option -->
+            <div class="card overflow-hidden">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Recommended Option</h3>
+                        <span class="badge-primary">ATM Strike</span>
+                    </div>
+                </div>
+
+                <div
+                    id="recommended-option"
+                    hx-get="/htmx/recommended-option/NIFTY"
+                    hx-trigger="load"
+                    class="p-5"
+                >
+                    {% include 'partials/recommended_option.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Signal Quality Breakdown -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Quality Score Breakdown</h3>
+                <div id="quality-breakdown" hx-get="/htmx/quality-breakdown/NIFTY" hx-trigger="load" class="space-y-3">
+                    {% include 'partials/quality_breakdown.html' ignore missing %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel - Technical Indicators -->
+        <div class="xl:col-span-5 space-y-6">
+
+            <!-- Indicator Panel -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Technical Indicators</h3>
+                        <select class="input-sm w-24" id="timeframe-select">
+                            <option value="5m">5 Min</option>
+                            <option value="15m">15 Min</option>
+                            <option value="1h">1 Hour</option>
+                            <option value="1d">Daily</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="indicator-panel" hx-get="/htmx/indicator-panel/NIFTY" hx-trigger="load" class="p-5">
+                    {% include 'partials/indicator_panel.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Pivot Levels -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Support & Resistance Levels</h3>
+                </div>
+
+                <div id="pivot-levels" hx-get="/htmx/pivot-levels/NIFTY" hx-trigger="load" class="p-5">
+                    {% include 'partials/pivot_levels.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Greeks & IV -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Options Greeks</h3>
+                </div>
+
+                <div id="greeks-panel" hx-get="/htmx/greeks-panel/NIFTY" hx-trigger="load" class="p-5">
+                    {% include 'partials/greeks_panel.html' ignore missing %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Option Chain & Actions -->
+        <div class="xl:col-span-3 space-y-6">
+
+            <!-- Quick Trade Actions -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Trade Actions</h3>
+                <div class="space-y-3">
+                    <button
+                        @click="executeTrade('BUY')"
+                        class="w-full btn-success py-3"
+                        :disabled="!signalActive"
+                    >
+                        <i data-lucide="trending-up" class="w-4 h-4"></i>
+                        Execute CE Trade
+                    </button>
+                    <button
+                        @click="executeTrade('SELL')"
+                        class="w-full btn-danger py-3"
+                        :disabled="!signalActive"
+                    >
+                        <i data-lucide="trending-down" class="w-4 h-4"></i>
+                        Execute PE Trade
+                    </button>
+                    <button
+                        @click="paperTrade()"
+                        class="w-full btn-secondary py-3"
+                    >
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                        Paper Trade
+                    </button>
+                </div>
+            </div>
+
+            <!-- Near ATM Options -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">ATM Options</h3>
+                        <a href="/option-chain" class="text-xs text-primary-400 hover:text-primary-300">
+                            Full Chain
+                        </a>
+                    </div>
+                </div>
+
+                <div id="atm-options" hx-get="/htmx/atm-options/NIFTY" hx-trigger="load" class="divide-y divide-surface-800">
+                    {% include 'partials/atm_options.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Market Overview -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Market Overview</h3>
+                <div id="market-overview" hx-get="/htmx/market-overview" hx-trigger="load, every 30s" class="space-y-3">
+                    {% include 'partials/market_overview.html' ignore missing %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function tradingTerminal() {
+    return {
+        activeIndex: 'NIFTY',
+        tradingStyle: 'intraday',
+        capital: 100000,
+        loading: false,
+        signalActive: false,
+
+        init() {
+            // Watch for index changes
+            this.$watch('activeIndex', (value) => {
+                this.refreshAllPanels();
+            });
+
+            this.$watch('tradingStyle', (value) => {
+                this.refreshSignal();
+            });
+        },
+
+        refreshSignal() {
+            this.loading = true;
+            const params = `?index=${this.activeIndex}&style=${this.tradingStyle}&capital=${this.capital}`;
+
+            htmx.ajax('GET', `/htmx/signal-card/${this.activeIndex}${params}`, '#signal-card');
+            htmx.ajax('GET', `/htmx/recommended-option/${this.activeIndex}${params}`, '#recommended-option');
+            htmx.ajax('GET', `/htmx/quality-breakdown/${this.activeIndex}${params}`, '#quality-breakdown');
+
+            setTimeout(() => {
+                this.loading = false;
+                this.signalActive = true;
+            }, 1500);
+        },
+
+        refreshAllPanels() {
+            this.loading = true;
+            const index = this.activeIndex;
+
+            htmx.ajax('GET', `/htmx/signal-card/${index}`, '#signal-card');
+            htmx.ajax('GET', `/htmx/recommended-option/${index}`, '#recommended-option');
+            htmx.ajax('GET', `/htmx/quality-breakdown/${index}`, '#quality-breakdown');
+            htmx.ajax('GET', `/htmx/indicator-panel/${index}`, '#indicator-panel');
+            htmx.ajax('GET', `/htmx/pivot-levels/${index}`, '#pivot-levels');
+            htmx.ajax('GET', `/htmx/greeks-panel/${index}`, '#greeks-panel');
+            htmx.ajax('GET', `/htmx/atm-options/${index}`, '#atm-options');
+
+            setTimeout(() => {
+                this.loading = false;
+                this.signalActive = true;
+            }, 2000);
+        },
+
+        executeTrade(direction) {
+            showToast(`Executing ${direction} trade for ${this.activeIndex}...`, 'info');
+            // API call would go here
+        },
+
+        paperTrade() {
+            window.location.href = `/paper-trading?index=${this.activeIndex}&style=${this.tradingStyle}`;
+        }
+    }
+}
+</script>
+{% endblock %}

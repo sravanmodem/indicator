@@ -1,3 +1,25 @@
-<div class="{% if type == 'success' %}bg-green-500{% elif type == 'error' %}bg-red-500{% elif type == 'warning' %}bg-yellow-500{% else %}bg-blue-500{% endif %} text-white px-4 py-2 rounded-lg shadow-lg">
-    {{ message }}
+{% if message %}
+<div
+    x-data="{ show: true }"
+    x-show="show"
+    x-init="setTimeout(() => show = false, 4000)"
+    x-transition:enter="transition ease-out duration-300"
+    x-transition:enter-start="opacity-0 translate-y-2"
+    x-transition:enter-end="opacity-100 translate-y-0"
+    x-transition:leave="transition ease-in duration-200"
+    x-transition:leave-start="opacity-100"
+    x-transition:leave-end="opacity-0"
+    class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border
+        {% if type == 'success' %}bg-bullish-600 border-bullish-500 text-white
+        {% elif type == 'error' %}bg-bearish-600 border-bearish-500 text-white
+        {% elif type == 'warning' %}bg-amber-600 border-amber-500 text-white
+        {% else %}bg-primary-600 border-primary-500 text-white{% endif %}"
+>
+    <i data-lucide="{% if type == 'success' %}check-circle{% elif type == 'error' %}x-circle{% elif type == 'warning' %}alert-triangle{% else %}info{% endif %}"
+       class="w-5 h-5 flex-shrink-0"></i>
+    <span class="text-sm font-medium">{{ message }}</span>
+    <button @click="show = false" class="ml-auto p-1 hover:bg-white/20 rounded transition-colors">
+        <i data-lucide="x" class="w-4 h-4"></i>
+    </button>
 </div>
+{% endif %}

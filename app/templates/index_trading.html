@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}{{ index_name }} Trading{% endblock %}
+{% block page_title %}{{ index_name }}{% endblock %}
+{% block page_subtitle %}Real-time analysis and trading signals{% endblock %}
+
+{% block content %}
+<div x-data="indexTrading('{{ index_name }}')" class="space-y-6 animate-fade-in">
+
+    <!-- Price Header -->
+    <div class="card p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-xl {{ 'bg-bullish-500/10' if index_name == 'NIFTY' else 'bg-primary-500/10' if index_name == 'BANKNIFTY' else 'bg-amber-500/10' }}">
+                    <i data-lucide="{{ 'trending-up' if index_name == 'NIFTY' else 'landmark' if index_name == 'BANKNIFTY' else 'bar-chart-3' }}"
+                       class="w-8 h-8 {{ 'text-bullish-400' if index_name == 'NIFTY' else 'text-primary-400' if index_name == 'BANKNIFTY' else 'text-amber-400' }}"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-2xl font-bold text-white">{{ index_name }}</h2>
+                        <span class="badge-neutral">{{ 'NSE' if index_name != 'SENSEX' else 'BSE' }}</span>
+                    </div>
+                    <div id="live-price" hx-get="/htmx/live-price/{{ index_name }}" hx-trigger="load, every 3s"
+                         class="flex items-baseline gap-3 mt-1">
+                        <span class="text-3xl font-bold text-white">--</span>
+                        <span class="text-lg text-surface-400">+0.00 (0.00%)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <!-- Trading Style Selector -->
+                <div class="flex bg-surface-800 rounded-lg p-1">
+                    <button
+                        @click="tradingStyle = 'scalping'"
+                        :class="tradingStyle === 'scalping' ? 'bg-amber-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Scalping
+                    </button>
+                    <button
+                        @click="tradingStyle = 'intraday'"
+                        :class="tradingStyle === 'intraday' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Intraday
+                    </button>
+                    <button
+                        @click="tradingStyle = 'swing'"
+                        :class="tradingStyle === 'swing' ? 'bg-bullish-600 text-white' : 'text-surface-400 hover:text-white'"
+                        class="px-3 py-1.5 text-xs font-medium rounded-md transition-all"
+                    >
+                        Swing
+                    </button>
+                </div>
+
+                <button @click="refreshData()" class="btn-primary" :disabled="loading">
+                    <i data-lucide="refresh-cw" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left Column - Signal & Option -->
+        <div class="space-y-6">
+
+            <!-- Signal Card -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Trading Signal</h3>
+                        <div class="flex items-center gap-2">
+                            <span class="status-dot" :class="signalActive ? 'status-online animate-pulse' : 'status-offline'"></span>
+                            <span class="text-xs" :class="signalActive ? 'text-bullish-400' : 'text-surface-400'"
+                                  x-text="signalActive ? 'Active' : 'Waiting'"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="signal-display" hx-get="/htmx/signal-card/{{ index_name }}" hx-trigger="load, every 10s" class="p-5">
+                    <div class="text-center py-8">
+                        <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-3 animate-spin text-surface-600"></i>
+                        <p class="text-surface-500">Analyzing market...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommended Option -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Recommended Option</h3>
+                </div>
+
+                <div id="option-display" hx-get="/htmx/recommended-option/{{ index_name }}" hx-trigger="load, every 10s" class="p-5">
+                    <div class="text-center py-8">
+                        <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin text-surface-600"></i>
+                        <p class="text-sm text-surface-500">Loading option...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quality Score -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Signal Quality</h3>
+                <div id="quality-score" hx-get="/htmx/quality-breakdown/{{ index_name }}" hx-trigger="load, every 30s">
+                    <div class="text-center py-4">
+                        <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-surface-800 flex items-center justify-center">
+                            <span class="text-2xl font-bold text-surface-500">--</span>
+                        </div>
+                        <p class="text-sm text-surface-500">Calculating...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column - Indicators -->
+        <div class="space-y-6">
+
+            <!-- Trend Indicators -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Trend Analysis</h3>
+                </div>
+                <div id="trend-indicators" hx-get="/htmx/trend-indicators/{{ index_name }}" hx-trigger="load, every 15s" class="p-5 space-y-4">
+                    {% include 'partials/trend_indicators.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Momentum Indicators -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Momentum</h3>
+                </div>
+                <div id="momentum-indicators" hx-get="/htmx/momentum-indicators/{{ index_name }}" hx-trigger="load, every 15s" class="p-5 space-y-4">
+                    {% include 'partials/momentum_indicators.html' ignore missing %}
+                </div>
+            </div>
+
+            <!-- Support/Resistance -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Key Levels</h3>
+                </div>
+                <div id="key-levels" hx-get="/htmx/key-levels/{{ index_name }}" hx-trigger="load, every 60s" class="p-5">
+                    {% include 'partials/key_levels.html' ignore missing %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Actions & Chain -->
+        <div class="space-y-6">
+
+            <!-- Trade Actions -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Quick Actions</h3>
+                <div class="space-y-3">
+                    <button
+                        @click="openTrade('CE')"
+                        class="w-full btn-success py-3 text-base"
+                        :disabled="!signalActive || signalType !== 'CE'"
+                    >
+                        <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        Buy CE Option
+                    </button>
+                    <button
+                        @click="openTrade('PE')"
+                        class="w-full btn-danger py-3 text-base"
+                        :disabled="!signalActive || signalType !== 'PE'"
+                    >
+                        <i data-lucide="trending-down" class="w-5 h-5"></i>
+                        Buy PE Option
+                    </button>
+                    <hr class="border-surface-700">
+                    <button
+                        @click="paperTrade()"
+                        class="w-full btn-secondary py-2.5"
+                    >
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                        Paper Trade
+                    </button>
+                </div>
+            </div>
+
+            <!-- Near ATM Strikes -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Option Chain (ATM)</h3>
+                        <a href="/option-chain?index={{ index_name }}" class="text-xs text-primary-400 hover:text-primary-300">
+                            View Full
+                        </a>
+                    </div>
+                </div>
+                <div id="mini-chain" hx-get="/htmx/mini-chain/{{ index_name }}" hx-trigger="load, every 15s" class="divide-y divide-surface-800">
+                    <div class="p-4 text-center text-surface-500">
+                        <i data-lucide="loader-2" class="w-5 h-5 mx-auto mb-2 animate-spin"></i>
+                        <p class="text-xs">Loading chain...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Market Sentiment -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Market Sentiment</h3>
+                <div id="sentiment-panel" hx-get="/htmx/sentiment/{{ index_name }}" hx-trigger="load, every 30s" class="space-y-4">
+                    {% include 'partials/sentiment.html' ignore missing %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Signals -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+            <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-white">Recent {{ index_name }} Signals</h3>
+                <a href="/history?index={{ index_name }}" class="text-xs text-primary-400 hover:text-primary-300">
+                    View All History
+                </a>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Signal</th>
+                        <th>Strike</th>
+                        <th>Entry</th>
+                        <th>Target</th>
+                        <th>SL</th>
+                        <th>Score</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-signals" hx-get="/htmx/recent-signals/{{ index_name }}" hx-trigger="load, every 30s">
+                    <tr>
+                        <td colspan="8" class="text-center py-6 text-surface-500">
+                            Loading signals...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function indexTrading(indexName) {
+    return {
+        indexName: indexName,
+        tradingStyle: 'intraday',
+        loading: false,
+        signalActive: false,
+        signalType: null,
+
+        init() {
+            this.$watch('tradingStyle', () => this.refreshData());
+
+            // Listen for signal updates from HTMX
+            document.body.addEventListener('htmx:afterSwap', (event) => {
+                if (event.detail.target.id === 'signal-display') {
+                    this.parseSignal();
+                }
+            });
+        },
+
+        parseSignal() {
+            const signalEl = document.querySelector('#signal-display [data-signal-type]');
+            if (signalEl) {
+                this.signalType = signalEl.dataset.signalType;
+                this.signalActive = true;
+            }
+        },
+
+        refreshData() {
+            this.loading = true;
+            const style = this.tradingStyle;
+
+            htmx.ajax('GET', `/htmx/signal-card/${this.indexName}?style=${style}`, '#signal-display');
+            htmx.ajax('GET', `/htmx/recommended-option/${this.indexName}?style=${style}`, '#option-display');
+            htmx.ajax('GET', `/htmx/quality-breakdown/${this.indexName}?style=${style}`, '#quality-score');
+
+            setTimeout(() => this.loading = false, 1500);
+        },
+
+        openTrade(type) {
+            showToast(`Opening ${type} trade for ${this.indexName}...`, 'info');
+            // Implementation would call trading API
+        },
+
+        paperTrade() {
+            window.location.href = `/paper-trading?index=${this.indexName}&style=${this.tradingStyle}`;
+        }
+    }
+}
+</script>
+{% endblock %}

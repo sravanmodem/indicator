@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+
+{% block title %}Paper Trading{% endblock %}
+{% block page_title %}Paper Trading{% endblock %}
+{% block page_subtitle %}Practice trading with virtual capital{% endblock %}
+
+{% block content %}
+<div x-data="paperTrading()" class="space-y-6 animate-fade-in">
+
+    <!-- Account Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Virtual Capital</span>
+                <i data-lucide="wallet" class="w-4 h-4 text-primary-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" x-text="'₹' + formatNumber(account.capital)">₹10,00,000</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Available Balance</span>
+                <i data-lucide="credit-card" class="w-4 h-4 text-bullish-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-bullish-400" x-text="'₹' + formatNumber(account.available)">₹10,00,000</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Today's P&L</span>
+                <i data-lucide="trending-up" class="w-4 h-4" :class="account.today_pnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"></i>
+            </div>
+            <span class="text-2xl font-bold" :class="account.today_pnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                  x-text="(account.today_pnl >= 0 ? '+' : '') + '₹' + formatNumber(account.today_pnl)">₹0</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Win Rate</span>
+                <i data-lucide="target" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" x-text="account.win_rate + '%'">0%</span>
+        </div>
+
+        <div class="card p-5">
+            <div class="flex items-center justify-between mb-2">
+                <span class="data-label">Total Trades</span>
+                <i data-lucide="hash" class="w-4 h-4 text-surface-400"></i>
+            </div>
+            <span class="text-2xl font-bold text-white" x-text="account.total_trades">0</span>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Left: Open Position Form -->
+        <div class="space-y-6">
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <h3 class="font-semibold text-white">Open New Position</h3>
+                </div>
+
+                <div class="p-5 space-y-4">
+                    <!-- Index -->
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Index</label>
+                        <select x-model="newPosition.index" @change="updateStrikes()" class="input">
+                            <option value="NIFTY">NIFTY</option>
+                            <option value="BANKNIFTY">BANKNIFTY</option>
+                            <option value="SENSEX">SENSEX</option>
+                        </select>
+                    </div>
+
+                    <!-- Option Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Option Type</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button
+                                @click="newPosition.type = 'CE'"
+                                :class="newPosition.type === 'CE' ? 'bg-bullish-600 text-white border-bullish-500' : 'bg-surface-800 text-surface-300 border-surface-700'"
+                                class="py-3 rounded-lg border-2 font-medium transition-all"
+                            >
+                                <i data-lucide="trending-up" class="w-4 h-4 inline-block mr-1"></i>
+                                CE (Call)
+                            </button>
+                            <button
+                                @click="newPosition.type = 'PE'"
+                                :class="newPosition.type === 'PE' ? 'bg-bearish-600 text-white border-bearish-500' : 'bg-surface-800 text-surface-300 border-surface-700'"
+                                class="py-3 rounded-lg border-2 font-medium transition-all"
+                            >
+                                <i data-lucide="trending-down" class="w-4 h-4 inline-block mr-1"></i>
+                                PE (Put)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Strike Price -->
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Strike Price</label>
+                        <select x-model="newPosition.strike" class="input">
+                            <template x-for="strike in availableStrikes" :key="strike">
+                                <option :value="strike" x-text="strike"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <!-- Quantity -->
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Quantity (Lots)</label>
+                        <input type="number" x-model="newPosition.quantity" class="input" min="1" max="50" placeholder="1">
+                        <p class="mt-1 text-xs text-surface-500">
+                            Lot size: <span x-text="lotSizes[newPosition.index]"></span> |
+                            Total qty: <span x-text="newPosition.quantity * lotSizes[newPosition.index]"></span>
+                        </p>
+                    </div>
+
+                    <!-- Entry Price -->
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Entry Price</label>
+                        <div class="relative">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                            <input type="number" x-model="newPosition.entry" class="input pl-8" step="0.05" placeholder="150.00">
+                        </div>
+                    </div>
+
+                    <!-- Target & SL -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-surface-300 mb-2">Target</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                                <input type="number" x-model="newPosition.target" class="input pl-8" step="0.05">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-surface-300 mb-2">Stop Loss</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                                <input type="number" x-model="newPosition.stoploss" class="input pl-8" step="0.05">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        @click="openPosition()"
+                        class="w-full btn-primary py-3"
+                        :disabled="!canOpenPosition()"
+                    >
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        Open Position
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Trade from Signal -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Trade from Signal</h3>
+                <p class="text-sm text-surface-400 mb-4">Auto-populate from active signals</p>
+                <div id="quick-trade-signals" hx-get="/htmx/quick-trade-signals" hx-trigger="load" class="space-y-2">
+                    <!-- Signals will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Open Positions -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Open Positions</h3>
+                        <span class="badge-neutral" x-text="positions.length + ' active'"></span>
+                    </div>
+                </div>
+
+                <div class="divide-y divide-surface-800" x-show="positions.length > 0">
+                    <template x-for="position in positions" :key="position.id">
+                        <div class="p-4 hover:bg-surface-800/30 transition-colors">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="badge" :class="position.type === 'CE' ? 'badge-success' : 'badge-danger'"
+                                          x-text="position.type"></span>
+                                    <span class="font-semibold text-white" x-text="position.symbol"></span>
+                                </div>
+                                <button
+                                    @click="closePosition(position.id)"
+                                    class="btn-ghost text-xs text-surface-400 hover:text-bearish-400"
+                                >
+                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                    Close
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-5 gap-4 text-sm">
+                                <div>
+                                    <span class="data-label">Qty</span>
+                                    <p class="text-surface-200" x-text="position.quantity"></p>
+                                </div>
+                                <div>
+                                    <span class="data-label">Entry</span>
+                                    <p class="text-surface-200" x-text="'₹' + position.entry.toFixed(2)"></p>
+                                </div>
+                                <div>
+                                    <span class="data-label">LTP</span>
+                                    <p class="text-surface-200" x-text="'₹' + position.ltp.toFixed(2)"></p>
+                                </div>
+                                <div>
+                                    <span class="data-label">P&L</span>
+                                    <p :class="position.pnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                                       x-text="(position.pnl >= 0 ? '+' : '') + '₹' + position.pnl.toFixed(2)"></p>
+                                </div>
+                                <div>
+                                    <span class="data-label">P&L %</span>
+                                    <p :class="position.pnl_pct >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                                       x-text="(position.pnl_pct >= 0 ? '+' : '') + position.pnl_pct.toFixed(2) + '%'"></p>
+                                </div>
+                            </div>
+
+                            <!-- Progress to Target/SL -->
+                            <div class="mt-3">
+                                <div class="flex justify-between text-xs text-surface-500 mb-1">
+                                    <span x-text="'SL: ₹' + position.stoploss"></span>
+                                    <span x-text="'Target: ₹' + position.target"></span>
+                                </div>
+                                <div class="h-2 bg-surface-700 rounded-full overflow-hidden relative">
+                                    <div class="absolute left-0 h-full bg-bearish-600" style="width: 20%"></div>
+                                    <div class="absolute h-full bg-bullish-600"
+                                         :style="'left: 20%; width: ' + Math.max(0, Math.min(80, position.progress)) + '%'"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <div x-show="positions.length === 0" class="p-8 text-center text-surface-500">
+                    <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 text-surface-700"></i>
+                    <p>No open positions</p>
+                    <p class="text-xs mt-1">Open a position using the form on the left</p>
+                </div>
+            </div>
+
+            <!-- Closed Positions -->
+            <div class="card">
+                <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-semibold text-white">Recent Closed Positions</h3>
+                        <button @click="resetAccount()" class="btn-ghost text-xs text-surface-400 hover:text-bearish-400">
+                            <i data-lucide="refresh-ccw" class="w-3 h-3"></i>
+                            Reset Account
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="table-enterprise">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Type</th>
+                                <th>Qty</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>P&L</th>
+                                <th>Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="closed-positions" hx-get="/htmx/paper-closed-positions" hx-trigger="load">
+                            <tr>
+                                <td colspan="7" class="text-center py-6 text-surface-500">
+                                    Loading...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function paperTrading() {
+    return {
+        account: {
+            capital: 1000000,
+            available: 1000000,
+            today_pnl: 0,
+            win_rate: 0,
+            total_trades: 0
+        },
+        positions: [],
+        newPosition: {
+            index: 'NIFTY',
+            type: 'CE',
+            strike: 24800,
+            quantity: 1,
+            entry: 150,
+            target: 200,
+            stoploss: 120
+        },
+        lotSizes: {
+            'NIFTY': 25,
+            'BANKNIFTY': 15,
+            'SENSEX': 10
+        },
+        availableStrikes: [],
+
+        init() {
+            this.loadAccount();
+            this.loadPositions();
+            this.updateStrikes();
+        },
+
+        loadAccount() {
+            fetch('/api/paper-trading/account')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) this.account = data;
+                })
+                .catch(() => {});
+        },
+
+        loadPositions() {
+            fetch('/api/paper-trading/positions/open')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) this.positions = data;
+                })
+                .catch(() => {});
+        },
+
+        updateStrikes() {
+            // Generate ATM strikes based on index
+            const baseStrike = this.newPosition.index === 'NIFTY' ? 24800 :
+                              this.newPosition.index === 'BANKNIFTY' ? 52000 : 81500;
+            const step = this.newPosition.index === 'NIFTY' ? 50 :
+                        this.newPosition.index === 'BANKNIFTY' ? 100 : 100;
+
+            this.availableStrikes = [];
+            for (let i = -10; i <= 10; i++) {
+                this.availableStrikes.push(baseStrike + (i * step));
+            }
+            this.newPosition.strike = baseStrike;
+        },
+
+        canOpenPosition() {
+            return this.newPosition.strike &&
+                   this.newPosition.quantity > 0 &&
+                   this.newPosition.entry > 0 &&
+                   this.newPosition.target > 0 &&
+                   this.newPosition.stoploss > 0;
+        },
+
+        formatNumber(num) {
+            return new Intl.NumberFormat('en-IN').format(num);
+        },
+
+        openPosition() {
+            const position = {
+                index: this.newPosition.index,
+                option_type: this.newPosition.type,
+                strike: this.newPosition.strike,
+                quantity: this.newPosition.quantity * this.lotSizes[this.newPosition.index],
+                entry_price: this.newPosition.entry,
+                target: this.newPosition.target,
+                stoploss: this.newPosition.stoploss
+            };
+
+            fetch('/api/paper-trading/open-position', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(position)
+            })
+            .then(r => r.json())
+            .then(data => {
+                showToast('Position opened successfully!', 'success');
+                this.loadPositions();
+                this.loadAccount();
+            })
+            .catch(() => {
+                showToast('Failed to open position', 'error');
+            });
+        },
+
+        closePosition(id) {
+            if (!confirm('Close this position?')) return;
+
+            fetch(`/api/paper-trading/close-position/${id}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    showToast('Position closed!', 'success');
+                    this.loadPositions();
+                    this.loadAccount();
+                    htmx.ajax('GET', '/htmx/paper-closed-positions', '#closed-positions');
+                })
+                .catch(() => {
+                    showToast('Failed to close position', 'error');
+                });
+        },
+
+        resetAccount() {
+            if (!confirm('Reset paper trading account? All positions and history will be cleared.')) return;
+
+            fetch('/api/paper-trading/reset-account', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    showToast('Account reset!', 'success');
+                    this.loadAccount();
+                    this.positions = [];
+                    htmx.ajax('GET', '/htmx/paper-closed-positions', '#closed-positions');
+                })
+                .catch(() => {
+                    showToast('Failed to reset account', 'error');
+                });
+        }
+    }
+}
+</script>
+{% endblock %}

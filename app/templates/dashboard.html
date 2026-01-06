@@ -1,273 +1,344 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Options Indicator{% endblock %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Real-time market overview and signals{% endblock %}
 
 {% block content %}
-<div x-data="{ activeTab: 'nifty', tradingStyle: 'intraday' }">
-    <!-- Header Row - Mobile Optimized -->
-    <div class="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <!-- Top Row: Index Tabs + WebSocket Status -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <!-- Index Tabs - Responsive -->
-            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 overflow-x-auto">
-                <button @click="activeTab = 'nifty'; switchTab('nifty')"
-                        :class="activeTab === 'nifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    NIFTY
-                </button>
-                <button @click="activeTab = 'banknifty'; switchTab('banknifty')"
-                        :class="activeTab === 'banknifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    BANK NIFTY
-                </button>
-                <button @click="activeTab = 'sensex'; switchTab('sensex')"
-                        :class="activeTab === 'sensex' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    SENSEX
-                </button>
-            </div>
-            <!-- WebSocket Status - Hidden on Mobile -->
-            <div id="ws-status" class="hidden sm:block"
-                 hx-get="/htmx/ws-status"
-                 hx-trigger="load, every 10s"
-                 hx-swap="innerHTML">
-            </div>
-        </div>
+<div class="space-y-6 animate-fade-in">
 
-        <!-- Trading Style - Full Width on Mobile -->
-        <div class="flex items-center space-x-3 sm:space-x-4">
-            <span class="text-slate-400 text-xs sm:text-sm font-medium whitespace-nowrap">Style:</span>
-            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 flex-1 sm:flex-none">
-                <button @click="tradingStyle = 'scalping'; switchStyle('scalping')"
-                        :class="tradingStyle === 'scalping' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Scalping
-                </button>
-                <button @click="tradingStyle = 'intraday'; switchStyle('intraday')"
-                        :class="tradingStyle === 'intraday' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Intraday
-                </button>
-                <button @click="tradingStyle = 'swing'; switchStyle('swing')"
-                        :class="tradingStyle === 'swing' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Swing
-                </button>
-            </div>
+    <!-- Hero Stats Row - Dynamic -->
+    <div id="hero-stats"
+         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+         hx-get="/htmx/hero-stats"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+        <!-- Loading state -->
+        <div class="card p-5 animate-pulse">
+            <div class="h-4 bg-surface-700 rounded w-24 mb-3"></div>
+            <div class="h-8 bg-surface-700 rounded w-32 mb-2"></div>
+            <div class="h-3 bg-surface-800 rounded w-20"></div>
+        </div>
+        <div class="card p-5 animate-pulse">
+            <div class="h-4 bg-surface-700 rounded w-24 mb-3"></div>
+            <div class="h-8 bg-surface-700 rounded w-32 mb-2"></div>
+            <div class="h-3 bg-surface-800 rounded w-20"></div>
+        </div>
+        <div class="card p-5 animate-pulse">
+            <div class="h-4 bg-surface-700 rounded w-24 mb-3"></div>
+            <div class="h-8 bg-surface-700 rounded w-32 mb-2"></div>
+            <div class="h-3 bg-surface-800 rounded w-20"></div>
+        </div>
+        <div class="card p-5 animate-pulse">
+            <div class="h-4 bg-surface-700 rounded w-24 mb-3"></div>
+            <div class="h-8 bg-surface-700 rounded w-32 mb-2"></div>
+            <div class="h-3 bg-surface-800 rounded w-20"></div>
         </div>
     </div>
 
-    <!-- Signal Card - Top on Mobile/Tablet, Left on Desktop -->
-    <div class="xl:hidden mb-4 sm:mb-6">
-        <div id="signal-card-mobile"
-             hx-get="/htmx/signal-card/nifty?style=intraday"
-             hx-trigger="load"
-             hx-swap="innerHTML transition:true">
-            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-            </div>
-        </div>
-    </div>
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-    <!-- Main Grid - Mobile Optimized -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Left Column - Signal Card (Desktop Only) & Quick Actions -->
-        <div class="xl:col-span-1 space-y-4 sm:space-y-6">
-            <!-- Primary Signal Card - Desktop Only -->
-            <div id="signal-card" class="hidden xl:block"
-                 hx-get="/htmx/signal-card/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+        <!-- Left Column - Market Cards -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Index Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- NIFTY Card -->
+                <a href="/nifty" class="card-interactive p-5 group">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 rounded-xl bg-bullish-500/10 group-hover:bg-bullish-500/20 transition-colors">
+                                <i data-lucide="trending-up" class="w-5 h-5 text-bullish-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white">NIFTY 50</h3>
+                                <p class="text-xs text-surface-500">NSE Index</p>
+                            </div>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-surface-500 group-hover:text-primary-400 group-hover:translate-x-1 transition-all"></i>
+                    </div>
+                    <div id="nifty-price" hx-get="/htmx/index-price/NIFTY" hx-trigger="load, every 5s" class="space-y-2">
+                        <!-- Loading state -->
+                        <div class="flex items-baseline gap-2 animate-pulse">
+                            <div class="h-6 bg-surface-700 rounded w-24"></div>
+                            <div class="h-4 bg-surface-700 rounded w-20"></div>
+                        </div>
+                        <div class="flex items-center gap-2 animate-pulse">
+                            <div class="h-5 bg-surface-700 rounded w-16"></div>
+                            <div class="h-4 bg-surface-700 rounded w-12"></div>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- BANKNIFTY Card -->
+                <a href="/banknifty" class="card-interactive p-5 group">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 rounded-xl bg-primary-500/10 group-hover:bg-primary-500/20 transition-colors">
+                                <i data-lucide="landmark" class="w-5 h-5 text-primary-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white">BANKNIFTY</h3>
+                                <p class="text-xs text-surface-500">NSE Banking</p>
+                            </div>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-surface-500 group-hover:text-primary-400 group-hover:translate-x-1 transition-all"></i>
+                    </div>
+                    <div id="banknifty-price" hx-get="/htmx/index-price/BANKNIFTY" hx-trigger="load, every 5s" class="space-y-2">
+                        <!-- Loading state -->
+                        <div class="flex items-baseline gap-2 animate-pulse">
+                            <div class="h-6 bg-surface-700 rounded w-24"></div>
+                            <div class="h-4 bg-surface-700 rounded w-20"></div>
+                        </div>
+                        <div class="flex items-center gap-2 animate-pulse">
+                            <div class="h-5 bg-surface-700 rounded w-16"></div>
+                            <div class="h-4 bg-surface-700 rounded w-12"></div>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- SENSEX Card -->
+                <a href="/sensex" class="card-interactive p-5 group">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2.5 rounded-xl bg-amber-500/10 group-hover:bg-amber-500/20 transition-colors">
+                                <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-semibold text-white">SENSEX</h3>
+                                <p class="text-xs text-surface-500">BSE Index</p>
+                            </div>
+                        </div>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-surface-500 group-hover:text-primary-400 group-hover:translate-x-1 transition-all"></i>
+                    </div>
+                    <div id="sensex-price" hx-get="/htmx/index-price/SENSEX" hx-trigger="load, every 5s" class="space-y-2">
+                        <!-- Loading state -->
+                        <div class="flex items-baseline gap-2 animate-pulse">
+                            <div class="h-6 bg-surface-700 rounded w-24"></div>
+                            <div class="h-4 bg-surface-700 rounded w-20"></div>
+                        </div>
+                        <div class="flex items-center gap-2 animate-pulse">
+                            <div class="h-5 bg-surface-700 rounded w-16"></div>
+                            <div class="h-4 bg-surface-700 rounded w-12"></div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Live Signals Section -->
+            <div class="card">
+                <div class="flex items-center justify-between p-5 border-b border-surface-800">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-primary-500/10">
+                            <i data-lucide="radio" class="w-5 h-5 text-primary-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-white">Live Trading Signals</h2>
+                            <p class="text-xs text-surface-500">High-quality signals (Score 70+)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <select class="input-sm w-32" id="signal-filter">
+                            <option value="all">All Signals</option>
+                            <option value="ce">CE Only</option>
+                            <option value="pe">PE Only</option>
+                        </select>
+                        <button class="btn-ghost p-2" onclick="location.reload()">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Quick Actions - Responsive -->
-            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                <h3 class="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Quick Actions</h3>
-                <div class="grid grid-cols-2 gap-2 sm:gap-3">
-                    <button onclick="refreshSignal()"
-                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        <span class="text-xs sm:text-sm">Refresh</span>
-                    </button>
-                    <button onclick="connectWS()"
-                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        <span class="text-xs sm:text-sm">Connect WS</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Center Column - Indicators & Option Chain -->
-        <div class="xl:col-span-2 space-y-4 sm:space-y-6">
-            <!-- Indicator Panel -->
-            <div id="indicator-panel"
-                 hx-get="/htmx/indicator-panel/nifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl col-span-2 sm:col-span-1"></div>
+                <div id="live-signals" hx-get="/htmx/live-signals" hx-trigger="load, every 10s" class="divide-y divide-surface-800">
+                    <!-- Signal items will be loaded here -->
+                    <div class="p-8 text-center text-surface-500">
+                        <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-3 animate-spin text-surface-600"></i>
+                        <p>Loading signals...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Recommended Option Card with Greeks -->
-            <div id="recommended-option"
-                 hx-get="/htmx/recommended-option/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+            <!-- Recent Trades Table -->
+            <div class="card">
+                <div class="flex items-center justify-between p-5 border-b border-surface-800">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-surface-700">
+                            <i data-lucide="history" class="w-5 h-5 text-surface-400"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-semibold text-white">Recent Signal History</h2>
+                            <p class="text-xs text-surface-500">Last 10 signals and outcomes</p>
+                        </div>
+                    </div>
+                    <a href="/history" class="btn-ghost text-xs">
+                        View All
+                        <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                    </a>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="table-enterprise">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Index</th>
+                                <th>Signal</th>
+                                <th>Strike</th>
+                                <th>Entry</th>
+                                <th>Target</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-trades" hx-get="/htmx/recent-signals" hx-trigger="load, every 30s">
+                            <tr>
+                                <td colspan="8" class="text-center py-8 text-surface-500">
+                                    <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
+                                    Loading history...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Sidebar Widgets -->
+        <div class="space-y-6">
+
+            <!-- Quick Actions -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <a href="/terminal" class="btn-secondary justify-center">
+                        <i data-lucide="monitor" class="w-4 h-4"></i>
+                        Terminal
+                    </a>
+                    <a href="/paper-trading" class="btn-secondary justify-center">
+                        <i data-lucide="file-text" class="w-4 h-4"></i>
+                        Paper Trade
+                    </a>
+                    <a href="/option-chain" class="btn-secondary justify-center">
+                        <i data-lucide="table-2" class="w-4 h-4"></i>
+                        Chain
+                    </a>
+                    <a href="/settings" class="btn-secondary justify-center">
+                        <i data-lucide="settings" class="w-4 h-4"></i>
+                        Settings
+                    </a>
                 </div>
             </div>
 
-            <!-- Option Chain Table -->
-            <div id="option-chain"
-                 hx-get="/htmx/option-chain-table/nifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+            <!-- Market Sentiment -->
+            <div class="card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-white">Market Sentiment</h3>
+                </div>
+                <div id="market-sentiment" hx-get="/htmx/market-sentiment" hx-trigger="load, every 60s" class="space-y-4">
+                    <!-- Loading state -->
+                    <div class="space-y-4 animate-pulse">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <div class="h-3 bg-surface-700 rounded w-20"></div>
+                                <div class="h-3 bg-surface-700 rounded w-10"></div>
+                            </div>
+                            <div class="h-2 bg-surface-800 rounded-full"></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <div class="h-3 bg-surface-700 rounded w-16"></div>
+                                <div class="h-3 bg-surface-700 rounded w-12"></div>
+                            </div>
+                            <div class="h-2 bg-surface-800 rounded-full"></div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <div class="h-3 bg-surface-700 rounded w-24"></div>
+                                <div class="h-3 bg-surface-700 rounded w-14"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Bottom Row - Additional Info -->
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Trading Rules Reminder -->
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">CE Entry Rules</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Price above VWAP</li>
-                <li>- SuperTrend green</li>
-                <li>- RSI > 50</li>
-                <li>- ADX > 25</li>
-            </ul>
-        </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">PE Entry Rules</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Price below VWAP</li>
-                <li>- SuperTrend red</li>
-                <li>- RSI < 50</li>
-                <li>- ADX > 25</li>
-            </ul>
-        </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">Avoid Trading When</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- First 15 mins</li>
-                <li>- Last 30 mins</li>
-                <li>- ADX < 20</li>
-                <li>- VIX > 25</li>
-            </ul>
-        </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">Risk Management</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Max 1-2% per trade</li>
-                <li>- 1:2 Risk-Reward min</li>
-                <li>- Max 3 trades/day</li>
-                <li>- 3% daily loss limit</li>
-            </ul>
+            <!-- Technical Indicators Summary -->
+            <div class="card p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold text-white">Indicators</h3>
+                    <select class="input-sm w-24" id="indicator-index">
+                        <option value="NIFTY">NIFTY</option>
+                        <option value="BANKNIFTY">BANKNIFTY</option>
+                        <option value="SENSEX">SENSEX</option>
+                    </select>
+                </div>
+                <div id="indicator-summary" hx-get="/htmx/indicator-summary/NIFTY" hx-trigger="load, every 30s" class="space-y-3">
+                    <!-- Loading state -->
+                    <div class="space-y-3 animate-pulse">
+                        <div class="flex items-center justify-between py-2 border-b border-surface-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-surface-600"></div>
+                                <div class="h-4 bg-surface-700 rounded w-20"></div>
+                            </div>
+                            <div class="h-4 bg-surface-700 rounded w-10"></div>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-surface-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-surface-600"></div>
+                                <div class="h-4 bg-surface-700 rounded w-16"></div>
+                            </div>
+                            <div class="h-4 bg-surface-700 rounded w-10"></div>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-surface-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-surface-600"></div>
+                                <div class="h-4 bg-surface-700 rounded w-14"></div>
+                            </div>
+                            <div class="h-4 bg-surface-700 rounded w-8"></div>
+                        </div>
+                        <div class="flex items-center justify-between py-2 border-b border-surface-800">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-surface-600"></div>
+                                <div class="h-4 bg-surface-700 rounded w-12"></div>
+                            </div>
+                            <div class="h-4 bg-surface-700 rounded w-10"></div>
+                        </div>
+                        <div class="flex items-center justify-between py-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-surface-600"></div>
+                                <div class="h-4 bg-surface-700 rounded w-10"></div>
+                            </div>
+                            <div class="h-4 bg-surface-700 rounded w-16"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Stats - Dynamic 30-Day Statistics -->
+            <div class="card p-5">
+                <h3 class="font-semibold text-white mb-4">30-Day Statistics</h3>
+                <div id="trading-stats-30d"
+                     hx-get="/htmx/trading-stats-30d"
+                     hx-trigger="load, every 60s"
+                     hx-swap="innerHTML">
+                    <!-- Loading state -->
+                    <div class="text-center py-4">
+                        <div class="animate-spin w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+                        <p class="text-xs text-surface-500 mt-2">Loading statistics...</p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Current tab state for polling
-    let currentTab = 'nifty';
-    let currentStyle = 'intraday';
-
-    function switchTab(tab) {
-        currentTab = tab;
-        // Use htmx.ajax to directly fetch with correct URLs
-        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/indicator-panel/' + tab, {target: '#indicator-panel', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/recommended-option/' + tab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/option-chain-table/' + tab, {target: '#option-chain', swap: 'innerHTML'});
-    }
-
-    function switchStyle(style) {
-        currentStyle = style;
-        // Signal card and recommended option use style parameter
-        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card-mobile', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + style, {target: '#recommended-option', swap: 'innerHTML'});
-    }
-
-    async function refreshSignal() {
-        switchTab(currentTab);
-    }
-
-    async function connectWS() {
-        try {
-            const response = await fetch('/market/ws/connect', { method: 'POST' });
-            const data = await response.json();
-            if (data.success) {
-                showToast('WebSocket connected!', 'success');
-            } else {
-                showToast('Connection failed', 'error');
-            }
-        } catch (e) {
-            showToast('Connection error: ' + e.message, 'error');
-        }
-    }
-
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const colors = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            warning: 'bg-yellow-500',
-            info: 'bg-blue-500'
-        };
-
-        const toast = document.createElement('div');
-        toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
-        toast.textContent = message;
-
-        container.appendChild(toast);
-
-        // Animate in
-        setTimeout(() => toast.classList.remove('translate-x-full'), 10);
-
-        // Remove after 3s
-        setTimeout(() => {
-            toast.classList.add('translate-x-full');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-
-    // Setup polling with current tab
-    document.addEventListener('DOMContentLoaded', () => {
-        // Poll signal card, indicator panel and recommended option every second
-        setInterval(() => {
-            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/indicator-panel/' + currentTab, {target: '#indicator-panel', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
-        }, 1000);
-
-        // Poll option chain every 30 seconds
-        setInterval(() => {
-            htmx.ajax('GET', '/htmx/option-chain-table/' + currentTab, {target: '#option-chain', swap: 'innerHTML'});
-        }, 30000);
+    // Index selector for indicators
+    document.getElementById('indicator-index')?.addEventListener('change', function(e) {
+        const index = e.target.value;
+        htmx.ajax('GET', `/htmx/indicator-summary/${index}`, '#indicator-summary');
     });
 </script>
 {% endblock %}

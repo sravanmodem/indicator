@@ -136,6 +136,33 @@ async def get_instruments(
     }
 
 
+@router.get("/lot-sizes")
+async def get_lot_sizes():
+    """
+    Get current lot sizes for all indices from Kite instruments data.
+
+    Returns:
+        Dictionary with lot sizes for NIFTY, BANKNIFTY, and SENSEX
+    """
+    require_auth()
+    fetcher = get_data_fetcher()
+
+    try:
+        nifty_lot = await fetcher.get_index_lot_size("NIFTY")
+        banknifty_lot = await fetcher.get_index_lot_size("BANKNIFTY")
+        sensex_lot = await fetcher.get_index_lot_size("SENSEX")
+
+        return {
+            "NIFTY": nifty_lot,
+            "BANKNIFTY": banknifty_lot,
+            "SENSEX": sensex_lot,
+            "updated_at": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch lot sizes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch lot sizes: {str(e)}")
+
+
 @router.get("/nifty-options")
 async def get_nifty_options(
     min_strike: int = Query(default=None),

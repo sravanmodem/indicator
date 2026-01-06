@@ -1,0 +1,121 @@
+{% if quality %}
+<div class="space-y-4">
+    <!-- Total Score -->
+    <div class="text-center mb-4">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full
+            {% if quality.total >= 80 %}bg-bullish-500/20 border-4 border-bullish-500
+            {% elif quality.total >= 70 %}bg-primary-500/20 border-4 border-primary-500
+            {% elif quality.total >= 60 %}bg-amber-500/20 border-4 border-amber-500
+            {% else %}bg-surface-700 border-4 border-surface-600{% endif %}">
+            <span class="text-2xl font-bold
+                {% if quality.total >= 80 %}text-bullish-400
+                {% elif quality.total >= 70 %}text-primary-400
+                {% elif quality.total >= 60 %}text-amber-400
+                {% else %}text-surface-400{% endif %}">
+                {{ quality.total|round|int }}
+            </span>
+        </div>
+        <p class="text-sm text-surface-400 mt-2">
+            {% if quality.total >= 80 %}Excellent Quality
+            {% elif quality.total >= 70 %}High Quality
+            {% elif quality.total >= 60 %}Above Average
+            {% elif quality.total >= 50 %}Moderate Quality
+            {% else %}Low Quality{% endif %}
+        </p>
+    </div>
+
+    <!-- Factor Breakdown -->
+    <div class="space-y-3">
+        <!-- Trend Strength -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">Trend Strength</span>
+                <span class="text-surface-300">{{ quality.trend|default(0)|round|int }}/30</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-primary-500 transition-all" style="width: {{ (quality.trend / 30 * 100)|round }}%"></div>
+            </div>
+        </div>
+
+        <!-- Momentum -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">Momentum</span>
+                <span class="text-surface-300">{{ quality.momentum|default(0)|round|int }}/20</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-500 transition-all" style="width: {{ (quality.momentum / 20 * 100)|round }}%"></div>
+            </div>
+        </div>
+
+        <!-- Volume -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">Volume Analysis</span>
+                <span class="text-surface-300">{{ quality.volume|default(0)|round|int }}/15</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-bullish-500 transition-all" style="width: {{ (quality.volume / 15 * 100)|round }}%"></div>
+            </div>
+        </div>
+
+        <!-- Greeks -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">Greeks Quality</span>
+                <span class="text-surface-300">{{ quality.greeks|default(0)|round|int }}/20</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-primary-400 transition-all" style="width: {{ (quality.greeks / 20 * 100)|round }}%"></div>
+            </div>
+        </div>
+
+        <!-- PCR -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">PCR Alignment</span>
+                <span class="text-surface-300">{{ quality.pcr|default(0)|round|int }}/10</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-surface-400 transition-all" style="width: {{ (quality.pcr / 10 * 100)|round }}%"></div>
+            </div>
+        </div>
+
+        <!-- Risk/Reward -->
+        <div>
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-surface-400">Risk/Reward</span>
+                <span class="text-surface-300">{{ quality.rr|default(0)|round|int }}/5</span>
+            </div>
+            <div class="h-2 bg-surface-700 rounded-full overflow-hidden">
+                <div class="h-full bg-bearish-500 transition-all" style="width: {{ (quality.rr / 5 * 100)|round }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warnings -->
+    {% if quality.warnings %}
+    <div class="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+        <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-400"></i>
+            <span class="text-xs font-medium text-amber-400 uppercase">Warnings</span>
+        </div>
+        <ul class="text-xs text-surface-400 space-y-1">
+            {% for warning in quality.warnings %}
+            <li class="flex items-start gap-1">
+                <span class="text-amber-400">•</span>
+                {{ warning }}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="text-center py-6">
+    <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-surface-800 flex items-center justify-center">
+        <span class="text-2xl font-bold text-surface-600">--</span>
+    </div>
+    <p class="text-sm text-surface-500">No quality data</p>
+</div>
+{% endif %}

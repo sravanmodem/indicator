@@ -12,7 +12,20 @@
       "Bash(taskkill:*)",
       "Bash(tasklist:*)",
       "Bash(cmd /c \"taskkill /F /IM python.exe\")",
-      "Bash(powershell -Command \"Stop-Process -Name python -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Name python -Force\")",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix Render deployment: bind to 0.0.0.0 instead of localhost\n\n- Update app_host default from 127.0.0.1 to 0.0.0.0 in config.py\n- Add render.yaml with proper port binding configuration\n- Allows Render to detect open ports and successfully deploy\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(git checkout:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd prominent option recommendation card below indicators\n\n✨ New UI Layout:\n- Created dedicated recommended_option.html partial template\n- Positioned option card prominently below technical indicators\n- Full-width display with large typography and clear visual hierarchy\n\n🎨 Enhanced Design:\n- Massive premium display with color coding \\(green CE/red PE\\)\n- Two-column layout for Greeks and Expected Prices\n- Beautiful gradient cards with proper borders and shadows\n- Icon-enhanced section headers\n- Comprehensive liquidity metrics \\(Bid/Ask/OI/Volume\\)\n\n⚡ Greeks Display:\n- Delta with percentage badge\n- Gamma with delta change rate\n- Theta with daily decay amount\n- Vega with IV sensitivity\n\n📊 Expected Prices Section:\n- At Target price with profit amount\n- At Stop Loss price with loss amount\n- Tomorrow''s price after theta decay\n- Option-level Risk:Reward ratio\n\n🔄 Dynamic Updates:\n- Added new /htmx/recommended-option endpoint\n- Auto-refresh every second with signal updates\n- Responds to index tab switching \\(NIFTY/BANKNIFTY/SENSEX\\)\n- Responds to trading style changes \\(Scalping/Intraday/Swing\\)\n\n💡 User requested: Display option card below technical indicators\n   for better visibility and prominence\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(dir:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)"
     ]
   }
 }

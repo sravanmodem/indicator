@@ -69,6 +69,44 @@ class DataFetcher:
             logger.error(f"Failed to fetch instruments: {e}")
             return pd.DataFrame()
 
+    async def get_index_lot_size(self, index: str = "NIFTY") -> int:
+        """
+        Get the actual lot size for an index from Kite instruments data.
+
+        Args:
+            index: NIFTY, BANKNIFTY, or SENSEX
+
+        Returns:
+            Lot size as integer
+        """
+        try:
+            exchange = "BFO" if index == "SENSEX" else "NFO"
+            instruments = await self.fetch_instruments(exchange)
+            if instruments.empty:
+                # Return default values if fetch fails
+                defaults = {"NIFTY": 25, "BANKNIFTY": 15, "SENSEX": 10}
+                return defaults.get(index, 25)
+
+            # Filter for the index options
+            index_opts = instruments[
+                (instruments["name"] == index)
+                & (instruments["instrument_type"].isin(["CE", "PE"]))
+            ]
+
+            if index_opts.empty:
+                defaults = {"NIFTY": 25, "BANKNIFTY": 15, "SENSEX": 10}
+                return defaults.get(index, 25)
+
+            # Get lot size from first matching instrument
+            lot_size = index_opts.iloc[0]["lot_size"]
+            logger.info(f"{index} lot size from Kite: {lot_size}")
+            return int(lot_size)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch lot size for {index}: {e}")
+            defaults = {"NIFTY": 25, "BANKNIFTY": 15, "SENSEX": 10}
+            return defaults.get(index, 25)
+
     async def get_nifty_options(
         self,
         expiry_date: datetime | None = None,

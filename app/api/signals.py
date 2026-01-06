@@ -285,3 +285,38 @@ async def get_indicators(
             },
         },
     }
+
+
+@router.get("/stats")
+async def get_signal_statistics():
+    """
+    Get signal statistics for the history page.
+
+    Returns summary stats for total signals, win rate, etc.
+    """
+    from app.services.signal_history_service import get_history_service
+
+    try:
+        history_service = get_history_service()
+        stats = history_service.get_statistics(days=30)
+
+        return {
+            "total": stats.get("total_signals", 0),
+            "win_rate": stats.get("win_rate", 0),
+            "avg_score": stats.get("avg_quality_score", 0),
+            "target_hit": stats.get("target_hit", 0),
+            "sl_hit": stats.get("stop_loss_hit", 0),
+            "pending": stats.get("pending", 0),
+            "total_pnl": stats.get("total_pnl", 0),
+        }
+    except Exception as e:
+        logger.error(f"Error getting signal stats: {e}")
+        return {
+            "total": 0,
+            "win_rate": 0,
+            "avg_score": 0,
+            "target_hit": 0,
+            "sl_hit": 0,
+            "pending": 0,
+            "total_pnl": 0,
+        }

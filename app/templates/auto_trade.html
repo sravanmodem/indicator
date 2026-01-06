@@ -1,0 +1,654 @@
+{% extends "base.html" %}
+
+{% block title %}Auto Trading{% endblock %}
+{% block page_title %}Automated Trading{% endblock %}
+{% block page_subtitle %}Multi-index auto-execution with risk management{% endblock %}
+
+{% block content %}
+<div x-data="autoTrading()" class="space-y-6 animate-fade-in">
+
+    <!-- Master Control Panel -->
+    <div class="card p-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="p-3 rounded-xl" :class="masterEnabled ? 'bg-bullish-500/20' : 'bg-surface-700'">
+                    <i data-lucide="bot" class="w-8 h-8" :class="masterEnabled ? 'text-bullish-400' : 'text-surface-400'"></i>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-white">Auto Trading System</h2>
+                    <p class="text-sm text-surface-400">
+                        Status: <span :class="masterEnabled ? 'text-bullish-400' : 'text-surface-400'" x-text="masterEnabled ? 'ACTIVE' : 'STOPPED'"></span>
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <!-- Master Toggle -->
+                <button
+                    @click="toggleMaster()"
+                    class="relative inline-flex h-12 w-24 items-center rounded-full transition-colors"
+                    :class="masterEnabled ? 'bg-bullish-600' : 'bg-surface-700'"
+                >
+                    <span class="absolute left-2 text-xs font-bold text-white" x-show="masterEnabled">ON</span>
+                    <span class="absolute right-2 text-xs font-bold text-surface-400" x-show="!masterEnabled">OFF</span>
+                    <span
+                        class="inline-block h-10 w-10 transform rounded-full bg-white shadow-lg transition-transform"
+                        :class="masterEnabled ? 'translate-x-12' : 'translate-x-1'"
+                    ></span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-surface-800">
+            <div class="text-center">
+                <p class="data-label mb-1">Total Capital</p>
+                <p class="text-xl font-bold text-white">₹7,50,000</p>
+                <p class="text-xs text-surface-500">₹2.5L × 3 indices</p>
+            </div>
+            <div class="text-center">
+                <p class="data-label mb-1">Today's P&L</p>
+                <p class="text-xl font-bold" :class="todayPnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                   x-text="(todayPnl >= 0 ? '+' : '') + '₹' + formatNumber(todayPnl)">₹0</p>
+            </div>
+            <div class="text-center">
+                <p class="data-label mb-1">Active Trades</p>
+                <p class="text-xl font-bold text-white" x-text="activeTrades">0</p>
+            </div>
+            <div class="text-center">
+                <p class="data-label mb-1">Signals Today</p>
+                <p class="text-xl font-bold text-primary-400" x-text="signalsToday">0</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Index-wise Configuration -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- NIFTY Configuration -->
+        <div class="card" :class="indices.NIFTY.enabled ? 'border-bullish-500/50' : ''">
+            <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-bullish-500/10">
+                            <i data-lucide="trending-up" class="w-5 h-5 text-bullish-400"></i>
+                        </div>
+                        <h3 class="font-semibold text-white">NIFTY 50</h3>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="indices.NIFTY.enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-bullish-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <!-- Capital -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Allocated Capital</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                        <input type="number" x-model="indices.NIFTY.capital" class="input pl-8" placeholder="250000">
+                    </div>
+                </div>
+
+                <!-- Max Daily Loss -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Daily Loss</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.NIFTY.maxDailyLoss" class="input pr-8" placeholder="20">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-bearish-400">
+                        Stop at ₹<span x-text="formatNumber(indices.NIFTY.capital * indices.NIFTY.maxDailyLoss / 100)"></span> loss
+                    </p>
+                </div>
+
+                <!-- Max Loss Per Trade -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Loss Per Trade</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.NIFTY.maxLossPerTrade" class="input pr-8" placeholder="10">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">
+                        Risk ₹<span x-text="formatNumber(indices.NIFTY.capital * indices.NIFTY.maxLossPerTrade / 100)"></span> per trade
+                    </p>
+                </div>
+
+                <!-- Fund Utilization -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Fund Utilization</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.NIFTY.fundUtilization" class="input pr-8" placeholder="100" min="10" max="100">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="pt-4 border-t border-surface-800">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Today's P&L</span>
+                        <span :class="indices.NIFTY.todayPnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                              x-text="(indices.NIFTY.todayPnl >= 0 ? '+' : '') + '₹' + formatNumber(indices.NIFTY.todayPnl)">₹0</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Trades Today</span>
+                        <span class="text-white" x-text="indices.NIFTY.trades">0</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-surface-400">Loss Used</span>
+                        <span class="text-white" x-text="indices.NIFTY.lossUsedPct.toFixed(1) + '%'">0%</span>
+                    </div>
+                    <div class="h-2 bg-surface-700 rounded-full mt-2 overflow-hidden">
+                        <div class="h-full bg-bearish-500 transition-all" :style="'width: ' + indices.NIFTY.lossUsedPct + '%'"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BANKNIFTY Configuration -->
+        <div class="card" :class="indices.BANKNIFTY.enabled ? 'border-primary-500/50' : ''">
+            <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-primary-500/10">
+                            <i data-lucide="landmark" class="w-5 h-5 text-primary-400"></i>
+                        </div>
+                        <h3 class="font-semibold text-white">BANKNIFTY</h3>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="indices.BANKNIFTY.enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <!-- Capital -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Allocated Capital</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                        <input type="number" x-model="indices.BANKNIFTY.capital" class="input pl-8" placeholder="250000">
+                    </div>
+                </div>
+
+                <!-- Max Daily Loss -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Daily Loss</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.BANKNIFTY.maxDailyLoss" class="input pr-8" placeholder="20">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-bearish-400">
+                        Stop at ₹<span x-text="formatNumber(indices.BANKNIFTY.capital * indices.BANKNIFTY.maxDailyLoss / 100)"></span> loss
+                    </p>
+                </div>
+
+                <!-- Max Loss Per Trade -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Loss Per Trade</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.BANKNIFTY.maxLossPerTrade" class="input pr-8" placeholder="10">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">
+                        Risk ₹<span x-text="formatNumber(indices.BANKNIFTY.capital * indices.BANKNIFTY.maxLossPerTrade / 100)"></span> per trade
+                    </p>
+                </div>
+
+                <!-- Fund Utilization -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Fund Utilization</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.BANKNIFTY.fundUtilization" class="input pr-8" placeholder="100" min="10" max="100">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="pt-4 border-t border-surface-800">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Today's P&L</span>
+                        <span :class="indices.BANKNIFTY.todayPnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                              x-text="(indices.BANKNIFTY.todayPnl >= 0 ? '+' : '') + '₹' + formatNumber(indices.BANKNIFTY.todayPnl)">₹0</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Trades Today</span>
+                        <span class="text-white" x-text="indices.BANKNIFTY.trades">0</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-surface-400">Loss Used</span>
+                        <span class="text-white" x-text="indices.BANKNIFTY.lossUsedPct.toFixed(1) + '%'">0%</span>
+                    </div>
+                    <div class="h-2 bg-surface-700 rounded-full mt-2 overflow-hidden">
+                        <div class="h-full bg-bearish-500 transition-all" :style="'width: ' + indices.BANKNIFTY.lossUsedPct + '%'"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SENSEX Configuration -->
+        <div class="card" :class="indices.SENSEX.enabled ? 'border-amber-500/50' : ''">
+            <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 rounded-lg bg-amber-500/10">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-400"></i>
+                        </div>
+                        <h3 class="font-semibold text-white">SENSEX</h3>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="indices.SENSEX.enabled" class="sr-only peer">
+                        <div class="w-11 h-6 bg-surface-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="p-5 space-y-4">
+                <!-- Capital -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Allocated Capital</label>
+                    <div class="relative">
+                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-surface-500">₹</span>
+                        <input type="number" x-model="indices.SENSEX.capital" class="input pl-8" placeholder="250000">
+                    </div>
+                </div>
+
+                <!-- Max Daily Loss -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Daily Loss</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.SENSEX.maxDailyLoss" class="input pr-8" placeholder="20">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-bearish-400">
+                        Stop at ₹<span x-text="formatNumber(indices.SENSEX.capital * indices.SENSEX.maxDailyLoss / 100)"></span> loss
+                    </p>
+                </div>
+
+                <!-- Max Loss Per Trade -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Max Loss Per Trade</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.SENSEX.maxLossPerTrade" class="input pr-8" placeholder="10">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                    <p class="mt-1 text-xs text-surface-500">
+                        Risk ₹<span x-text="formatNumber(indices.SENSEX.capital * indices.SENSEX.maxLossPerTrade / 100)"></span> per trade
+                    </p>
+                </div>
+
+                <!-- Fund Utilization -->
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Fund Utilization</label>
+                    <div class="relative">
+                        <input type="number" x-model="indices.SENSEX.fundUtilization" class="input pr-8" placeholder="100" min="10" max="100">
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-surface-500">%</span>
+                    </div>
+                </div>
+
+                <!-- Status -->
+                <div class="pt-4 border-t border-surface-800">
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Today's P&L</span>
+                        <span :class="indices.SENSEX.todayPnl >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
+                              x-text="(indices.SENSEX.todayPnl >= 0 ? '+' : '') + '₹' + formatNumber(indices.SENSEX.todayPnl)">₹0</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-surface-400">Trades Today</span>
+                        <span class="text-white" x-text="indices.SENSEX.trades">0</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-surface-400">Loss Used</span>
+                        <span class="text-white" x-text="indices.SENSEX.lossUsedPct.toFixed(1) + '%'">0%</span>
+                    </div>
+                    <div class="h-2 bg-surface-700 rounded-full mt-2 overflow-hidden">
+                        <div class="h-full bg-bearish-500 transition-all" :style="'width: ' + indices.SENSEX.lossUsedPct + '%'"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trading Rules & Signal Settings -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Signal Quality Settings -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Signal Quality Filter</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Minimum Quality Score</label>
+                    <select x-model="settings.minQuality" class="input">
+                        <option value="60">60+ (Above Average)</option>
+                        <option value="70">70+ (High Quality)</option>
+                        <option value="80">80+ (Premium Only)</option>
+                        <option value="90">90+ (Exceptional Only)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-surface-500">Only execute signals above this score</p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Trading Style</label>
+                    <select x-model="settings.tradingStyle" class="input">
+                        <option value="scalping">Scalping (Quick trades, tight SL)</option>
+                        <option value="intraday">Intraday (Within day closure)</option>
+                        <option value="swing">Swing (Multi-day positions)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-surface-300 mb-2">Signal Types</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" x-model="settings.tradeTypes" value="CE" class="w-4 h-4 rounded border-surface-600 text-bullish-600">
+                            <span class="text-sm text-surface-300">CE (Bullish)</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="checkbox" x-model="settings.tradeTypes" value="PE" class="w-4 h-4 rounded border-surface-600 text-bearish-600">
+                            <span class="text-sm text-surface-300">PE (Bearish)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trading Hours & Rules -->
+        <div class="card p-6">
+            <h3 class="text-lg font-semibold text-white mb-6">Trading Rules</h3>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">Start Time</label>
+                        <input type="time" x-model="settings.startTime" class="input" value="09:20">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-surface-300 mb-2">End Time</label>
+                        <input type="time" x-model="settings.endTime" class="input" value="15:15">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" x-model="settings.avoidExpiry" class="w-4 h-4 rounded border-surface-600 text-primary-600">
+                        <span class="text-sm text-surface-300">Avoid trading on expiry days</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" x-model="settings.closeEOD" class="w-4 h-4 rounded border-surface-600 text-primary-600">
+                        <span class="text-sm text-surface-300">Auto-close all positions at 3:20 PM</span>
+                    </label>
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" x-model="settings.trailingSL" class="w-4 h-4 rounded border-surface-600 text-primary-600">
+                        <span class="text-sm text-surface-300">Enable trailing stop loss</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Trade Log -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-800 bg-surface-800/30">
+            <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-white">Today's Auto Trades</h3>
+                <div class="flex items-center gap-2">
+                    <span class="status-dot" :class="masterEnabled ? 'status-online animate-pulse' : 'status-offline'"></span>
+                    <span class="text-xs text-surface-400" x-text="masterEnabled ? 'Monitoring...' : 'Paused'"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="table-enterprise">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Index</th>
+                        <th>Signal</th>
+                        <th>Strike</th>
+                        <th>Action</th>
+                        <th>Qty</th>
+                        <th>Entry</th>
+                        <th>LTP</th>
+                        <th>P&L</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="auto-trades-log" hx-get="/htmx/auto-trades-log" hx-trigger="load, every 10s">
+                    <tr>
+                        <td colspan="10" class="text-center py-8 text-surface-500">
+                            <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 text-surface-700"></i>
+                            <p>No auto trades today</p>
+                            <p class="text-xs mt-1">Trades will appear here when executed</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Risk Warning -->
+    <div class="card p-4 border-amber-500/30 bg-amber-500/5">
+        <div class="flex items-start gap-3">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0"></i>
+            <div>
+                <h4 class="font-medium text-amber-300 mb-1">Risk Warning</h4>
+                <p class="text-sm text-surface-400">
+                    Auto trading involves significant risk. With your current settings:
+                    <strong class="text-white">₹2,50,000 per index</strong>,
+                    <strong class="text-bearish-400">20% max daily loss (₹50,000)</strong>,
+                    <strong class="text-amber-400">10% risk per trade (₹25,000)</strong>.
+                    Ensure you understand these risks before enabling auto trading.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Button -->
+    <div class="flex justify-end gap-4">
+        <button @click="resetToDefaults()" class="btn-secondary">
+            Reset Defaults
+        </button>
+        <button @click="saveSettings()" class="btn-primary" :disabled="saving">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            Save Configuration
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function autoTrading() {
+    return {
+        masterEnabled: false,
+        saving: false,
+        todayPnl: 0,
+        activeTrades: 0,
+        signalsToday: 0,
+
+        indices: {
+            NIFTY: {
+                enabled: true,
+                capital: 250000,       // ₹2.5 lakh
+                maxDailyLoss: 20,      // 20%
+                maxLossPerTrade: 10,   // 10%
+                fundUtilization: 100,  // 100%
+                todayPnl: 0,
+                trades: 0,
+                lossUsedPct: 0
+            },
+            BANKNIFTY: {
+                enabled: true,
+                capital: 250000,       // ₹2.5 lakh
+                maxDailyLoss: 20,      // 20%
+                maxLossPerTrade: 10,   // 10%
+                fundUtilization: 100,  // 100%
+                todayPnl: 0,
+                trades: 0,
+                lossUsedPct: 0
+            },
+            SENSEX: {
+                enabled: true,
+                capital: 250000,       // ₹2.5 lakh
+                maxDailyLoss: 20,      // 20%
+                maxLossPerTrade: 10,   // 10%
+                fundUtilization: 100,  // 100%
+                todayPnl: 0,
+                trades: 0,
+                lossUsedPct: 0
+            }
+        },
+
+        settings: {
+            minQuality: '70',
+            tradingStyle: 'intraday',
+            tradeTypes: ['CE', 'PE'],
+            startTime: '09:20',
+            endTime: '15:15',
+            avoidExpiry: true,
+            closeEOD: true,
+            trailingSL: false
+        },
+
+        init() {
+            this.loadSettings();
+            this.startStatusUpdates();
+        },
+
+        loadSettings() {
+            fetch('/api/auto-trade/settings')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) {
+                        this.masterEnabled = data.enabled || false;
+                        if (data.indices) {
+                            Object.keys(data.indices).forEach(key => {
+                                if (this.indices[key]) {
+                                    this.indices[key] = { ...this.indices[key], ...data.indices[key] };
+                                }
+                            });
+                        }
+                        if (data.settings) {
+                            this.settings = { ...this.settings, ...data.settings };
+                        }
+                    }
+                })
+                .catch(() => {});
+        },
+
+        startStatusUpdates() {
+            // Poll for status updates every 5 seconds when enabled
+            setInterval(() => {
+                if (this.masterEnabled) {
+                    this.updateStatus();
+                }
+            }, 5000);
+        },
+
+        updateStatus() {
+            fetch('/api/auto-trade/status')
+                .then(r => r.json())
+                .then(data => {
+                    if (data) {
+                        this.todayPnl = data.totalPnl || 0;
+                        this.activeTrades = data.activeTrades || 0;
+                        this.signalsToday = data.signalsToday || 0;
+
+                        ['NIFTY', 'BANKNIFTY', 'SENSEX'].forEach(idx => {
+                            if (data.indices && data.indices[idx]) {
+                                this.indices[idx].todayPnl = data.indices[idx].pnl || 0;
+                                this.indices[idx].trades = data.indices[idx].trades || 0;
+                                this.indices[idx].lossUsedPct = data.indices[idx].lossUsedPct || 0;
+                            }
+                        });
+                    }
+                })
+                .catch(() => {});
+        },
+
+        toggleMaster() {
+            const action = this.masterEnabled ? 'stop' : 'start';
+
+            if (!this.masterEnabled) {
+                // Starting - confirm
+                if (!confirm('Start auto trading? Trades will be executed automatically based on your settings.')) {
+                    return;
+                }
+            }
+
+            fetch(`/api/auto-trade/${action}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    this.masterEnabled = !this.masterEnabled;
+                    showToast(
+                        this.masterEnabled ? 'Auto trading started!' : 'Auto trading stopped',
+                        this.masterEnabled ? 'success' : 'info'
+                    );
+                })
+                .catch(() => {
+                    showToast('Failed to toggle auto trading', 'error');
+                });
+        },
+
+        formatNumber(num) {
+            return new Intl.NumberFormat('en-IN').format(Math.abs(num));
+        },
+
+        saveSettings() {
+            this.saving = true;
+
+            const payload = {
+                enabled: this.masterEnabled,
+                indices: this.indices,
+                settings: this.settings
+            };
+
+            fetch('/api/auto-trade/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.json())
+            .then(data => {
+                showToast('Auto trade settings saved!', 'success');
+            })
+            .catch(() => {
+                showToast('Failed to save settings', 'error');
+            })
+            .finally(() => {
+                this.saving = false;
+            });
+        },
+
+        resetToDefaults() {
+            if (!confirm('Reset all settings to defaults?')) return;
+
+            this.indices = {
+                NIFTY: { enabled: true, capital: 250000, maxDailyLoss: 20, maxLossPerTrade: 10, fundUtilization: 100, todayPnl: 0, trades: 0, lossUsedPct: 0 },
+                BANKNIFTY: { enabled: true, capital: 250000, maxDailyLoss: 20, maxLossPerTrade: 10, fundUtilization: 100, todayPnl: 0, trades: 0, lossUsedPct: 0 },
+                SENSEX: { enabled: true, capital: 250000, maxDailyLoss: 20, maxLossPerTrade: 10, fundUtilization: 100, todayPnl: 0, trades: 0, lossUsedPct: 0 }
+            };
+            this.settings = {
+                minQuality: '70',
+                tradingStyle: 'intraday',
+                tradeTypes: ['CE', 'PE'],
+                startTime: '09:20',
+                endTime: '15:15',
+                avoidExpiry: true,
+                closeEOD: true,
+                trailingSL: false
+            };
+        }
+    }
+}
+</script>
+{% endblock %}

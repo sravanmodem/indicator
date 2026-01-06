@@ -1,0 +1,57 @@
+{% if signals and signals|length > 0 %}
+{% for signal in signals %}
+<tr class="hover:bg-surface-800/30 transition-colors">
+    <td class="px-4 py-3 text-sm text-surface-400">
+        {{ signal.timestamp|default('--') }}
+    </td>
+    <td class="px-4 py-3">
+        <span class="font-medium text-white">{{ signal.index }}</span>
+    </td>
+    <td class="px-4 py-3">
+        <span class="badge {% if signal.type in ['CE', 'STRONG_CE'] %}badge-success{% else %}badge-danger{% endif %}">
+            {{ signal.type }}
+        </span>
+    </td>
+    <td class="px-4 py-3 text-surface-200">
+        {{ signal.strike|default('--') }}
+    </td>
+    <td class="px-4 py-3 text-surface-200">
+        ₹{{ signal.entry|default(0)|round(2) }}
+    </td>
+    <td class="px-4 py-3 text-bullish-400">
+        ₹{{ signal.target|default(0)|round(2) }}
+    </td>
+    <td class="px-4 py-3">
+        <span class="font-medium
+            {% if signal.quality_score >= 80 %}text-bullish-400
+            {% elif signal.quality_score >= 70 %}text-primary-400
+            {% elif signal.quality_score >= 60 %}text-amber-400
+            {% else %}text-surface-400{% endif %}">
+            {{ signal.quality_score|default(0)|round|int }}
+        </span>
+    </td>
+    <td class="px-4 py-3">
+        {% if signal.status == 'target_hit' %}
+        <span class="badge badge-success">Target Hit</span>
+        {% elif signal.status == 'stop_loss' %}
+        <span class="badge badge-danger">SL Hit</span>
+        {% elif signal.status == 'active' %}
+        <span class="badge badge-primary">Active</span>
+        {% elif signal.status == 'partial' %}
+        <span class="badge badge-warning">Partial</span>
+        {% elif signal.status == 'expired' %}
+        <span class="badge badge-neutral">Expired</span>
+        {% else %}
+        <span class="badge badge-neutral">{{ signal.status|default('--') }}</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="8" class="text-center py-8 text-surface-500">
+        <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-surface-700"></i>
+        <p>No recent signals</p>
+    </td>
+</tr>
+{% endif %}

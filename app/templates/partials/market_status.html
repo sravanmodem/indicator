@@ -1,0 +1,42 @@
+{% if market %}
+<div class="flex items-center gap-6">
+    <!-- Market Status -->
+    <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full {% if market.is_open %}bg-bullish-500 animate-pulse{% else %}bg-surface-500{% endif %}"></span>
+        <span class="text-xs font-medium {% if market.is_open %}text-bullish-400{% else %}text-surface-400{% endif %}">
+            {{ 'Market Open' if market.is_open else 'Market Closed' }}
+        </span>
+    </div>
+
+    <!-- NIFTY -->
+    <div class="flex items-center gap-2">
+        <span class="text-xs text-surface-500">NIFTY</span>
+        <span class="text-sm font-semibold text-white">{{ market.nifty_price|default(0)|round(2) }}</span>
+        <span class="text-xs {% if market.nifty_change >= 0 %}text-bullish-400{% else %}text-bearish-400{% endif %}">
+            {{ '+' if market.nifty_change >= 0 }}{{ market.nifty_change|default(0)|round(2) }}%
+        </span>
+    </div>
+
+    <!-- BANKNIFTY -->
+    <div class="flex items-center gap-2">
+        <span class="text-xs text-surface-500">BANKNIFTY</span>
+        <span class="text-sm font-semibold text-white">{{ market.banknifty_price|default(0)|round(2) }}</span>
+        <span class="text-xs {% if market.banknifty_change >= 0 %}text-bullish-400{% else %}text-bearish-400{% endif %}">
+            {{ '+' if market.banknifty_change >= 0 }}{{ market.banknifty_change|default(0)|round(2) }}%
+        </span>
+    </div>
+
+    <!-- VIX -->
+    <div class="flex items-center gap-2">
+        <span class="text-xs text-surface-500">VIX</span>
+        <span class="text-sm font-semibold {% if market.vix > 20 %}text-amber-400{% else %}text-white{% endif %}">
+            {{ market.vix|default(0)|round(2) }}
+        </span>
+    </div>
+</div>
+{% else %}
+<div class="flex items-center gap-2">
+    <span class="w-2 h-2 rounded-full bg-surface-500"></span>
+    <span class="text-xs text-surface-400">Loading market data...</span>
+</div>
+{% endif %}
