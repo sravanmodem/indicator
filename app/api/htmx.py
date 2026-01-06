@@ -295,6 +295,14 @@ async def recommended_option_partial(
         engine = get_signal_engine(style_map.get(style, TradingStyle.INTRADAY))
         signal = engine.analyze(df=df, option_chain=option_chain)
 
+        # Log if recommended_option is missing
+        if signal and not signal.recommended_option:
+            logger.warning(f"{index} signal has no recommended_option. Chain data available: {option_chain is not None and len(option_chain) > 0 if option_chain else False}")
+            return templates.TemplateResponse(
+                "partials/recommended_option.html",
+                {"request": request, "error": f"No suitable {index} option found matching criteria"},
+            )
+
         return templates.TemplateResponse(
             "partials/recommended_option.html",
             {

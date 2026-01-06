@@ -57,17 +57,29 @@
         </div>
     </div>
 
+    <!-- Signal Card - Top on Mobile/Tablet, Left on Desktop -->
+    <div class="xl:hidden mb-4 sm:mb-6">
+        <div id="signal-card-mobile"
+             hx-get="/htmx/signal-card/nifty?style=intraday"
+             hx-trigger="load"
+             hx-swap="innerHTML transition:true">
+            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Grid - Mobile Optimized -->
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Left Column - Signal Card -->
+        <!-- Left Column - Signal Card (Desktop Only) & Quick Actions -->
         <div class="xl:col-span-1 space-y-4 sm:space-y-6">
-            <!-- Primary Signal Card -->
-            <div id="signal-card"
+            <!-- Primary Signal Card - Desktop Only -->
+            <div id="signal-card" class="hidden xl:block"
                  hx-get="/htmx/signal-card/nifty?style=intraday"
                  hx-trigger="load"
                  hx-swap="innerHTML transition:true">
                 <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
+                    <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
                 </div>
             </div>
 
@@ -102,9 +114,9 @@
                  hx-swap="innerHTML transition:true">
                 <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
                     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse col-span-2 sm:col-span-1"></div>
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl col-span-2 sm:col-span-1"></div>
                     </div>
                 </div>
             </div>
@@ -115,7 +127,7 @@
                  hx-trigger="load"
                  hx-swap="innerHTML transition:true">
                 <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
+                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
                 </div>
             </div>
 
@@ -125,7 +137,7 @@
                  hx-trigger="load"
                  hx-swap="innerHTML">
                 <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
+                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
                 </div>
             </div>
         </div>
@@ -185,6 +197,7 @@
         currentTab = tab;
         // Use htmx.ajax to directly fetch with correct URLs
         htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/indicator-panel/' + tab, {target: '#indicator-panel', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/recommended-option/' + tab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/option-chain-table/' + tab, {target: '#option-chain', swap: 'innerHTML'});
@@ -194,6 +207,7 @@
         currentStyle = style;
         // Signal card and recommended option use style parameter
         htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card-mobile', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + style, {target: '#recommended-option', swap: 'innerHTML'});
     }
 
@@ -245,6 +259,7 @@
         // Poll signal card, indicator panel and recommended option every second
         setInterval(() => {
             htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
             htmx.ajax('GET', '/htmx/indicator-panel/' + currentTab, {target: '#indicator-panel', swap: 'innerHTML'});
             htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
         }, 1000);

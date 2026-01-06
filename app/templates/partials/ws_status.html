@@ -1,5 +1,5 @@
 <div class="flex items-center space-x-2">
-    <span class="w-2 h-2 rounded-full {% if status.is_connected %}bg-green-400 animate-pulse{% else %}bg-red-400{% endif %}"></span>
+    <span class="w-2 h-2 rounded-full {% if status.is_connected %}bg-green-400{% else %}bg-red-400{% endif %}"></span>
     <span class="text-sm {% if status.is_connected %}text-green-400{% else %}text-red-400{% endif %}">
         {% if status.is_connected %}
         WS Connected ({{ status.subscriptions_count }} subs)
