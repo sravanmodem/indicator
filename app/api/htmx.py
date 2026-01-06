@@ -656,6 +656,12 @@ async def index_card_partial(request: Request, index: str = "NIFTY"):
         net_change = data.get("net_change", 0)
         ohlc = data.get("ohlc", {})
 
+        # Calculate percentage change if not provided correctly
+        if change == 0 and net_change != 0 and price != 0:
+            prev_price = price - net_change
+            if prev_price != 0:
+                change = (net_change / prev_price) * 100
+
         color_class = "bullish" if change >= 0 else "bearish"
         sign = "+" if change >= 0 else ""
 
@@ -1024,6 +1030,13 @@ async def index_price_partial(request: Request, index: str = "NIFTY"):
         price = data.get("last_price", 0)
         change = data.get("change", 0)
         net_change = data.get("net_change", 0)
+
+        # Calculate percentage change if not provided correctly
+        if change == 0 and net_change != 0 and price != 0:
+            # Calculate percentage from net_change
+            prev_price = price - net_change
+            if prev_price != 0:
+                change = (net_change / prev_price) * 100
 
         # Get signal for this index
         token_map = {
