@@ -39,6 +39,12 @@ from app.indicators.pivots import (
     calculate_camarilla,
     get_nearest_level,
 )
+from app.indicators.greeks import (
+    calculate_greeks,
+    calculate_expected_prices,
+    estimate_implied_volatility,
+    get_days_to_expiry,
+)
 from app.core.config import INDICATOR_PARAMS, SIGNAL_THRESHOLDS
 
 
@@ -82,6 +88,24 @@ class RecommendedOption:
     bid: float
     ask: float
     reason: str
+
+    # Greeks
+    delta: float | None = None
+    gamma: float | None = None
+    theta: float | None = None
+    vega: float | None = None
+    delta_percent: float | None = None
+
+    # Expected prices
+    expected_at_target: float | None = None
+    expected_at_stop: float | None = None
+    expected_profit: float | None = None
+    expected_loss: float | None = None
+    price_tomorrow: float | None = None
+
+    # Interpretations
+    delta_interpretation: str | None = None
+    theta_interpretation: str | None = None
 
 
 @dataclass
@@ -476,6 +500,8 @@ class SignalEngine:
                 spot_price=spot_price,
                 direction=direction,
                 trading_style=self.trading_style,
+                target_price=target_1,
+                stop_loss_price=stop_loss,
             )
 
         return TradeSignal(
@@ -502,9 +528,12 @@ class SignalEngine:
         spot_price: float,
         direction: str,
         trading_style: TradingStyle,
+        target_price: float | None = None,
+        stop_loss_price: float | None = None,
     ) -> RecommendedOption | None:
         """
         Find the best option to buy based on signal direction and trading style.
+        Includes Greeks and expected price calculations.
 
         Selection criteria:
         - Scalping: ATM or 1 strike ITM for quick moves
@@ -598,6 +627,35 @@ class SignalEngine:
                         else "OTM"
                     )
 
+                    # Calculate Greeks
+                    days_to_expiry = get_days_to_expiry()
+                    time_to_expiry = days_to_expiry / 365
+                    iv = estimate_implied_volatility(option_chain, spot_price)
+
+                    greeks = calculate_greeks(
+                        spot_price=spot_price,
+                        strike_price=opt["strike"],
+                        time_to_expiry=time_to_expiry,
+                        risk_free_rate=0.065,  # 6.5% India risk-free rate
+                        volatility=iv,
+                        option_type=direction,
+                        current_premium=ltp,
+                    )
+
+                    # Calculate expected prices
+                    expected_prices = None
+                    if target_price and stop_loss_price:
+                        expected_prices = calculate_expected_prices(
+                            spot_price=spot_price,
+                            strike_price=opt["strike"],
+                            current_premium=ltp,
+                            greeks=greeks,
+                            target_price=target_price,
+                            stop_loss=stop_loss_price,
+                            days_to_expiry=days_to_expiry,
+                            current_iv=iv,
+                        )
+
                     best_option = RecommendedOption(
                         symbol=opt_data.get("symbol", f"{opt['strike']}{direction}"),
                         strike=opt["strike"],
@@ -607,7 +665,22 @@ class SignalEngine:
                         volume=volume,
                         bid=bid,
                         ask=ask,
-                        reason=f"{strike_type} strike, High OI: {oi:,}, Good liquidity"
+                        reason=f"{strike_type} strike, High OI: {oi:,}, Good liquidity",
+                        # Greeks
+                        delta=greeks.delta,
+                        gamma=greeks.gamma,
+                        theta=greeks.theta,
+                        vega=greeks.vega,
+                        delta_percent=greeks.delta_percent,
+                        # Expected prices
+                        expected_at_target=expected_prices.expected_target if expected_prices else None,
+                        expected_at_stop=expected_prices.expected_stop if expected_prices else None,
+                        expected_profit=expected_prices.profit_at_target if expected_prices else None,
+                        expected_loss=expected_prices.loss_at_stop if expected_prices else None,
+                        price_tomorrow=expected_prices.price_tomorrow if expected_prices else None,
+                        # Interpretations
+                        delta_interpretation=greeks.delta_interpretation,
+                        theta_interpretation=greeks.theta_interpretation,
                     )
 
             return best_option
