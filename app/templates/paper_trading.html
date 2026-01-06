@@ -417,5 +417,20 @@ function paperTrading() {
         }
     }
 }
+
+// Global function to populate form from signal
+function populateFromSignal(index, type, strike, entry, target, stoploss) {
+    const alpineData = Alpine.$data(document.querySelector('[x-data]'));
+    if (alpineData) {
+        alpineData.newPosition.index = index;
+        alpineData.newPosition.type = type.includes('CE') ? 'CE' : 'PE';
+        alpineData.newPosition.strike = strike;
+        alpineData.newPosition.entry = entry;
+        alpineData.newPosition.target = target;
+        alpineData.newPosition.stoploss = stoploss;
+        alpineData.updateStrikes();
+        showToast(`Signal loaded for ${index} ${type}`, 'info');
+    }
+}
 </script>
 {% endblock %}

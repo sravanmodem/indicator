@@ -1,9 +1,11 @@
 {% if signal %}
-<div data-signal-type="{{ signal.type }}" class="space-y-4">
+{% set score = quality_score.total_score if quality_score else 0 %}
+{% set is_bullish = signal.direction in ['CE', 'STRONG_CE'] %}
+<div data-signal-type="{{ signal.direction }}" class="space-y-4">
     <!-- Signal Header -->
     <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-            {% if signal.type in ['CE', 'STRONG_CE'] %}
+            {% if is_bullish %}
             <div class="p-3 rounded-xl bg-bullish-500/20">
                 <i data-lucide="trending-up" class="w-6 h-6 text-bullish-400"></i>
             </div>
@@ -13,26 +15,26 @@
             </div>
             {% endif %}
             <div>
-                <h3 class="text-xl font-bold {% if signal.type in ['CE', 'STRONG_CE'] %}text-bullish-400{% else %}text-bearish-400{% endif %}">
-                    {{ signal.type }} Signal
+                <h3 class="text-xl font-bold {% if is_bullish %}text-bullish-400{% else %}text-bearish-400{% endif %}">
+                    {{ signal.direction }} Signal
                 </h3>
-                <p class="text-xs text-surface-500">{{ signal.timestamp or 'Just now' }}</p>
+                <p class="text-xs text-surface-500">{{ signal.timestamp.strftime('%H:%M:%S') if signal.timestamp else 'Just now' }}</p>
             </div>
         </div>
 
         <!-- Quality Badge -->
         <div class="text-center">
             <div class="w-14 h-14 rounded-full flex items-center justify-center
-                {% if signal.quality_score >= 80 %}bg-bullish-500/20 border-2 border-bullish-500
-                {% elif signal.quality_score >= 70 %}bg-primary-500/20 border-2 border-primary-500
-                {% elif signal.quality_score >= 60 %}bg-amber-500/20 border-2 border-amber-500
+                {% if score >= 80 %}bg-bullish-500/20 border-2 border-bullish-500
+                {% elif score >= 70 %}bg-primary-500/20 border-2 border-primary-500
+                {% elif score >= 60 %}bg-amber-500/20 border-2 border-amber-500
                 {% else %}bg-surface-700 border-2 border-surface-600{% endif %}">
                 <span class="text-lg font-bold
-                    {% if signal.quality_score >= 80 %}text-bullish-400
-                    {% elif signal.quality_score >= 70 %}text-primary-400
-                    {% elif signal.quality_score >= 60 %}text-amber-400
+                    {% if score >= 80 %}text-bullish-400
+                    {% elif score >= 70 %}text-primary-400
+                    {% elif score >= 60 %}text-amber-400
                     {% else %}text-surface-400{% endif %}">
-                    {{ signal.quality_score|default(0)|round|int }}
+                    {{ score|round|int }}
                 </span>
             </div>
             <p class="text-2xs text-surface-500 mt-1">Quality</p>
@@ -43,7 +45,7 @@
     <div class="grid grid-cols-2 gap-4">
         <div class="p-3 bg-surface-800/50 rounded-lg">
             <p class="data-label mb-1">Entry Price</p>
-            <p class="text-lg font-bold text-white">₹{{ signal.entry|default(0)|round(2) }}</p>
+            <p class="text-lg font-bold text-white">₹{{ signal.entry_price|default(0)|round(2) }}</p>
         </div>
         <div class="p-3 bg-surface-800/50 rounded-lg">
             <p class="data-label mb-1">Confidence</p>
@@ -55,13 +57,17 @@
     <div class="grid grid-cols-3 gap-3">
         <div class="p-3 bg-bullish-500/10 rounded-lg border border-bullish-500/30">
             <p class="data-label text-bullish-400 mb-1">Target</p>
-            <p class="text-base font-bold text-bullish-400">₹{{ signal.target|default(0)|round(2) }}</p>
-            <p class="text-2xs text-bullish-400/70">+{{ ((signal.target - signal.entry) / signal.entry * 100)|round(1) }}%</p>
+            <p class="text-base font-bold text-bullish-400">₹{{ signal.target_1|default(0)|round(2) }}</p>
+            {% if signal.entry_price and signal.target_1 %}
+            <p class="text-2xs text-bullish-400/70">+{{ ((signal.target_1 - signal.entry_price) / signal.entry_price * 100)|round(1) }}%</p>
+            {% endif %}
         </div>
         <div class="p-3 bg-bearish-500/10 rounded-lg border border-bearish-500/30">
             <p class="data-label text-bearish-400 mb-1">Stop Loss</p>
-            <p class="text-base font-bold text-bearish-400">₹{{ signal.stoploss|default(0)|round(2) }}</p>
-            <p class="text-2xs text-bearish-400/70">-{{ ((signal.entry - signal.stoploss) / signal.entry * 100)|round(1) }}%</p>
+            <p class="text-base font-bold text-bearish-400">₹{{ signal.stop_loss|default(0)|round(2) }}</p>
+            {% if signal.entry_price and signal.stop_loss %}
+            <p class="text-2xs text-bearish-400/70">-{{ ((signal.entry_price - signal.stop_loss) / signal.entry_price * 100)|round(1) }}%</p>
+            {% endif %}
         </div>
         <div class="p-3 bg-surface-800/50 rounded-lg border border-surface-700">
             <p class="data-label mb-1">Risk:Reward</p>
@@ -71,14 +77,14 @@
     </div>
 
     <!-- Recommended Action -->
-    <div class="p-4 {% if signal.type in ['CE', 'STRONG_CE'] %}bg-bullish-500/10 border border-bullish-500/30{% else %}bg-bearish-500/10 border border-bearish-500/30{% endif %} rounded-lg">
+    <div class="p-4 {% if is_bullish %}bg-bullish-500/10 border border-bullish-500/30{% else %}bg-bearish-500/10 border border-bearish-500/30{% endif %} rounded-lg">
         <div class="flex items-center gap-2 mb-2">
-            <i data-lucide="{% if signal.type in ['CE', 'STRONG_CE'] %}arrow-up-circle{% else %}arrow-down-circle{% endif %}"
-               class="w-5 h-5 {% if signal.type in ['CE', 'STRONG_CE'] %}text-bullish-400{% else %}text-bearish-400{% endif %}"></i>
+            <i data-lucide="{% if is_bullish %}arrow-up-circle{% else %}arrow-down-circle{% endif %}"
+               class="w-5 h-5 {% if is_bullish %}text-bullish-400{% else %}text-bearish-400{% endif %}"></i>
             <span class="font-medium text-white">Recommended Action</span>
         </div>
-        <p class="text-sm {% if signal.type in ['CE', 'STRONG_CE'] %}text-bullish-300{% else %}text-bearish-300{% endif %}">
-            Buy {{ signal.option_symbol|default('ATM Option') }} at ₹{{ signal.entry|default(0)|round(2) }}
+        <p class="text-sm {% if is_bullish %}text-bullish-300{% else %}text-bearish-300{% endif %}">
+            Buy {{ signal.recommended_option.symbol if signal.recommended_option else 'ATM Option' }} at ₹{{ signal.entry_price|default(0)|round(2) }}
         </p>
     </div>
 </div>

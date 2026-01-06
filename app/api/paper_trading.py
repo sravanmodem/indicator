@@ -1,6 +1,6 @@
 """
 Paper Trading API Routes
-Virtual portfolio management endpoints
+Virtual portfolio management endpoints (v2)
 """
 
 from fastapi import APIRouter, HTTPException, Form
@@ -90,12 +90,22 @@ async def get_paper_account():
         service = get_paper_trading_service()
         account = service.get_account()
 
+        # Calculate win rate
+        total_closed = account.winning_trades + account.losing_trades
+        win_rate = (account.winning_trades / total_closed * 100) if total_closed > 0 else 0
+
         return {
+            # For template compatibility
+            "capital": account.initial_capital,
+            "available": account.current_capital,
+            "today_pnl": account.total_pnl,
+            "win_rate": round(win_rate, 1),
+            "total_trades": account.total_trades,
+            # Additional details
             "initial_capital": account.initial_capital,
             "current_capital": account.current_capital,
             "total_pnl": account.total_pnl,
-            "pnl_percentage": ((account.current_capital - account.initial_capital) / account.initial_capital * 100),
-            "total_trades": account.total_trades,
+            "pnl_percentage": round(((account.current_capital - account.initial_capital) / account.initial_capital * 100), 2) if account.initial_capital > 0 else 0,
             "winning_trades": account.winning_trades,
             "losing_trades": account.losing_trades,
             "is_active": account.is_active,

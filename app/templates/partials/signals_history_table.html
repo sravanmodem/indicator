@@ -1,0 +1,73 @@
+{% if signals and signals|length > 0 %}
+{% for signal in signals %}
+<tr class="hover:bg-surface-800/30 transition-colors border-b border-surface-800/50">
+    <td class="px-4 py-3 text-sm text-surface-400">
+        {{ signal.timestamp|default('--') }}
+    </td>
+    <td class="px-4 py-3">
+        <span class="font-medium text-white">{{ signal.index }}</span>
+    </td>
+    <td class="px-4 py-3">
+        <span class="badge {% if signal.type in ['CE', 'STRONG_CE'] %}badge-success{% else %}badge-danger{% endif %}">
+            {{ signal.type }}
+        </span>
+    </td>
+    <td class="px-4 py-3 text-surface-200">
+        {{ signal.strike|default('--') }}
+    </td>
+    <td class="px-4 py-3 text-surface-200">
+        ₹{{ signal.entry|default(0)|round(2) }}
+    </td>
+    <td class="px-4 py-3 text-bullish-400">
+        ₹{{ signal.target|default(0)|round(2) }}
+    </td>
+    <td class="px-4 py-3 text-bearish-400">
+        ₹{{ signal.stoploss|default(0)|round(2) }}
+    </td>
+    <td class="px-4 py-3">
+        <span class="font-medium
+            {% if signal.quality_score >= 80 %}text-bullish-400
+            {% elif signal.quality_score >= 70 %}text-primary-400
+            {% elif signal.quality_score >= 60 %}text-amber-400
+            {% else %}text-surface-400{% endif %}">
+            {{ signal.quality_score|default(0)|round|int }}
+        </span>
+    </td>
+    <td class="px-4 py-3 text-surface-300">
+        {{ signal.risk_reward|default('--') }}
+    </td>
+    <td class="px-4 py-3">
+        {% if signal.status == 'target_hit' %}
+        <span class="badge badge-success">Target Hit</span>
+        {% elif signal.status == 'stop_loss' %}
+        <span class="badge badge-danger">SL Hit</span>
+        {% elif signal.status == 'active' %}
+        <span class="badge badge-primary">Active</span>
+        {% elif signal.status == 'partial' %}
+        <span class="badge badge-warning">Partial</span>
+        {% elif signal.status == 'expired' %}
+        <span class="badge badge-neutral">Expired</span>
+        {% else %}
+        <span class="badge badge-neutral">{{ signal.status|default('--') }}</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3">
+        {% if signal.pnl is defined and signal.pnl is not none %}
+        <span class="font-medium {% if signal.pnl >= 0 %}text-bullish-400{% else %}text-bearish-400{% endif %}">
+            {% if signal.pnl >= 0 %}+{% endif %}₹{{ signal.pnl|round(0)|int }}
+        </span>
+        {% else %}
+        <span class="text-surface-500">--</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="11" class="text-center py-12 text-surface-500">
+        <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-3 text-surface-700"></i>
+        <p class="text-sm">No signals found</p>
+        <p class="text-xs text-surface-600 mt-1">Signals will appear here as they are generated</p>
+    </td>
+</tr>
+{% endif %}
