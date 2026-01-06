@@ -32,7 +32,13 @@ class Settings(BaseSettings):
     )
     app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
-    port: int | None = Field(default=None, description="Override port (for Render $PORT)")
+
+    @property
+    def effective_port(self) -> int:
+        """Get the effective port, prioritizing PORT env var for Render."""
+        import os
+        return int(os.getenv("PORT", self.app_port))
+
     debug: bool = Field(default=False)
 
     # Database
