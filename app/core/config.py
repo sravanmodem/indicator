@@ -30,7 +30,7 @@ class Settings(BaseSettings):
         default="change-this-secret-key-in-production",
         description="Secret key for encryption"
     )
-    app_host: str = Field(default="127.0.0.1")
+    app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
     debug: bool = Field(default=False)
 
