@@ -4,105 +4,107 @@
 
 {% block content %}
 <div x-data="{ activeTab: 'nifty', tradingStyle: 'intraday' }">
-    <!-- Header Row -->
-    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-        <!-- Index Tabs -->
-        <div class="flex items-center space-x-2 bg-surface-800 rounded-xl p-1">
-            <button @click="activeTab = 'nifty'; switchTab('nifty')"
-                    :class="activeTab === 'nifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                    class="px-6 py-2 rounded-lg font-medium transition-all">
-                NIFTY
-            </button>
-            <button @click="activeTab = 'banknifty'; switchTab('banknifty')"
-                    :class="activeTab === 'banknifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                    class="px-6 py-2 rounded-lg font-medium transition-all">
-                BANK NIFTY
-            </button>
-            <button @click="activeTab = 'sensex'; switchTab('sensex')"
-                    :class="activeTab === 'sensex' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                    class="px-6 py-2 rounded-lg font-medium transition-all">
-                SENSEX
-            </button>
+    <!-- Header Row - Mobile Optimized -->
+    <div class="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <!-- Top Row: Index Tabs + WebSocket Status -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <!-- Index Tabs - Responsive -->
+            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 overflow-x-auto">
+                <button @click="activeTab = 'nifty'; switchTab('nifty')"
+                        :class="activeTab === 'nifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
+                    NIFTY
+                </button>
+                <button @click="activeTab = 'banknifty'; switchTab('banknifty')"
+                        :class="activeTab === 'banknifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
+                    BANK NIFTY
+                </button>
+                <button @click="activeTab = 'sensex'; switchTab('sensex')"
+                        :class="activeTab === 'sensex' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
+                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
+                    SENSEX
+                </button>
+            </div>
+            <!-- WebSocket Status - Hidden on Mobile -->
+            <div id="ws-status" class="hidden sm:block"
+                 hx-get="/htmx/ws-status"
+                 hx-trigger="load, every 10s"
+                 hx-swap="innerHTML">
+            </div>
         </div>
 
-        <!-- Trading Style -->
-        <div class="flex items-center space-x-4">
-            <span class="text-slate-400 text-sm">Style:</span>
-            <div class="flex items-center space-x-2 bg-surface-800 rounded-xl p-1">
+        <!-- Trading Style - Full Width on Mobile -->
+        <div class="flex items-center space-x-3 sm:space-x-4">
+            <span class="text-slate-400 text-xs sm:text-sm font-medium whitespace-nowrap">Style:</span>
+            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 flex-1 sm:flex-none">
                 <button @click="tradingStyle = 'scalping'; switchStyle('scalping')"
                         :class="tradingStyle === 'scalping' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
                     Scalping
                 </button>
                 <button @click="tradingStyle = 'intraday'; switchStyle('intraday')"
                         :class="tradingStyle === 'intraday' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
                     Intraday
                 </button>
                 <button @click="tradingStyle = 'swing'; switchStyle('swing')"
                         :class="tradingStyle === 'swing' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all">
+                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
                     Swing
                 </button>
             </div>
         </div>
-
-        <!-- WebSocket Status -->
-        <div id="ws-status"
-             hx-get="/htmx/ws-status"
-             hx-trigger="load, every 10s"
-             hx-swap="innerHTML">
-        </div>
     </div>
 
-    <!-- Main Grid -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+    <!-- Main Grid - Mobile Optimized -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
         <!-- Left Column - Signal Card -->
-        <div class="xl:col-span-1 space-y-6">
+        <div class="xl:col-span-1 space-y-4 sm:space-y-6">
             <!-- Primary Signal Card -->
             <div id="signal-card"
                  hx-get="/htmx/signal-card/nifty?style=intraday"
                  hx-trigger="load"
                  hx-swap="innerHTML transition:true">
-                <div class="glass rounded-2xl p-6">
-                    <div class="h-40 bg-surface-700 rounded-xl"></div>
+                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
                 </div>
             </div>
 
-            <!-- Quick Actions -->
-            <div class="glass rounded-2xl p-6">
-                <h3 class="text-lg font-semibold text-white mb-4">Quick Actions</h3>
-                <div class="grid grid-cols-2 gap-3">
+            <!-- Quick Actions - Responsive -->
+            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                <h3 class="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Quick Actions</h3>
+                <div class="grid grid-cols-2 gap-2 sm:gap-3">
                     <button onclick="refreshSignal()"
-                            class="px-4 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-white font-medium transition-colors">
-                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
-                        Refresh
+                        <span class="text-xs sm:text-sm">Refresh</span>
                     </button>
                     <button onclick="connectWS()"
-                            class="px-4 py-3 rounded-xl bg-surface-700 hover:bg-surface-600 text-white font-medium transition-colors">
-                        <svg class="w-5 h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
+                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                         </svg>
-                        Connect WS
+                        <span class="text-xs sm:text-sm">Connect WS</span>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- Center Column - Indicators & Option Chain -->
-        <div class="xl:col-span-2 space-y-6">
+        <div class="xl:col-span-2 space-y-4 sm:space-y-6">
             <!-- Indicator Panel -->
             <div id="indicator-panel"
                  hx-get="/htmx/indicator-panel/nifty"
                  hx-trigger="load"
                  hx-swap="innerHTML transition:true">
-                <div class="glass rounded-2xl p-6">
-                    <div class="grid grid-cols-3 gap-4">
-                        <div class="h-24 bg-surface-700 rounded-xl"></div>
-                        <div class="h-24 bg-surface-700 rounded-xl"></div>
-                        <div class="h-24 bg-surface-700 rounded-xl"></div>
+                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
+                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse col-span-2 sm:col-span-1"></div>
                     </div>
                 </div>
             </div>
@@ -112,8 +114,8 @@
                  hx-get="/htmx/recommended-option/nifty?style=intraday"
                  hx-trigger="load"
                  hx-swap="innerHTML transition:true">
-                <div class="glass rounded-2xl p-6">
-                    <div class="h-64 bg-surface-700 rounded-xl animate-pulse"></div>
+                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
                 </div>
             </div>
 
@@ -122,8 +124,8 @@
                  hx-get="/htmx/option-chain-table/nifty"
                  hx-trigger="load"
                  hx-swap="innerHTML">
-                <div class="glass rounded-2xl p-6">
-                    <div class="h-64 bg-surface-700 rounded-xl"></div>
+                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl animate-pulse"></div>
                 </div>
             </div>
         </div>
