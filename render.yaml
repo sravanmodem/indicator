@@ -3,15 +3,12 @@ services:
     name: indicator
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11
       - key: APP_HOST
         value: 0.0.0.0
-      - key: APP_PORT
-        sync: false
-        value: 8000
       - key: DEBUG
         value: false
       - key: KITE_API_KEY

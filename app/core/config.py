@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     )
     app_host: str = Field(default="0.0.0.0")
     app_port: int = Field(default=8000)
+    port: int | None = Field(default=None, description="Override port (for Render $PORT)")
     debug: bool = Field(default=False)
 
     # Database
