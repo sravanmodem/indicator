@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Settings - NIFTY Options Indicator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        surface: {
+                            700: '#1e293b',
+                            800: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-2xl font-black">Options Indicator</a>
+                    <span class="text-slate-400">|</span>
+                    <h1 class="text-xl font-bold text-slate-300">Trading Settings</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm font-semibold">Dashboard</a>
+                    <a href="/history" class="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm font-semibold">History</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Settings Form -->
+            <form hx-post="/api/settings/update" hx-swap="none" class="space-y-6">
+                <!-- Capital Settings -->
+                <div class="glass rounded-2xl p-6">
+                    <h2 class="text-2xl font-black mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Capital Settings
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Total Capital -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Total Capital (₹)
+                            </label>
+                            <input
+                                type="number"
+                                name="total_capital"
+                                value="{{ settings.total_capital }}"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-green-500 focus:outline-none text-white font-mono text-lg"
+                                step="10000"
+                                min="50000"
+                                required
+                            >
+                            <p class="text-slate-400 text-xs mt-2">Recommended: ₹5,00,000 for ₹25k target</p>
+                        </div>
+
+                        <!-- Daily Profit Target -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Daily Profit Target (₹)
+                            </label>
+                            <input
+                                type="number"
+                                name="daily_profit_target"
+                                value="{{ settings.daily_profit_target }}"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-green-500 focus:outline-none text-white font-mono text-lg"
+                                step="1000"
+                                min="1000"
+                                required
+                            >
+                            <p class="text-slate-400 text-xs mt-2">System auto-exits on target</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Settings -->
+                <div class="glass rounded-2xl p-6">
+                    <h2 class="text-2xl font-black mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        Risk Management
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Risk Per Trade -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Risk Per Trade (%)
+                            </label>
+                            <input
+                                type="number"
+                                name="max_risk_per_trade_pct"
+                                value="{{ settings.max_risk_per_trade_pct }}"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-amber-500 focus:outline-none text-white font-mono text-lg"
+                                step="0.5"
+                                min="0.5"
+                                max="5"
+                                required
+                            >
+                            <p class="text-slate-400 text-xs mt-2">Max: 5% recommended</p>
+                        </div>
+
+                        <!-- Daily Loss Limit -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Daily Loss Limit (%)
+                            </label>
+                            <input
+                                type="number"
+                                name="max_daily_loss_pct"
+                                value="{{ settings.max_daily_loss_pct }}"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-red-500 focus:outline-none text-white font-mono text-lg"
+                                step="0.5"
+                                min="1"
+                                max="10"
+                                required
+                            >
+                            <p class="text-slate-400 text-xs mt-2">System auto-stops on limit</p>
+                        </div>
+
+                        <!-- Max Positions -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Max Concurrent Positions
+                            </label>
+                            <input
+                                type="number"
+                                name="max_positions"
+                                value="{{ settings.max_positions }}"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-blue-500 focus:outline-none text-white font-mono text-lg"
+                                min="1"
+                                max="10"
+                                required
+                            >
+                            <p class="text-slate-400 text-xs mt-2">Recommended: 3-5</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trading Preferences -->
+                <div class="glass rounded-2xl p-6">
+                    <h2 class="text-2xl font-black mb-6 flex items-center">
+                        <svg class="w-6 h-6 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Trading Preferences
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Automation Mode -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Automation Mode
+                            </label>
+                            <select
+                                name="automation_mode"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-blue-500 focus:outline-none text-white"
+                            >
+                                <option value="manual" {% if settings.automation_mode == "manual" %}selected{% endif %}>Manual (Show signals only)</option>
+                                <option value="semi_auto" {% if settings.automation_mode == "semi_auto" %}selected{% endif %}>Semi-Auto (Require confirmation)</option>
+                                <option value="full_auto" {% if settings.automation_mode == "full_auto" %}selected{% endif %}>Full-Auto (Automated trading)</option>
+                            </select>
+                            <p class="text-slate-400 text-xs mt-2">Start with Manual mode</p>
+                        </div>
+
+                        <!-- Trading Style -->
+                        <div>
+                            <label class="block text-slate-300 text-sm font-bold mb-2">
+                                Default Trading Style
+                            </label>
+                            <select
+                                name="trading_style"
+                                class="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 focus:border-blue-500 focus:outline-none text-white"
+                            >
+                                <option value="scalping" {% if settings.trading_style == "scalping" %}selected{% endif %}>Scalping</option>
+                                <option value="intraday" {% if settings.trading_style == "intraday" %}selected{% endif %}>Intraday</option>
+                                <option value="swing" {% if settings.trading_style == "swing" %}selected{% endif %}>Swing</option>
+                            </select>
+                            <p class="text-slate-400 text-xs mt-2">Can be changed per signal</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="flex items-center justify-end space-x-4">
+                    <a href="/dashboard" class="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 font-bold">
+                        Cancel
+                    </a>
+                    <button
+                        type="submit"
+                        class="px-6 py-3 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 font-bold shadow-lg"
+                    >
+                        Save Settings
+                    </button>
+                </div>
+            </form>
+
+            <!-- Capital Calculation Helper -->
+            <div class="glass rounded-2xl p-6 mt-6 bg-blue-900/20 border border-blue-500/30">
+                <h3 class="text-lg font-black mb-4 text-blue-300">💡 Capital Calculator</h3>
+                <p class="text-slate-300 mb-4">For your daily profit target, recommended minimum capital:</p>
+                <div class="bg-slate-800 rounded-xl p-4">
+                    <p class="text-sm text-slate-400 mb-2">Formula: (Target / Win Rate / Avg R:R) / Risk %</p>
+                    <p class="text-xl font-mono font-bold text-white">
+                        Capital = (₹{{ settings.daily_profit_target }} / 0.50 / 2.0) / ({{ settings.max_risk_per_trade_pct }}% / 100)
+                    </p>
+                    <p class="text-3xl font-black text-green-400 mt-3">
+                        ≈ ₹{{ "%.0f"|format((settings.daily_profit_target / 0.50 / 2.0) / (settings.max_risk_per_trade_pct / 100)) }}
+                    </p>
+                    <p class="text-xs text-slate-500 mt-2">Based on 50% win rate, 2:1 avg R:R</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Handle form submission success
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            if (event.detail.successful) {
+                // Show success message
+                alert('Settings saved successfully!');
+                // Optionally redirect to dashboard
+                window.location.href = '/dashboard';
+            }
+        });
+    </script>
+</body>
+</html>

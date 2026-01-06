@@ -1,0 +1,160 @@
+{% if signals %}
+<!-- Signals History Table -->
+<div class="overflow-x-auto">
+    <table class="w-full">
+        <thead class="bg-slate-800 border-b border-slate-700">
+            <tr>
+                <th class="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Time</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Index</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Signal</th>
+                <th class="px-4 py-3 text-left text-xs font-bold text-slate-400 uppercase">Quality</th>
+                <th class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase">Entry</th>
+                <th class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase">SL</th>
+                <th class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase">Target</th>
+                <th class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase">R:R</th>
+                <th class="px-4 py-3 text-center text-xs font-bold text-slate-400 uppercase">Result</th>
+                <th class="px-4 py-3 text-right text-xs font-bold text-slate-400 uppercase">P&L</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700">
+            {% for signal in signals %}
+            <tr class="hover:bg-slate-800/50 transition-colors">
+                <!-- Time -->
+                <td class="px-4 py-4">
+                    <p class="text-white font-mono text-sm">{{ signal.timestamp.strftime('%H:%M:%S') }}</p>
+                    <p class="text-slate-500 text-xs">{{ signal.timestamp.strftime('%d %b') }}</p>
+                </td>
+
+                <!-- Index -->
+                <td class="px-4 py-4">
+                    <span class="px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold">
+                        {{ signal.index_name }}
+                    </span>
+                </td>
+
+                <!-- Signal -->
+                <td class="px-4 py-4">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-3 py-1 rounded-lg text-sm font-bold {% if signal.direction == 'CE' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                            {{ signal.direction }}
+                        </span>
+                        <span class="text-slate-400 text-xs">{{ signal.confidence }}%</span>
+                    </div>
+                    {% if signal.option_symbol %}
+                    <p class="text-slate-500 text-xs mt-1 font-mono">{{ signal.option_symbol }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Quality -->
+                <td class="px-4 py-4">
+                    {% if signal.quality_score %}
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">{% if signal.quality_score >= 70 %}⭐{% else %}⚠️{% endif %}</span>
+                        <span class="text-white font-mono font-bold">{{ "%.0f"|format(signal.quality_score) }}</span>
+                    </div>
+                    <p class="text-xs {% if signal.quality_score >= 70 %}text-green-400{% else %}text-amber-400{% endif %}">
+                        {% if signal.quality_score >= 70 %}HIGH{% else %}REVIEW{% endif %}
+                    </p>
+                    {% else %}
+                    <span class="text-slate-600">—</span>
+                    {% endif %}
+                </td>
+
+                <!-- Entry -->
+                <td class="px-4 py-4 text-right">
+                    <p class="text-white font-mono font-bold">{{ "%.2f"|format(signal.entry_price) }}</p>
+                    {% if signal.option_ltp %}
+                    <p class="text-slate-500 text-xs">₹{{ "%.2f"|format(signal.option_ltp) }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- Stop Loss -->
+                <td class="px-4 py-4 text-right">
+                    <p class="text-red-400 font-mono font-bold">{{ "%.2f"|format(signal.stop_loss) }}</p>
+                </td>
+
+                <!-- Target -->
+                <td class="px-4 py-4 text-right">
+                    <p class="text-green-400 font-mono font-bold">{{ "%.2f"|format(signal.target_1) }}</p>
+                    {% if signal.target_2 %}
+                    <p class="text-green-500 text-xs">T2: {{ "%.2f"|format(signal.target_2) }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- R:R -->
+                <td class="px-4 py-4 text-right">
+                    <span class="px-2 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs font-mono font-bold">
+                        1:{{ signal.risk_reward }}
+                    </span>
+                </td>
+
+                <!-- Result -->
+                <td class="px-4 py-4 text-center">
+                    {% if signal.result == "target_hit" %}
+                    <div class="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-green-500/20 text-green-400 border border-green-500/30">
+                        <span class="text-lg">✅</span>
+                        <span class="text-xs font-bold">TARGET</span>
+                    </div>
+                    {% elif signal.result == "stop_loss_hit" %}
+                    <div class="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30">
+                        <span class="text-lg">🛑</span>
+                        <span class="text-xs font-bold">STOP LOSS</span>
+                    </div>
+                    {% elif signal.result == "pending" %}
+                    <div class="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                        <span class="text-lg">⏳</span>
+                        <span class="text-xs font-bold">PENDING</span>
+                    </div>
+                    {% elif signal.result == "manual_exit" %}
+                    <div class="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                        <span class="text-lg">📌</span>
+                        <span class="text-xs font-bold">MANUAL</span>
+                    </div>
+                    {% else %}
+                    <span class="text-slate-500 text-xs">{{ signal.result }}</span>
+                    {% endif %}
+
+                    {% if signal.exit_time %}
+                    <p class="text-slate-500 text-xs mt-1">{{ signal.exit_time.strftime('%H:%M') }}</p>
+                    {% endif %}
+                </td>
+
+                <!-- P&L -->
+                <td class="px-4 py-4 text-right">
+                    {% if signal.actual_pnl is not none %}
+                    <p class="text-xl font-black font-mono {% if signal.actual_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {% if signal.actual_pnl >= 0 %}+{% endif %}₹{{ "%.0f"|format(signal.actual_pnl) }}
+                    </p>
+                    {% else %}
+                    <p class="text-slate-600 font-mono">—</p>
+                    {% endif %}
+
+                    {% if signal.quantity %}
+                    <p class="text-slate-500 text-xs">Qty: {{ signal.quantity }}</p>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination Info -->
+<div class="p-4 bg-slate-800 border-t border-slate-700 flex items-center justify-between">
+    <p class="text-slate-400 text-sm">Showing {{ signals|length }} signals</p>
+    <p class="text-slate-500 text-xs">Real-time updates every 30s</p>
+</div>
+
+{% else %}
+<!-- No Signals -->
+<div class="p-12 text-center">
+    <div class="w-20 h-20 mx-auto rounded-2xl bg-slate-700 flex items-center justify-center mb-4">
+        <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+    </div>
+    <h3 class="text-xl font-bold text-slate-300 mb-2">No Signals Found</h3>
+    <p class="text-slate-400 text-sm">No signals match your filter criteria</p>
+    <p class="text-slate-500 text-xs mt-2">Try adjusting the filters above</p>
+</div>
+{% endif %}

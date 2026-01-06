@@ -364,3 +364,50 @@ async def toast_partial(
         "partials/toast.html",
         {"request": request, "message": message, "type": type},
     )
+
+
+@router.get("/history/signals", response_class=HTMLResponse)
+async def history_signals_partial(
+    request: Request,
+    days: int = 7,
+    result: str = "all",
+    index: str = "all",
+):
+    """Render signals history table."""
+    try:
+        require_auth()
+
+        from app.services.signal_history_service import get_history_service
+        from app.models.signal_history import SignalResult
+
+        history_service = get_history_service()
+
+        # Get signals
+        signals = history_service.get_recent_signals(limit=100, days=days)
+
+        # Filter by result
+        if result != "all":
+            try:
+                result_enum = SignalResult(result)
+                signals = [s for s in signals if s.result == result_enum]
+            except ValueError:
+                pass
+
+        # Filter by index
+        if index != "all":
+            signals = [s for s in signals if s.index_name == index.upper()]
+
+        return templates.TemplateResponse(
+            "partials/signals_history_table.html",
+            {
+                "request": request,
+                "signals": signals,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"History signals error: {e}")
+        return templates.TemplateResponse(
+            "partials/signals_history_table.html",
+            {"request": request, "signals": [], "error": str(e)},
+        )
