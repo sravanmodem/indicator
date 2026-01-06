@@ -1,5 +1,6 @@
 # NIFTY Options Indicator Requirements
-# Python 3.12+
+# Python 3.11+ (Render deployment)
+# Last updated: 2026-01-06
 
 # Web Framework
 fastapi>=0.109.0
