@@ -14,6 +14,7 @@ from app.services.zerodha_auth import get_auth_service
 from app.services.data_fetcher import get_data_fetcher
 from app.services.websocket_manager import get_ws_manager
 from app.services.signal_engine import get_signal_engine, TradingStyle
+from app.services.signal_quality import get_quality_analyzer
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
 router = APIRouter(prefix="/htmx", tags=["HTMX Partials"])
@@ -83,11 +84,19 @@ async def signal_card_partial(
         engine = get_signal_engine(style_map.get(style, TradingStyle.INTRADAY))
         signal = engine.analyze(df=df, option_chain=option_chain)
 
+        # Score signal quality
+        quality_score = None
+        if signal:
+            quality_analyzer = get_quality_analyzer()
+            quality_score = quality_analyzer.analyze_quality(signal)
+            logger.info(f"{index} Quality Score: {quality_score.total_score:.1f}/100 (High: {quality_score.is_high_quality})")
+
         return templates.TemplateResponse(
             "partials/signal_card.html",
             {
                 "request": request,
                 "signal": signal,
+                "quality_score": quality_score,
                 "index": index,
                 "style": style,
                 "chain_data": chain_data if "error" not in chain_data else None,
@@ -303,11 +312,18 @@ async def recommended_option_partial(
                 {"request": request, "error": f"No suitable {index} option found matching criteria"},
             )
 
+        # Score signal quality
+        quality_score = None
+        if signal:
+            quality_analyzer = get_quality_analyzer()
+            quality_score = quality_analyzer.analyze_quality(signal)
+
         return templates.TemplateResponse(
             "partials/recommended_option.html",
             {
                 "request": request,
                 "signal": signal,
+                "quality_score": quality_score,
                 "style": style,
             },
         )

@@ -19,6 +19,52 @@
         </span>
     </div>
 
+    {% if quality_score %}
+    <!-- Signal Quality Score Badge -->
+    <div class="mb-4 sm:mb-6 p-4 sm:p-5 rounded-xl {% if quality_score.is_high_quality %}bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-2 border-green-500/50{% else %}bg-gradient-to-r from-amber-900/30 to-orange-900/30 border-2 border-amber-500/50{% endif %}">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex-1">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="text-2xl sm:text-3xl">{% if quality_score.is_high_quality %}⭐{% else %}⚠️{% endif %}</span>
+                    <h4 class="text-base sm:text-lg font-black text-white uppercase">Signal Quality Score</h4>
+                </div>
+                <p class="text-xl sm:text-2xl md:text-3xl font-black {% if quality_score.is_high_quality %}text-green-400{% else %}text-amber-400{% endif %}">
+                    {{ quality_score.total_score }}<span class="text-base sm:text-lg">/100</span>
+                    <span class="ml-2 sm:ml-3 px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm font-bold {% if quality_score.is_high_quality %}bg-green-500/30 text-green-200{% else %}bg-amber-500/30 text-amber-200{% endif %}">
+                        {% if quality_score.is_high_quality %}HIGH QUALITY✅{% else %}NEEDS REVIEW{% endif %}
+                    </span>
+                </p>
+            </div>
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 text-center">
+                <div class="p-2 rounded-lg bg-white/10">
+                    <p class="text-white/70 text-xs font-semibold mb-1">Trend</p>
+                    <p class="text-white font-mono font-bold text-sm sm:text-base">{{ quality_score.trend_score }}</p>
+                </div>
+                <div class="p-2 rounded-lg bg-white/10">
+                    <p class="text-white/70 text-xs font-semibold mb-1">Momentum</p>
+                    <p class="text-white font-mono font-bold text-sm sm:text-base">{{ quality_score.momentum_score }}</p>
+                </div>
+                <div class="p-2 rounded-lg bg-white/10">
+                    <p class="text-white/70 text-xs font-semibold mb-1">Greeks</p>
+                    <p class="text-white font-mono font-bold text-sm sm:text-base">{{ quality_score.greeks_score }}</p>
+                </div>
+            </div>
+        </div>
+        {% if quality_score.factors %}
+        <div class="mt-3 pt-3 border-t border-white/20">
+            <p class="text-white/90 text-xs font-bold mb-2">Quality Factors:</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {% for factor in quality_score.factors %}
+                <p class="{% if quality_score.is_high_quality %}text-green-200{% else %}text-amber-200{% endif %} text-xs">
+                    <span class="{% if quality_score.is_high_quality %}text-green-400{% else %}text-amber-400{% endif %} mr-1">✓</span>{{ factor }}
+                </p>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Main Option Details - Responsive Layout -->
     <div class="bg-surface-800/60 backdrop-blur-sm rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 mb-4 sm:mb-6 border border-slate-700/50">
         <!-- Symbol and Premium - Stack on Mobile -->
