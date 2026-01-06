@@ -107,6 +107,16 @@
                 </div>
             </div>
 
+            <!-- Recommended Option Card with Greeks -->
+            <div id="recommended-option"
+                 hx-get="/htmx/recommended-option/nifty?style=intraday"
+                 hx-trigger="load"
+                 hx-swap="innerHTML transition:true">
+                <div class="glass rounded-2xl p-6">
+                    <div class="h-64 bg-surface-700 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+
             <!-- Option Chain Table -->
             <div id="option-chain"
                  hx-get="/htmx/option-chain-table/nifty"
@@ -174,13 +184,15 @@
         // Use htmx.ajax to directly fetch with correct URLs
         htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/indicator-panel/' + tab, {target: '#indicator-panel', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/recommended-option/' + tab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
         htmx.ajax('GET', '/htmx/option-chain-table/' + tab, {target: '#option-chain', swap: 'innerHTML'});
     }
 
     function switchStyle(style) {
         currentStyle = style;
-        // Only signal card uses style parameter
+        // Signal card and recommended option use style parameter
         htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + style, {target: '#recommended-option', swap: 'innerHTML'});
     }
 
     async function refreshSignal() {
@@ -228,10 +240,11 @@
 
     // Setup polling with current tab
     document.addEventListener('DOMContentLoaded', () => {
-        // Poll signal card and indicator panel every second
+        // Poll signal card, indicator panel and recommended option every second
         setInterval(() => {
             htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
             htmx.ajax('GET', '/htmx/indicator-panel/' + currentTab, {target: '#indicator-panel', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
         }, 1000);
 
         // Poll option chain every 30 seconds

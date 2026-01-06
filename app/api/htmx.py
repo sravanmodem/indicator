@@ -251,6 +251,72 @@ async def ws_status_partial(request: Request):
     )
 
 
+@router.get("/recommended-option/{index}", response_class=HTMLResponse)
+async def recommended_option_partial(
+    request: Request,
+    index: str = "NIFTY",
+    style: str = "intraday",
+):
+    """Render recommended option card with Greeks and expected prices."""
+    index = index.upper()
+    style = style.lower()
+
+    try:
+        require_auth()
+        fetcher = get_data_fetcher()
+
+        if index == "NIFTY":
+            token = NIFTY_INDEX_TOKEN
+        elif index == "SENSEX":
+            token = SENSEX_INDEX_TOKEN
+        else:
+            token = BANKNIFTY_INDEX_TOKEN
+
+        df = await fetcher.fetch_historical_data(
+            instrument_token=token,
+            timeframe="5minute",
+            days=3,
+        )
+
+        if df.empty:
+            return templates.TemplateResponse(
+                "partials/recommended_option.html",
+                {"request": request, "error": "Market closed - No live data available"},
+            )
+
+        chain_data = await fetcher.get_option_chain(index=index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+        style_map = {
+            "scalping": TradingStyle.SCALPING,
+            "intraday": TradingStyle.INTRADAY,
+            "swing": TradingStyle.SWING,
+        }
+        engine = get_signal_engine(style_map.get(style, TradingStyle.INTRADAY))
+        signal = engine.analyze(df=df, option_chain=option_chain)
+
+        return templates.TemplateResponse(
+            "partials/recommended_option.html",
+            {
+                "request": request,
+                "signal": signal,
+                "style": style,
+            },
+        )
+
+    except HTTPException:
+        return templates.TemplateResponse(
+            "partials/recommended_option.html",
+            {"request": request, "error": "Please login first"},
+        )
+    except Exception as e:
+        logger.error(f"Recommended option error: {e}")
+        return templates.TemplateResponse(
+            "partials/recommended_option.html",
+            {"request": request, "error": f"Market closed or error: {str(e)[:50]}"},
+        )
+
+
 @router.get("/live-ticks", response_class=HTMLResponse)
 async def live_ticks_partial(request: Request):
     """Render live tick data table."""
