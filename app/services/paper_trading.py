@@ -754,24 +754,41 @@ class PaperTradingService:
                 position.pnl = (position.current_price - position.entry_price) * position.quantity
                 position.pnl_percent = ((position.current_price - position.entry_price) / position.entry_price) * 100
 
-                # Check PREMIUM-BASED stop loss / target
-                # Now stop_loss and target are option premium values (not spot prices)
                 current_premium = position.current_price
-
                 should_exit = False
                 exit_reason = ""
 
-                # 1. Check PREMIUM-BASED exit (SL/Target)
-                # Target: Exit when premium reaches target price (profit)
-                # SL: Exit when premium drops to stop loss price (loss)
-                if current_premium >= position.target and position.target > 0:
+                # TRAILING STOP LOSS LOGIC
+                # Trail every 5 points - SL stays 5 below the highest price
+                # Example: Entry ₹50, price hits ₹56 → SL = ₹51 (max - 5)
+                #          Price hits ₹70 → SL = ₹65 (max - 5)
+                TRAIL_DISTANCE = 5  # Trail 5 points below high
+
+                # Calculate new trailing SL based on max price reached
+                new_trailing_sl = position.max_price - TRAIL_DISTANCE
+
+                # Only update SL if:
+                # 1. New trailing SL is higher than current SL (price moved up)
+                # 2. New trailing SL is above entry (we're in profit)
+                if new_trailing_sl > position.stop_loss and new_trailing_sl > position.entry_price:
+                    old_sl = position.stop_loss
+                    position.stop_loss = new_trailing_sl
+                    logger.info(
+                        f"Trailing SL updated: {position.symbol} | "
+                        f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
+                    )
+
+                # Check if trailing stop loss is hit
+                if current_premium <= position.stop_loss and position.stop_loss > 0:
                     should_exit = True
-                    profit_pct = ((current_premium - position.entry_price) / position.entry_price) * 100
-                    exit_reason = f"Target Hit ₹{current_premium:.1f} (+{profit_pct:.0f}%)"
-                elif current_premium <= position.stop_loss and position.stop_loss > 0:
-                    should_exit = True
-                    loss_pct = ((position.entry_price - current_premium) / position.entry_price) * 100
-                    exit_reason = f"Stop Loss Hit ₹{current_premium:.1f} (-{loss_pct:.0f}%)"
+                    if position.stop_loss > position.entry_price:
+                        # Profit exit (trailing SL hit after moving up)
+                        profit_pct = ((position.stop_loss - position.entry_price) / position.entry_price) * 100
+                        exit_reason = f"Trailing SL Hit ₹{current_premium:.1f} (Locked +{profit_pct:.0f}%)"
+                    else:
+                        # Loss exit (initial SL hit)
+                        loss_pct = ((position.entry_price - current_premium) / position.entry_price) * 100
+                        exit_reason = f"Stop Loss Hit ₹{current_premium:.1f} (-{loss_pct:.0f}%)"
 
                 # 2. Check signal-based exit (market reversal)
                 if not should_exit:
