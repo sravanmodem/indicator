@@ -804,22 +804,32 @@ class SignalEngine:
             if df.empty or len(df) < 20:
                 return None
 
-            # Calculate indicators
-            df = calculate_supertrend(df)
-            df = calculate_rsi(df)
-            df = calculate_macd(df)
-            df = calculate_ema(df, period=9)
-            df = calculate_ema(df, period=21)
+            # Normalize column names to Title case (High, Low, Close, Open, Volume)
+            df = df.copy()
+            column_map = {
+                'open': 'Open', 'high': 'High', 'low': 'Low',
+                'close': 'Close', 'volume': 'Volume',
+                'OPEN': 'Open', 'HIGH': 'High', 'LOW': 'Low',
+                'CLOSE': 'Close', 'VOLUME': 'Volume',
+            }
+            df.rename(columns={k: v for k, v in column_map.items() if k in df.columns}, inplace=True)
 
-            latest = df.iloc[-1]
-            prev = df.iloc[-2] if len(df) > 1 else latest
+            # Calculate indicators - each returns a result object
+            st_result = calculate_supertrend(df)
+            rsi_result = calculate_rsi(df)
+            macd_result = calculate_macd(df)
+            ema_result = calculate_ema(df, fast_period=9, slow_period=21, trend_period=None)
 
             exit_reasons = []
             exit_score = 0
 
+            # Get latest and previous values
+            idx = len(df) - 1
+            prev_idx = idx - 1 if idx > 0 else idx
+
             # 1. SuperTrend Reversal - Strong exit signal
-            supertrend_dir = latest.get("supertrend_direction", 0)
-            prev_supertrend_dir = prev.get("supertrend_direction", 0)
+            supertrend_dir = st_result.direction.iloc[idx]
+            prev_supertrend_dir = st_result.direction.iloc[prev_idx]
 
             if position_type == "CE" and supertrend_dir == -1:
                 exit_reasons.append("SuperTrend turned bearish")
@@ -834,7 +844,7 @@ class SignalEngine:
                 exit_score += 30
 
             # 2. RSI Exhaustion
-            rsi = latest.get("rsi", 50)
+            rsi = rsi_result.rsi.iloc[idx] if not pd.isna(rsi_result.rsi.iloc[idx]) else 50
             if position_type == "CE" and rsi > 75:
                 exit_reasons.append(f"RSI overbought ({rsi:.0f}) - Momentum exhaustion")
                 exit_score += 25
@@ -843,25 +853,25 @@ class SignalEngine:
                 exit_score += 25
 
             # 3. MACD Crossover (Signal reversal)
-            macd = latest.get("macd", 0)
-            macd_signal = latest.get("macd_signal", 0)
-            prev_macd = prev.get("macd", 0)
-            prev_macd_signal = prev.get("macd_signal", 0)
+            macd = macd_result.macd_line.iloc[idx] if not pd.isna(macd_result.macd_line.iloc[idx]) else 0
+            macd_sig = macd_result.signal_line.iloc[idx] if not pd.isna(macd_result.signal_line.iloc[idx]) else 0
+            prev_macd = macd_result.macd_line.iloc[prev_idx] if not pd.isna(macd_result.macd_line.iloc[prev_idx]) else 0
+            prev_macd_sig = macd_result.signal_line.iloc[prev_idx] if not pd.isna(macd_result.signal_line.iloc[prev_idx]) else 0
 
             # MACD crossed below signal (bearish for CE)
-            if position_type == "CE" and prev_macd > prev_macd_signal and macd < macd_signal:
+            if position_type == "CE" and prev_macd > prev_macd_sig and macd < macd_sig:
                 exit_reasons.append("MACD bearish crossover")
                 exit_score += 20
             # MACD crossed above signal (bullish for PE)
-            elif position_type == "PE" and prev_macd < prev_macd_signal and macd > macd_signal:
+            elif position_type == "PE" and prev_macd < prev_macd_sig and macd > macd_sig:
                 exit_reasons.append("MACD bullish crossover")
                 exit_score += 20
 
-            # 4. EMA Crossover
-            ema9 = latest.get("ema_9", 0)
-            ema21 = latest.get("ema_21", 0)
-            prev_ema9 = prev.get("ema_9", 0)
-            prev_ema21 = prev.get("ema_21", 0)
+            # 4. EMA Crossover (using fast=9, slow=21)
+            ema9 = ema_result.ema_fast.iloc[idx] if not pd.isna(ema_result.ema_fast.iloc[idx]) else 0
+            ema21 = ema_result.ema_slow.iloc[idx] if not pd.isna(ema_result.ema_slow.iloc[idx]) else 0
+            prev_ema9 = ema_result.ema_fast.iloc[prev_idx] if not pd.isna(ema_result.ema_fast.iloc[prev_idx]) else 0
+            prev_ema21 = ema_result.ema_slow.iloc[prev_idx] if not pd.isna(ema_result.ema_slow.iloc[prev_idx]) else 0
 
             if position_type == "CE" and prev_ema9 > prev_ema21 and ema9 < ema21:
                 exit_reasons.append("EMA bearish crossover (9 crossed below 21)")
