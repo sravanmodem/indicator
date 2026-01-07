@@ -117,3 +117,16 @@ class PaperTradingAccount(Base):
 
     # Settings
     is_active = Column(Boolean, default=True)
+
+
+class AuthToken(Base):
+    """Authentication token storage for session persistence."""
+    __tablename__ = "auth_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(String(100), nullable=False)
+    access_token = Column(String(500), nullable=False)
+    request_token = Column(String(500), nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+    updated_at = Column(DateTime, nullable=False, default=datetime.now)

@@ -36,7 +36,12 @@ async def auth_status_partial(request: Request):
 
     return templates.TemplateResponse(
         "partials/auth_status.html",
-        {"request": request, "status": status},
+        {
+            "request": request,
+            "authenticated": status.get("is_authenticated", False),
+            "user_id": status.get("user_id"),
+            "user_name": status.get("user_name"),
+        },
     )
 
 
