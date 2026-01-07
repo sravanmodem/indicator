@@ -1427,6 +1427,10 @@ class PaperTradingService:
             # Load auto trade setting
             self.is_auto_trade = state.get("is_auto_trade", True)
 
+            # Re-check halt status based on current P&L (not saved status)
+            # This allows trading to resume if P&L is back within limits
+            self.check_daily_loss_limit()
+
             logger.info(f"Loaded paper trading state: {len(self.orders)} orders, {len(self.positions)} positions, {len(self.order_history)} history entries")
 
         except Exception as e:
