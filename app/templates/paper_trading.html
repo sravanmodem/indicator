@@ -273,14 +273,53 @@ function paperTrading() {
 
         startAutoTrade() {
             // Execute immediately on page load
-            this.executeSignal();
+            this.checkAndExecute();
 
             // Then execute every 10 seconds
             this.autoTradeInterval = setInterval(() => {
+                this.checkAndExecute();
+            }, 10000);
+        },
+
+        checkAndExecute() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const currentTime = hours * 60 + minutes; // Minutes since midnight
+
+            const tradingStartTime = 13 * 60; // 1:00 PM
+            const squareOffTime = 14 * 60;    // 2:00 PM
+
+            // Auto square-off at 2:00 PM
+            if (currentTime >= squareOffTime && this.stats.status.open_positions > 0) {
+                this.autoSquareOff();
+                return;
+            }
+
+            // Only trade between 1:00 PM and 2:00 PM
+            if (currentTime >= tradingStartTime && currentTime < squareOffTime) {
                 if (!this.stats.status.is_halted) {
                     this.executeSignal();
                 }
-            }, 10000);
+            }
+        },
+
+        async autoSquareOff() {
+            if (this.stats.status.open_positions === 0) return;
+
+            try {
+                const response = await fetch('/paper/positions/close-all', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    this.showToast(`Auto Square-off: Closed ${data.closed_count} positions`, 'warning');
+                    htmx.trigger('#positions-table', 'htmx:trigger');
+                }
+
+                await this.refreshStats();
+            } catch (e) {
+                console.error('Auto square-off error:', e);
+            }
         },
 
         async executeSignal() {

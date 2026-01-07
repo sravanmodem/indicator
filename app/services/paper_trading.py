@@ -550,6 +550,46 @@ class PaperTradingService:
             "close_time_display": "1:00 PM" if is_expiry else "2:00 PM",
         }
 
+    def has_open_position(self) -> bool:
+        """Check if there are any open positions."""
+        return len(self.get_open_positions()) > 0
+
+    def find_similar_position(self, option_type: str) -> PaperPosition | None:
+        """
+        Find an open position with the same option type (CE/PE).
+
+        Args:
+            option_type: CE or PE
+
+        Returns:
+            PaperPosition if found, None otherwise
+        """
+        for position in self.positions:
+            if position.status == PositionStatus.OPEN and position.option_type == option_type:
+                return position
+        return None
+
+    def update_position_target(self, position: PaperPosition, new_target: float, new_stop_loss: float) -> bool:
+        """
+        Update target and stop loss for an existing position.
+
+        Args:
+            position: Position to update
+            new_target: New target price
+            new_stop_loss: New stop loss price
+
+        Returns:
+            True if updated, False otherwise
+        """
+        if position.status != PositionStatus.OPEN:
+            return False
+
+        position.target = new_target
+        position.stop_loss = new_stop_loss
+        self._save_state()
+        logger.info(f"Updated position {position.position_id} - Target: {new_target}, SL: {new_stop_loss}")
+        return True
+
     async def execute_signal_trade(
         self,
         signal: Any,
@@ -592,6 +632,22 @@ class PaperTradingService:
             return None
 
         opt = signal.recommended_option
+
+        # Check if there's already an open position
+        if self.has_open_position():
+            # Check if signal matches existing position - update target if same direction
+            existing_position = self.find_similar_position(signal.direction)
+            if existing_position:
+                # Update target and stop loss for the existing position
+                self.update_position_target(
+                    existing_position,
+                    new_target=signal.target_1,
+                    new_stop_loss=signal.stop_loss,
+                )
+                logger.info(f"Position already open. Updated target for {existing_position.symbol}")
+            else:
+                logger.info("Position already open with different direction. Skipping new order.")
+            return None
 
         # Calculate order size
         lots, quantity, split_orders = self.calculate_order_size(

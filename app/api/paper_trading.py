@@ -3,18 +3,36 @@ Paper Trading API Routes
 Endpoints for paper trading management
 """
 
-from datetime import datetime
+import io
+from datetime import datetime, time
 
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from loguru import logger
+import pandas as pd
 
 from app.services.zerodha_auth import get_auth_service
 from app.services.paper_trading import get_paper_trading_service
 from app.services.signal_engine import get_signal_engine, TradingStyle
 from app.services.data_fetcher import get_data_fetcher
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+
+# Trading time restrictions
+TRADING_START_TIME = time(13, 0)  # Start trading at 1:00 PM
+TRADING_END_TIME = time(14, 0)    # Stop trading at 2:00 PM (square off time)
+
+
+def is_trading_allowed() -> tuple[bool, str]:
+    """Check if trading is allowed based on current time."""
+    now = datetime.now().time()
+
+    if now < TRADING_START_TIME:
+        return False, f"Trading starts at {TRADING_START_TIME.strftime('%I:%M %p')}"
+    if now >= TRADING_END_TIME:
+        return False, f"Trading ended at {TRADING_END_TIME.strftime('%I:%M %p')}"
+
+    return True, "Trading allowed"
 
 router = APIRouter(prefix="/paper", tags=["Paper Trading"])
 templates = Jinja2Templates(directory="app/templates")
@@ -102,6 +120,14 @@ async def get_all_expiries():
 async def execute_signal_trade():
     """Execute trade based on current signal."""
     require_auth()
+
+    # Check trading time restrictions
+    allowed, reason = is_trading_allowed()
+    if not allowed:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": reason},
+        )
 
     paper = get_paper_trading_service()
     fetcher = get_data_fetcher()
@@ -567,6 +593,62 @@ async def get_order_history_summary():
     paper = get_paper_trading_service()
 
     return paper.get_order_history_summary()
+
+
+@router.get("/order-history/download")
+async def download_order_history(days: int = 30):
+    """Download order history as Excel file."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    history = paper.get_order_history(days=days)
+
+    if not history:
+        raise HTTPException(status_code=404, detail="No order history found")
+
+    # Create DataFrame
+    data = []
+    for h in history:
+        data.append({
+            "Date": h.timestamp.strftime("%Y-%m-%d"),
+            "Time": h.timestamp.strftime("%H:%M:%S"),
+            "Index": h.index,
+            "Symbol": h.symbol,
+            "Strike": h.strike,
+            "Type": h.option_type,
+            "Direction": h.direction,
+            "Lots": h.lots,
+            "Quantity": h.quantity,
+            "Entry Price": h.entry_price,
+            "Exit Price": h.exit_price,
+            "Max Price": h.max_price,
+            "Min Price": h.min_price,
+            "P&L": h.pnl,
+            "P&L %": h.pnl_percent,
+            "Max Profit %": h.max_profit_percent,
+            "Max Loss %": h.max_loss_percent,
+            "Captured Move %": h.captured_move_percent,
+            "Duration (min)": h.duration_minutes,
+            "Exit Reason": h.exit_reason,
+            "Confidence": h.signal_confidence,
+        })
+
+    df = pd.DataFrame(data)
+
+    # Create Excel file in memory
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='Order History', index=False)
+
+    output.seek(0)
+
+    filename = f"order_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.get("/htmx/order-history", response_class=HTMLResponse)
