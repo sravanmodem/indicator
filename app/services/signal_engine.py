@@ -873,7 +873,12 @@ class SignalEngine:
             # 5. Profit/Loss based exit
             pnl_percent = ((current_ltp - entry_price) / entry_price) * 100
 
-            if pnl_percent >= 50:  # 50% profit
+            # Quick 10% profit exit - take profits early
+            if pnl_percent >= 10:
+                exit_reasons.append(f"Quick profit booked ({pnl_percent:.1f}%)")
+                exit_score += 50  # Strong exit signal at 10%+
+
+            if pnl_percent >= 50:  # 50% profit - bonus exit
                 exit_reasons.append(f"Target profit reached ({pnl_percent:.1f}%)")
                 exit_score += 50
             elif pnl_percent <= -30:  # 30% loss
