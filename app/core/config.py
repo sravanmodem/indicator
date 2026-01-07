@@ -145,9 +145,9 @@ OPTION_FILTERS = {
     "min_volume": 100,      # Minimum volume
 }
 
-# Premium-based targets (based on Delta) - Aggressive
+# Premium-based targets - 10% Stop Loss, No Fixed Target (let profits run)
 PREMIUM_TARGETS = {
-    "high_delta": {"target": 0.40, "sl": 0.20},    # Delta 0.6-0.9: 40% profit, 20% SL
-    "medium_delta": {"target": 0.50, "sl": 0.25},  # Delta 0.4-0.6: 50% profit, 25% SL
-    "low_delta": {"target": 0.60, "sl": 0.30},     # Delta 0.2-0.4: 60% profit, 30% SL
+    "high_delta": {"target": 1.00, "sl": 0.10},    # Delta 0.6-0.9: No limit, 10% SL
+    "medium_delta": {"target": 1.00, "sl": 0.10},  # Delta 0.4-0.6: No limit, 10% SL
+    "low_delta": {"target": 1.00, "sl": 0.10},     # Delta 0.2-0.4: No limit, 10% SL
 }

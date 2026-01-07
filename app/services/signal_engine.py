@@ -873,19 +873,8 @@ class SignalEngine:
             # 5. Profit/Loss based exit
             pnl_percent = ((current_ltp - entry_price) / entry_price) * 100
 
-            # EXIT AT 10% PROFIT - Immediate exit, no other conditions needed
-            if pnl_percent >= 10:
-                return {
-                    "should_exit": True,
-                    "exit_score": 100,
-                    "reasons": [f"10% Profit Target Hit (+{pnl_percent:.1f}%)"],
-                    "pnl_percent": pnl_percent,
-                    "current_ltp": current_ltp,
-                    "entry_price": entry_price,
-                }
-
-            # Stop loss at -30%
-            if pnl_percent <= -30:
+            # STOP LOSS AT -10% - Exit immediately if loss exceeds 10%
+            if pnl_percent <= -10:
                 return {
                     "should_exit": True,
                     "exit_score": 100,
@@ -895,7 +884,8 @@ class SignalEngine:
                     "entry_price": entry_price,
                 }
 
-            # Generate exit signal if score is high enough (other indicators)
+            # NO FIXED PROFIT TARGET - Let profits run
+            # Only exit on indicator-based signals (trend reversal, etc.)
             if exit_score >= 40:
                 return {
                     "should_exit": True,
