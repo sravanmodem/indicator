@@ -334,14 +334,14 @@
                 </button>
 
                 <!-- Market Overview OHLC Cards -->
-                <div id="market-status" class="hidden lg:flex items-center"
+                <div id="market-status" class="hidden lg:flex items-center h-full"
                      hx-get="/htmx/market-header-cards"
                      hx-trigger="load, every 5s"
                      hx-swap="innerHTML">
-                    <div class="flex items-center gap-4">
-                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
-                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
-                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
+                    <div class="flex items-center gap-3 h-full">
+                        <div class="h-10 w-40 bg-slate-700 rounded animate-pulse"></div>
+                        <div class="h-10 w-40 bg-slate-700 rounded animate-pulse"></div>
+                        <div class="h-10 w-40 bg-slate-700 rounded animate-pulse"></div>
                     </div>
                 </div>
 

@@ -367,12 +367,16 @@ async def market_header_cards_partial(request: Request):
         require_auth()
         fetcher = get_data_fetcher()
 
-        # Fetch quotes for all indices
+        # Fetch OHLC data for all indices
+        ohlc_data = await fetcher.fetch_ohlc(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+
+        # Also fetch quotes for change percentage
         quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
 
-        nifty = quotes.get("NSE:NIFTY 50", {})
-        banknifty = quotes.get("NSE:NIFTY BANK", {})
-        sensex = quotes.get("BSE:SENSEX", {})
+        # Merge OHLC with quote data (change percentage)
+        nifty = {**ohlc_data.get("NSE:NIFTY 50", {}), **quotes.get("NSE:NIFTY 50", {})}
+        banknifty = {**ohlc_data.get("NSE:NIFTY BANK", {}), **quotes.get("NSE:NIFTY BANK", {})}
+        sensex = {**ohlc_data.get("BSE:SENSEX", {}), **quotes.get("BSE:SENSEX", {})}
 
         return templates.TemplateResponse(
             "partials/market_header_cards.html",
