@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+{% block page_title %}User Management{% endblock %}
+{% block page_subtitle %}Manage trading platform users{% endblock %}
+
+{% block content %}
+<div class="space-y-6 animate-fade-in">
+
+    {% if error %}
+    <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+        <p class="text-red-400">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Header Actions -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-4">
+            <div class="relative">
+                <input type="text" id="searchUsers" placeholder="Search users..."
+                       class="pl-10 pr-4 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 w-64">
+                <svg class="w-5 h-5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <select id="filterStatus" class="px-4 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white focus:outline-none focus:border-primary-500">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="suspended">Suspended</option>
+            </select>
+        </div>
+        <a href="/admin/users/new" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium flex items-center gap-2 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+            </svg>
+            Add User
+        </a>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Total Users</p>
+            <p class="text-2xl font-bold text-white mt-1">{{ users|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Active</p>
+            <p class="text-2xl font-bold text-green-400 mt-1">{{ users|selectattr('status.value', 'equalto', 'active')|list|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Pending</p>
+            <p class="text-2xl font-bold text-amber-400 mt-1">{{ users|selectattr('status.value', 'equalto', 'pending')|list|length }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Suspended</p>
+            <p class="text-2xl font-bold text-red-400 mt-1">{{ users|selectattr('status.value', 'equalto', 'suspended')|list|length }}</p>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full" id="usersTable">
+                <thead>
+                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700/50 bg-surface-800/50">
+                        <th class="p-4">User</th>
+                        <th class="p-4">Role</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">Trading Mode</th>
+                        <th class="p-4 text-right">Capital</th>
+                        <th class="p-4 text-right">Total P&L</th>
+                        <th class="p-4 text-center">Zerodha</th>
+                        <th class="p-4">Created</th>
+                        <th class="p-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr class="border-b border-slate-700/30 hover:bg-surface-800/50 user-row"
+                        data-username="{{ user.username|lower }}"
+                        data-email="{{ user.email|lower }}"
+                        data-status="{{ user.status.value }}">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                                    {{ user.username[0]|upper }}
+                                </div>
+                                <div>
+                                    <p class="text-white font-medium">{{ user.username }}</p>
+                                    <p class="text-slate-500 text-xs">{{ user.email }}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if user.role.value == 'admin' %}bg-purple-500/20 text-purple-400{% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                                {{ user.role.value|upper }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if user.status.value == 'active' %}bg-green-500/20 text-green-400
+                                {% elif user.status.value == 'suspended' %}bg-red-500/20 text-red-400
+                                {% else %}bg-amber-500/20 text-amber-400{% endif %}">
+                                {{ user.status.value }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if user.trading_mode.value == 'live' %}bg-green-500/20 text-green-400
+                                {% elif user.trading_mode.value == 'paper' %}bg-blue-500/20 text-blue-400
+                                {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                                {{ user.trading_mode.value|upper }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right font-mono text-white">₹{{ "{:,.0f}".format(user.capital) }}</td>
+                        <td class="p-4 text-right font-mono {% if user.stats.total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                            {% if user.stats.total_pnl >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(user.stats.total_pnl) }}
+                        </td>
+                        <td class="p-4 text-center">
+                            {% if user.zerodha.is_connected %}
+                            <span class="inline-flex items-center gap-1 text-green-400">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            </span>
+                            {% else %}
+                            <span class="text-slate-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-slate-400 text-sm">{{ user.created_at[:10] }}</td>
+                        <td class="p-4 text-center">
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="/admin/users/{{ user.user_id }}"
+                                   class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-white transition-colors"
+                                   title="View Details">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                </a>
+                                {% if user.status.value == 'active' %}
+                                <form action="/admin/users/{{ user.user_id }}/suspend" method="POST" class="inline">
+                                    <button type="submit" class="p-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors" title="Suspend">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form action="/admin/users/{{ user.user_id }}/activate" method="POST" class="inline">
+                                    <button type="submit" class="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 transition-colors" title="Activate">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if users|length == 0 %}
+        <div class="p-12 text-center">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-700/50 flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+            </div>
+            <p class="text-slate-400">No users found</p>
+            <p class="text-slate-500 text-sm mt-1">Create your first user to get started</p>
+            <a href="/admin/users/new" class="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+                Add First User
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Search functionality
+document.getElementById('searchUsers').addEventListener('input', filterUsers);
+document.getElementById('filterStatus').addEventListener('change', filterUsers);
+
+function filterUsers() {
+    const search = document.getElementById('searchUsers').value.toLowerCase();
+    const status = document.getElementById('filterStatus').value;
+    const rows = document.querySelectorAll('.user-row');
+
+    rows.forEach(row => {
+        const username = row.dataset.username;
+        const email = row.dataset.email;
+        const rowStatus = row.dataset.status;
+
+        const matchesSearch = username.includes(search) || email.includes(search);
+        const matchesStatus = !status || rowStatus === status;
+
+        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

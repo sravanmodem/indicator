@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.api import auth, market, signals, htmx, paper_trading, user_auth, email
+from app.api import auth, market, signals, htmx, paper_trading, user_auth, email, admin, user_dashboard
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.services.zerodha_auth import get_auth_service
@@ -121,6 +121,8 @@ app.include_router(signals.router)
 app.include_router(htmx.router)
 app.include_router(paper_trading.router)
 app.include_router(email.router)  # Email settings and reports
+app.include_router(admin.router)  # Admin dashboard and user management
+app.include_router(user_dashboard.router)  # User trading dashboard
 
 
 @app.get("/", response_class=HTMLResponse)

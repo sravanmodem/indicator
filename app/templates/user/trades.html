@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}My Trades{% endblock %}
+{% block page_title %}My Trades{% endblock %}
+{% block page_subtitle %}Complete trading history and performance{% endblock %}
+
+{% block content %}
+<div class="space-y-6 animate-fade-in">
+
+    <!-- Stats Summary -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Total Trades</p>
+            <p class="text-2xl font-bold text-white mt-1">{{ stats.total_trades }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Winning Trades</p>
+            <p class="text-2xl font-bold text-green-400 mt-1">{{ stats.winning_trades }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Losing Trades</p>
+            <p class="text-2xl font-bold text-red-400 mt-1">{{ stats.losing_trades }}</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Win Rate</p>
+            <p class="text-2xl font-bold text-white mt-1">{{ "%.1f"|format(stats.win_rate) }}%</p>
+        </div>
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Total P&L</p>
+            <p class="text-2xl font-bold {% if stats.total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} mt-1">
+                {% if stats.total_pnl >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.total_pnl) }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card p-4">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <select id="filterIndex" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                    <option value="">All Indices</option>
+                    <option value="NIFTY">NIFTY</option>
+                    <option value="BANKNIFTY">BANKNIFTY</option>
+                    <option value="SENSEX">SENSEX</option>
+                </select>
+                <select id="filterType" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                    <option value="">All Types</option>
+                    <option value="CE">CE</option>
+                    <option value="PE">PE</option>
+                </select>
+                <select id="filterMode" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                    <option value="">All Modes</option>
+                    <option value="live">Live</option>
+                    <option value="paper">Paper</option>
+                </select>
+                <select id="filterResult" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                    <option value="">All Results</option>
+                    <option value="profit">Profit</option>
+                    <option value="loss">Loss</option>
+                </select>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="date" id="dateFrom" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                <span class="text-slate-500">to</span>
+                <input type="date" id="dateTo" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
+                <button onclick="exportTrades()" class="px-3 py-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-white text-sm flex items-center gap-1 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Export
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trades Table -->
+    <div class="card">
+        <div class="overflow-x-auto">
+            <table class="w-full" id="tradesTable">
+                <thead>
+                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700/50 bg-surface-800/50">
+                        <th class="p-4">Date & Time</th>
+                        <th class="p-4">Instrument</th>
+                        <th class="p-4">Type</th>
+                        <th class="p-4">Mode</th>
+                        <th class="p-4 text-right">Entry</th>
+                        <th class="p-4 text-right">Exit</th>
+                        <th class="p-4 text-right">Qty</th>
+                        <th class="p-4 text-right">P&L</th>
+                        <th class="p-4 text-right">Commission</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4">Signal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in trades %}
+                    <tr class="border-b border-slate-700/30 hover:bg-surface-800/50 trade-row"
+                        data-index="{{ trade.index }}"
+                        data-type="{{ trade.trade_type }}"
+                        data-mode="{{ trade.mode }}"
+                        data-result="{% if trade.pnl and trade.pnl > 0 %}profit{% elif trade.pnl %}loss{% endif %}">
+                        <td class="p-4">
+                            <p class="text-white text-sm">{{ trade.entry_time[:10] }}</p>
+                            <p class="text-xs text-slate-500">{{ trade.entry_time[11:16] }}</p>
+                        </td>
+                        <td class="p-4">
+                            <p class="text-white font-medium">{{ trade.instrument }}</p>
+                            <p class="text-xs text-slate-500">{{ trade.index }}</p>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if trade.trade_type == 'CE' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                                {{ trade.trade_type }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if trade.mode == 'live' %}bg-green-500/20 text-green-400{% else %}bg-blue-500/20 text-blue-400{% endif %}">
+                                {{ trade.mode|upper }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right">
+                            <p class="font-mono text-white">₹{{ "%.2f"|format(trade.entry_price) }}</p>
+                        </td>
+                        <td class="p-4 text-right">
+                            {% if trade.exit_price %}
+                            <p class="font-mono text-white">₹{{ "%.2f"|format(trade.exit_price) }}</p>
+                            <p class="text-xs text-slate-500">{{ trade.exit_time[11:16] if trade.exit_time else '' }}</p>
+                            {% else %}
+                            <span class="text-slate-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-right font-mono text-white">{{ trade.quantity }}</td>
+                        <td class="p-4 text-right">
+                            {% if trade.pnl %}
+                            <p class="font-mono font-bold {% if trade.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                                {% if trade.pnl >= 0 %}+{% endif %}₹{{ "%.0f"|format(trade.pnl) }}
+                            </p>
+                            <p class="text-xs {% if trade.pnl >= 0 %}text-green-400/70{% else %}text-red-400/70{% endif %}">
+                                {% if trade.pnl >= 0 %}+{% endif %}{{ "%.1f"|format(trade.pnl_percent or 0) }}%
+                            </p>
+                            {% else %}
+                            <span class="text-slate-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="p-4 text-right font-mono text-purple-400">
+                            {% if trade.commission %}₹{{ "%.0f"|format(trade.commission) }}{% else %}-{% endif %}
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if trade.status == 'open' %}bg-amber-500/20 text-amber-400
+                                {% elif trade.status == 'closed' %}bg-green-500/20 text-green-400
+                                {% elif trade.status == 'cancelled' %}bg-slate-500/20 text-slate-400
+                                {% else %}bg-red-500/20 text-red-400{% endif %}">
+                                {{ trade.status }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            {% if trade.signal_id %}
+                            <span class="font-mono text-xs text-slate-400">{{ trade.signal_id[:8] }}</span>
+                            {% else %}
+                            <span class="text-slate-500">Manual</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="11" class="p-12 text-center">
+                            <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-700/50 flex items-center justify-center mb-4">
+                                <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                            </div>
+                            <p class="text-slate-400">No trades found</p>
+                            <p class="text-slate-500 text-sm mt-1">Your trading history will appear here</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="p-4 border-t border-surface-700 flex items-center justify-between">
+            <p class="text-sm text-slate-500">Showing {{ trades|length }} trades</p>
+            <div class="flex items-center gap-2">
+                <button class="px-3 py-1 rounded bg-surface-700 text-slate-400 hover:bg-surface-600 disabled:opacity-50" disabled>Previous</button>
+                <button class="px-3 py-1 rounded bg-surface-700 text-slate-400 hover:bg-surface-600 disabled:opacity-50" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Filter functionality
+const filters = ['filterIndex', 'filterType', 'filterMode', 'filterResult'];
+filters.forEach(id => {
+    document.getElementById(id).addEventListener('change', filterTrades);
+});
+
+function filterTrades() {
+    const index = document.getElementById('filterIndex').value;
+    const type = document.getElementById('filterType').value;
+    const mode = document.getElementById('filterMode').value;
+    const result = document.getElementById('filterResult').value;
+
+    document.querySelectorAll('.trade-row').forEach(row => {
+        const matchIndex = !index || row.dataset.index === index;
+        const matchType = !type || row.dataset.type === type;
+        const matchMode = !mode || row.dataset.mode === mode;
+        const matchResult = !result || row.dataset.result === result;
+
+        row.style.display = matchIndex && matchType && matchMode && matchResult ? '' : 'none';
+    });
+}
+
+function exportTrades() {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    window.location.href = `/user/trades/export?from=${from}&to=${to}`;
+}
+</script>
+{% endblock %}

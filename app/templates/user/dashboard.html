@@ -1,0 +1,411 @@
+{% extends "base.html" %}
+
+{% block title %}Trading Dashboard{% endblock %}
+{% block page_title %}Trading Dashboard{% endblock %}
+{% block page_subtitle %}Your personal trading command center{% endblock %}
+
+{% block content %}
+<div class="space-y-6 animate-fade-in">
+
+    <!-- Account Overview -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div class="card p-4 border-l-4 border-l-primary-500">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Capital</p>
+            <p class="text-2xl font-bold text-white mt-1">₹{{ "{:,.0f}".format(user.capital) }}</p>
+            <p class="text-xs {% if stats.capital_change >= 0 %}text-green-400{% else %}text-red-400{% endif %} mt-1">
+                {% if stats.capital_change >= 0 %}+{% endif %}{{ "%.1f"|format(stats.capital_change) }}% today
+            </p>
+        </div>
+
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Available Margin</p>
+            <p class="text-2xl font-bold text-white mt-1">₹{{ "{:,.0f}".format(stats.available_margin) }}</p>
+            <p class="text-xs text-slate-500 mt-1">{{ "%.0f"|format(stats.margin_used_percent) }}% used</p>
+        </div>
+
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Today's P&L</p>
+            <p class="text-2xl font-bold {% if stats.today_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} mt-1">
+                {% if stats.today_pnl >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.today_pnl) }}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">{{ stats.today_trades }} trades</p>
+        </div>
+
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Open Positions</p>
+            <p class="text-2xl font-bold text-amber-400 mt-1">{{ stats.open_positions }}</p>
+            <p class="text-xs {% if stats.unrealized_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} mt-1">
+                {% if stats.unrealized_pnl >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.unrealized_pnl) }} unrealized
+            </p>
+        </div>
+
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Win Rate</p>
+            <p class="text-2xl font-bold text-white mt-1">{{ "%.1f"|format(stats.win_rate) }}%</p>
+            <p class="text-xs text-slate-500 mt-1">{{ stats.winning_trades }}W / {{ stats.losing_trades }}L</p>
+        </div>
+
+        <div class="card p-4">
+            <p class="text-xs text-slate-500 uppercase tracking-wider">Trading Mode</p>
+            <p class="text-2xl font-bold {% if user.trading_mode.value == 'live' %}text-green-400{% elif user.trading_mode.value == 'paper' %}text-blue-400{% else %}text-slate-400{% endif %} mt-1">
+                {{ user.trading_mode.value|upper }}
+            </p>
+            <p class="text-xs text-slate-500 mt-1">{{ user.copy_trading_mode.value|upper }} copy</p>
+        </div>
+    </div>
+
+    <!-- Trading Mode & Zerodha Status -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Trading Controls -->
+        <div class="card p-6">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Trading Controls
+            </h2>
+
+            <div class="space-y-4">
+                <!-- Trading Mode Toggle -->
+                <div class="flex items-center justify-between p-4 rounded-lg bg-surface-800 border border-surface-700">
+                    <div>
+                        <p class="text-white font-medium">Trading Mode</p>
+                        <p class="text-xs text-slate-500">Switch between paper and live trading</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="setTradingMode('paper')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.trading_mode.value == 'paper' %}bg-blue-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}" {% if not user.restrictions.can_use_paper %}disabled{% endif %}>
+                            Paper
+                        </button>
+                        <button onclick="setTradingMode('live')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.trading_mode.value == 'live' %}bg-green-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}" {% if not user.restrictions.can_trade_live %}disabled{% endif %}>
+                            Live
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Copy Trading Mode -->
+                <div class="flex items-center justify-between p-4 rounded-lg bg-surface-800 border border-surface-700">
+                    <div>
+                        <p class="text-white font-medium">Copy Trading</p>
+                        <p class="text-xs text-slate-500">Auto-execute or confirm admin signals</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="setCopyMode('auto')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.copy_trading_mode.value == 'auto' %}bg-green-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            Auto
+                        </button>
+                        <button onclick="setCopyMode('manual')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.copy_trading_mode.value == 'manual' %}bg-amber-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            Manual
+                        </button>
+                        <button onclick="setCopyMode('disabled')" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.copy_trading_mode.value == 'disabled' %}bg-red-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            Off
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Risk Multiplier -->
+                <div class="flex items-center justify-between p-4 rounded-lg bg-surface-800 border border-surface-700">
+                    <div>
+                        <p class="text-white font-medium">Risk Multiplier</p>
+                        <p class="text-xs text-slate-500">Adjust position size relative to signals</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="setRiskMultiplier(0.5)" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.restrictions.risk_multiplier == 0.5 %}bg-primary-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            0.5x
+                        </button>
+                        <button onclick="setRiskMultiplier(1)" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.restrictions.risk_multiplier == 1 %}bg-primary-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            1x
+                        </button>
+                        <button onclick="setRiskMultiplier(2)" class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {% if user.restrictions.risk_multiplier == 2 %}bg-primary-500 text-white{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                            2x
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zerodha Connection -->
+        <div class="card p-6">
+            <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                Zerodha Connection
+            </h2>
+
+            {% if user.zerodha.is_connected %}
+            <div class="p-4 rounded-lg bg-green-500/10 border border-green-500/30 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-green-400 font-bold">Connected</p>
+                        <p class="text-sm text-green-300/70">User ID: {{ user.zerodha.user_id }}</p>
+                        <p class="text-xs text-slate-500">Last sync: {{ user.zerodha.last_sync or 'Just now' }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="syncZerodha()" class="flex-1 px-4 py-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-white font-medium flex items-center justify-center gap-2 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Sync Now
+                </button>
+                <button onclick="disconnectZerodha()" class="px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-medium flex items-center gap-2 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Disconnect
+                </button>
+            </div>
+            {% else %}
+            <div class="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-amber-400 font-bold">Not Connected</p>
+                        <p class="text-sm text-amber-300/70">Connect Zerodha to enable live trading</p>
+                    </div>
+                </div>
+            </div>
+            <a href="/zerodha/login" class="block w-full px-4 py-3 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold text-center flex items-center justify-center gap-2 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                </svg>
+                Connect Zerodha Account
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Signals -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-700 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                Active Signals
+            </h2>
+            <span class="text-xs text-slate-500">Auto-refreshes every 5 seconds</span>
+        </div>
+
+        <div hx-get="/htmx/user/active-signals" hx-trigger="load, every 5s" hx-swap="innerHTML">
+            <div class="p-8 text-center">
+                <div class="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+                <p class="text-slate-500 mt-2">Loading signals...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Positions -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-700 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Open Positions
+            </h2>
+            <button onclick="refreshPositions()" class="px-3 py-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-300 text-sm flex items-center gap-1 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <div class="overflow-x-auto" id="openPositions" hx-get="/htmx/user/open-positions" hx-trigger="load, every 10s" hx-swap="innerHTML">
+            <div class="p-8 text-center">
+                <div class="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
+                <p class="text-slate-500 mt-2">Loading positions...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="card">
+        <div class="p-4 border-b border-surface-700 flex items-center justify-between">
+            <h2 class="text-lg font-bold text-white">Recent Trades</h2>
+            <a href="/user/trades" class="text-primary-400 hover:text-primary-300 text-sm font-medium flex items-center gap-1 transition-colors">
+                View All
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead>
+                    <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-700/50 bg-surface-800/50">
+                        <th class="p-4">Time</th>
+                        <th class="p-4">Instrument</th>
+                        <th class="p-4">Type</th>
+                        <th class="p-4">Mode</th>
+                        <th class="p-4 text-right">Entry</th>
+                        <th class="p-4 text-right">Exit</th>
+                        <th class="p-4 text-right">Qty</th>
+                        <th class="p-4 text-right">P&L</th>
+                        <th class="p-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in trades %}
+                    <tr class="border-b border-slate-700/30 hover:bg-surface-800/50">
+                        <td class="p-4 text-slate-300 text-sm">{{ trade.entry_time }}</td>
+                        <td class="p-4 text-white font-medium">{{ trade.instrument }}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if trade.trade_type == 'CE' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                                {{ trade.trade_type }}
+                            </span>
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold {% if trade.mode == 'live' %}bg-green-500/20 text-green-400{% else %}bg-blue-500/20 text-blue-400{% endif %}">
+                                {{ trade.mode|upper }}
+                            </span>
+                        </td>
+                        <td class="p-4 text-right font-mono text-white">₹{{ "%.2f"|format(trade.entry_price) }}</td>
+                        <td class="p-4 text-right font-mono text-white">
+                            {% if trade.exit_price %}₹{{ "%.2f"|format(trade.exit_price) }}{% else %}-{% endif %}
+                        </td>
+                        <td class="p-4 text-right font-mono text-white">{{ trade.quantity }}</td>
+                        <td class="p-4 text-right font-mono {% if trade.pnl and trade.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                            {% if trade.pnl %}{% if trade.pnl >= 0 %}+{% endif %}₹{{ "%.0f"|format(trade.pnl) }}{% else %}-{% endif %}
+                        </td>
+                        <td class="p-4">
+                            <span class="px-2 py-1 rounded text-xs font-bold
+                                {% if trade.status == 'open' %}bg-amber-500/20 text-amber-400
+                                {% elif trade.status == 'closed' %}bg-green-500/20 text-green-400
+                                {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                                {{ trade.status }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="p-8 text-center text-slate-500">
+                            No trades yet. Signals will appear here when they are executed.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Account Limits -->
+    <div class="card p-6">
+        <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            Account Limits
+        </h2>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="p-3 rounded-lg bg-surface-800 border border-surface-700">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">Max Capital</p>
+                <p class="text-lg font-bold text-white mt-1">₹{{ "{:,.0f}".format(user.restrictions.max_capital) }}</p>
+                <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                    <div class="h-full bg-primary-500 rounded-full" style="width: {{ (user.capital / user.restrictions.max_capital * 100)|min(100) }}%"></div>
+                </div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-surface-800 border border-surface-700">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">Max Lots/Trade</p>
+                <p class="text-lg font-bold text-white mt-1">{{ user.restrictions.max_lots_per_trade }}</p>
+            </div>
+
+            <div class="p-3 rounded-lg bg-surface-800 border border-surface-700">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">Daily Trades</p>
+                <p class="text-lg font-bold text-white mt-1">{{ stats.today_trades }} / {{ user.restrictions.max_daily_trades }}</p>
+                <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                    <div class="h-full bg-amber-500 rounded-full" style="width: {{ (stats.today_trades / user.restrictions.max_daily_trades * 100)|min(100) }}%"></div>
+                </div>
+            </div>
+
+            <div class="p-3 rounded-lg bg-surface-800 border border-surface-700">
+                <p class="text-xs text-slate-500 uppercase tracking-wider">Daily Loss Limit</p>
+                <p class="text-lg font-bold {% if stats.today_pnl < 0 and abs(stats.today_pnl) > user.restrictions.max_daily_loss * 0.8 %}text-red-400{% else %}text-white{% endif %} mt-1">
+                    ₹{{ "{:,.0f}".format(user.restrictions.max_daily_loss) }}
+                </p>
+                {% if stats.today_pnl < 0 %}
+                <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
+                    <div class="h-full bg-red-500 rounded-full" style="width: {{ (abs(stats.today_pnl) / user.restrictions.max_daily_loss * 100)|min(100) }}%"></div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-surface-700 flex items-center justify-between">
+            <div class="flex items-center gap-4 text-sm">
+                <span class="text-slate-500">Trading Hours:</span>
+                <span class="text-white font-mono">{{ user.restrictions.trading_start_time }} - {{ user.restrictions.trading_end_time }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if user.restrictions.can_trade_live %}
+                <span class="px-2 py-1 rounded text-xs font-bold bg-green-500/20 text-green-400">Live Enabled</span>
+                {% else %}
+                <span class="px-2 py-1 rounded text-xs font-bold bg-red-500/20 text-red-400">Live Disabled</span>
+                {% endif %}
+                {% if user.restrictions.can_use_paper %}
+                <span class="px-2 py-1 rounded text-xs font-bold bg-blue-500/20 text-blue-400">Paper Enabled</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function setTradingMode(mode) {
+    fetch('/user/settings/trading-mode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode: mode})
+    }).then(() => location.reload());
+}
+
+function setCopyMode(mode) {
+    fetch('/user/settings/copy-mode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mode: mode})
+    }).then(() => location.reload());
+}
+
+function setRiskMultiplier(multiplier) {
+    fetch('/user/settings/risk-multiplier', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({multiplier: multiplier})
+    }).then(() => location.reload());
+}
+
+function syncZerodha() {
+    fetch('/user/zerodha/sync', {method: 'POST'})
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Zerodha account synced successfully!');
+            } else {
+                alert('Sync failed: ' + data.error);
+            }
+        });
+}
+
+function disconnectZerodha() {
+    if (confirm('Are you sure you want to disconnect your Zerodha account?')) {
+        fetch('/user/zerodha/disconnect', {method: 'POST'})
+            .then(() => location.reload());
+    }
+}
+
+function refreshPositions() {
+    htmx.ajax('GET', '/htmx/user/open-positions', {target: '#openPositions', swap: 'innerHTML'});
+}
+</script>
+{% endblock %}
