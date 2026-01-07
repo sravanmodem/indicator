@@ -1,0 +1,103 @@
+{% if signal and signal.recommended_option %}
+<div class="glass rounded-xl h-[100px] flex items-center px-4 border-2 {% if signal.direction == 'CE' %}border-green-500/40 bg-gradient-to-r from-green-600/10 to-emerald-600/5{% else %}border-red-500/40 bg-gradient-to-r from-red-600/10 to-rose-600/5{% endif %}">
+    <div class="flex items-center justify-between w-full gap-4">
+        <!-- Option Symbol + Type -->
+        <div class="flex items-center space-x-3 flex-shrink-0">
+            <div class="w-14 h-14 rounded-xl {% if signal.direction == 'CE' %}bg-gradient-to-br from-green-500 to-emerald-500{% else %}bg-gradient-to-br from-red-500 to-rose-500{% endif %} flex items-center justify-center shadow-lg">
+                <span class="text-2xl font-black text-white">{{ signal.direction }}</span>
+            </div>
+            <div class="min-w-0">
+                <p class="text-white font-mono font-black text-lg truncate max-w-[150px]">{{ signal.recommended_option.strike }}{{ signal.direction }}</p>
+                <div class="flex items-center space-x-2">
+                    <span class="px-1.5 py-0.5 rounded {% if signal.direction == 'CE' %}bg-green-500/30 text-green-300{% else %}bg-red-500/30 text-red-300{% endif %} text-[9px] font-bold">REC</span>
+                    <span class="text-slate-400 text-[10px]">{{ style | title }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- LTP -->
+        <div class="text-center flex-shrink-0">
+            <p class="text-[9px] text-slate-500">LTP</p>
+            <p class="{% if signal.direction == 'CE' %}text-green-400{% else %}text-red-400{% endif %} font-mono font-black text-2xl">{{ "%.1f"|format(signal.recommended_option.ltp) }}</p>
+        </div>
+
+        <!-- Bid/Ask -->
+        <div class="flex items-center space-x-2 flex-shrink-0">
+            <div class="text-center px-2 py-1 bg-surface-800/50 rounded-lg">
+                <p class="text-[8px] text-slate-500">Bid</p>
+                <p class="text-white font-mono text-sm">{{ "%.1f"|format(signal.recommended_option.bid) }}</p>
+            </div>
+            <div class="text-center px-2 py-1 bg-surface-800/50 rounded-lg">
+                <p class="text-[8px] text-slate-500">Ask</p>
+                <p class="text-white font-mono text-sm">{{ "%.1f"|format(signal.recommended_option.ask) }}</p>
+            </div>
+        </div>
+
+        <!-- OI/Volume -->
+        <div class="flex items-center space-x-2 flex-shrink-0 border-l border-slate-700/50 pl-3">
+            <div class="text-center px-2 py-1 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                <p class="text-[8px] text-cyan-400">OI</p>
+                <p class="text-cyan-400 font-mono text-sm">{{ "{:,.0f}".format(signal.recommended_option.oi / 1000) }}K</p>
+            </div>
+            <div class="text-center px-2 py-1 bg-purple-500/10 rounded-lg border border-purple-500/20">
+                <p class="text-[8px] text-purple-400">Vol</p>
+                <p class="text-purple-400 font-mono text-sm">{{ "{:,.0f}".format(signal.recommended_option.volume / 1000) }}K</p>
+            </div>
+        </div>
+
+        <!-- Greeks -->
+        {% if signal.recommended_option.delta is not none %}
+        <div class="flex items-center space-x-2 flex-shrink-0 border-l border-slate-700/50 pl-3">
+            <div class="text-center px-2 py-1 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                <p class="text-[8px] text-blue-400">Delta</p>
+                <p class="text-blue-400 font-mono text-sm">{{ "%.2f"|format(signal.recommended_option.delta) }}</p>
+            </div>
+            {% if signal.recommended_option.theta is not none %}
+            <div class="text-center px-2 py-1 bg-red-500/10 rounded-lg border border-red-500/20">
+                <p class="text-[8px] text-red-400">Theta</p>
+                <p class="text-red-400 font-mono text-sm">{{ "%.2f"|format(signal.recommended_option.theta) }}</p>
+            </div>
+            {% endif %}
+            {% if signal.recommended_option.vega is not none %}
+            <div class="text-center px-2 py-1 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                <p class="text-[8px] text-yellow-400">Vega</p>
+                <p class="text-yellow-400 font-mono text-sm">{{ "%.2f"|format(signal.recommended_option.vega) }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Expected P&L -->
+        {% if signal.recommended_option.expected_at_target is not none %}
+        <div class="flex items-center space-x-2 flex-shrink-0 border-l border-slate-700/50 pl-3">
+            <div class="text-center px-2 py-1 bg-green-500/10 rounded-lg border border-green-500/30">
+                <p class="text-[8px] text-green-400">@ Target</p>
+                <p class="text-green-400 font-mono font-bold text-sm">+{{ "%.0f"|format(signal.recommended_option.expected_profit) }}</p>
+            </div>
+            <div class="text-center px-2 py-1 bg-red-500/10 rounded-lg border border-red-500/30">
+                <p class="text-[8px] text-red-400">@ SL</p>
+                <p class="text-red-400 font-mono font-bold text-sm">{{ "%.0f"|format(signal.recommended_option.expected_loss) }}</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% elif error %}
+<div class="glass rounded-xl h-[100px] flex items-center justify-center border border-slate-700/50">
+    <div class="flex items-center space-x-3">
+        <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-slate-400 text-sm">{{ error }}</p>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-xl h-[100px] flex items-center justify-center border border-slate-700/50">
+    <div class="flex items-center space-x-3">
+        <svg class="w-6 h-6 text-slate-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <p class="text-slate-400 text-sm">Loading recommendation...</p>
+    </div>
+</div>
+{% endif %}

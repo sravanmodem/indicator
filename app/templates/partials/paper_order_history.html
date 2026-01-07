@@ -1,0 +1,191 @@
+{% if error %}
+<div class="p-6">
+    <div class="text-center py-8">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+            <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <p class="text-red-400 font-medium">{{ error }}</p>
+    </div>
+</div>
+{% elif history and history|length > 0 %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-surface-800/50 text-slate-400 text-xs uppercase sticky top-0 z-10">
+            <tr>
+                <th class="px-3 py-3 text-left">Time</th>
+                <th class="px-3 py-3 text-left">Symbol</th>
+                <th class="px-3 py-3 text-center">Type</th>
+                <th class="px-3 py-3 text-right">Entry</th>
+                <th class="px-3 py-3 text-right">Exit</th>
+                <th class="px-3 py-3 text-right">Max</th>
+                <th class="px-3 py-3 text-right">Min</th>
+                <th class="px-3 py-3 text-right">P&L</th>
+                <th class="px-3 py-3 text-right">Max %</th>
+                <th class="px-3 py-3 text-right">Min %</th>
+                <th class="px-3 py-3 text-center">Duration</th>
+                <th class="px-3 py-3 text-left">Exit Reason</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/30">
+            {% for h in history %}
+            <tr class="hover:bg-surface-800/50 transition-colors">
+                <!-- Time -->
+                <td class="px-3 py-3 text-left">
+                    <div class="text-white text-xs font-medium">{{ h.timestamp.strftime('%d %b') }}</div>
+                    <div class="text-slate-500 text-[10px]">{{ h.timestamp.strftime('%H:%M') }}</div>
+                </td>
+
+                <!-- Symbol -->
+                <td class="px-3 py-3 text-left">
+                    <div class="flex items-center space-x-2">
+                        <span class="px-1.5 py-0.5 rounded text-[9px] font-bold {% if h.option_type == 'CE' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                            {{ h.option_type }}
+                        </span>
+                        <div>
+                            <div class="text-white font-mono text-xs">{{ h.symbol }}</div>
+                            <div class="text-slate-500 text-[10px]">{{ h.lots }}L x {{ h.quantity // h.lots }}</div>
+                        </div>
+                    </div>
+                </td>
+
+                <!-- Direction -->
+                <td class="px-3 py-3 text-center">
+                    <span class="px-2 py-1 rounded text-[10px] font-bold {% if h.direction == 'BUY' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
+                        {{ h.direction }}
+                    </span>
+                </td>
+
+                <!-- Entry -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-white font-mono text-xs">{{ "%.2f"|format(h.entry_price) }}</span>
+                </td>
+
+                <!-- Exit -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-white font-mono text-xs">{{ "%.2f"|format(h.exit_price) }}</span>
+                </td>
+
+                <!-- Max Price -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-green-400 font-mono text-xs">{{ "%.2f"|format(h.max_price) }}</span>
+                </td>
+
+                <!-- Min Price -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-red-400 font-mono text-xs">{{ "%.2f"|format(h.min_price) }}</span>
+                </td>
+
+                <!-- P&L -->
+                <td class="px-3 py-3 text-right">
+                    <div class="{% if h.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} font-mono font-bold text-xs">
+                        {{ "{:+,.0f}".format(h.pnl) }}
+                    </div>
+                    <div class="{% if h.pnl_percent >= 0 %}text-green-400{% else %}text-red-400{% endif %} text-[10px]">
+                        {{ "{:+.1f}".format(h.pnl_percent) }}%
+                    </div>
+                </td>
+
+                <!-- Max Profit % -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-green-400 font-mono text-xs">+{{ "%.1f"|format(h.max_profit_percent) }}%</span>
+                </td>
+
+                <!-- Max Loss % -->
+                <td class="px-3 py-3 text-right">
+                    <span class="text-red-400 font-mono text-xs">{{ "%.1f"|format(h.max_loss_percent) }}%</span>
+                </td>
+
+                <!-- Duration -->
+                <td class="px-3 py-3 text-center">
+                    <span class="text-slate-400 text-xs">{{ h.duration_minutes }}m</span>
+                </td>
+
+                <!-- Exit Reason -->
+                <td class="px-3 py-3 text-left">
+                    <span class="px-2 py-1 rounded text-[10px] font-medium
+                        {% if 'Target' in h.exit_reason %}bg-green-500/20 text-green-400
+                        {% elif 'Stop' in h.exit_reason %}bg-red-500/20 text-red-400
+                        {% elif 'Manual' in h.exit_reason %}bg-blue-500/20 text-blue-400
+                        {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                        {{ h.exit_reason }}
+                    </span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Summary Footer -->
+{% if summary %}
+<div class="p-4 bg-gradient-to-r from-surface-800/70 to-surface-900/70 border-t border-slate-700/50">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <!-- Winning Trades -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Winning</p>
+                <p class="text-green-400 font-mono font-bold">{{ summary.winning_trades }}</p>
+            </div>
+        </div>
+
+        <!-- Losing Trades -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Losing</p>
+                <p class="text-red-400 font-mono font-bold">{{ summary.losing_trades }}</p>
+            </div>
+        </div>
+
+        <!-- Best Trade -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Best Trade</p>
+                <p class="text-green-400 font-mono font-bold">{{ "{:+,.0f}".format(summary.best_trade_pnl) }}</p>
+            </div>
+        </div>
+
+        <!-- Worst Trade -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Worst Trade</p>
+                <p class="text-red-400 font-mono font-bold">{{ "{:+,.0f}".format(summary.worst_trade_pnl) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% else %}
+<div class="p-6">
+    <div class="text-center py-12">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
+            <svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+        </div>
+        <p class="text-slate-400 font-medium">No trade history yet</p>
+        <p class="text-slate-500 text-sm mt-1">Completed trades will appear here</p>
+    </div>
+</div>
+{% endif %}

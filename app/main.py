@@ -14,10 +14,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.api import auth, market, signals, htmx, settings, paper_trading, auto_trade
+from app.api import auth, market, signals, htmx, paper_trading
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.services.zerodha_auth import get_auth_service
+from app.services.paper_trading import get_paper_trading_service
 
 
 @asynccontextmanager
@@ -74,10 +75,7 @@ app.include_router(auth.zerodha_router)  # /zerodha/callback route
 app.include_router(market.router)
 app.include_router(signals.router)
 app.include_router(htmx.router)
-app.include_router(settings.router)
 app.include_router(paper_trading.router)
-app.include_router(auto_trade.router)
-app.include_router(auto_trade.get_htmx_router())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -97,15 +95,44 @@ async def home(request: Request):
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    """Render main dashboard."""
+async def dashboard_page(request: Request):
+    """Render unified dashboard with all indices - shows NIFTY, BANKNIFTY, SENSEX."""
+    auth_service = get_auth_service()
+
+    if not auth_service.is_authenticated:
+        return RedirectResponse(url="/")
+
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@app.get("/nifty", response_class=HTMLResponse)
+async def nifty_page(request: Request):
+    """Redirect to unified dashboard."""
+    return RedirectResponse(url="/dashboard")
+
+
+@app.get("/banknifty", response_class=HTMLResponse)
+async def banknifty_page(request: Request):
+    """Redirect to unified dashboard."""
+    return RedirectResponse(url="/dashboard")
+
+
+@app.get("/sensex", response_class=HTMLResponse)
+async def sensex_page(request: Request):
+    """Redirect to unified dashboard."""
+    return RedirectResponse(url="/dashboard")
+
+
+@app.get("/option-chain", response_class=HTMLResponse)
+async def option_chain_page(request: Request):
+    """Render option chain page."""
     auth_service = get_auth_service()
 
     if not auth_service.is_authenticated:
         return RedirectResponse(url="/")
 
     return templates.TemplateResponse(
-        "dashboard.html",
+        "option_chain.html",
         {
             "request": request,
             "user": auth_service.user_profile,

@@ -1,0 +1,93 @@
+{% if error %}
+<div class="glass rounded-xl h-[72px] flex items-center px-3">
+    <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+            <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+        </div>
+        <div class="min-w-0">
+            <p class="text-white font-medium text-sm truncate">{{ error }}</p>
+            <p class="text-slate-500 text-[10px]">Waiting for data...</p>
+        </div>
+    </div>
+</div>
+{% elif signal %}
+<div class="glass rounded-xl h-[72px] flex items-center px-3 bg-gradient-to-r {% if signal.direction == 'CE' %}from-green-600/10 to-emerald-600/10{% elif signal.direction == 'PE' %}from-red-600/10 to-rose-600/10{% else %}from-slate-600/10 to-slate-700/10{% endif %}">
+    <div class="flex items-center justify-between w-full gap-2">
+        <!-- Signal Direction -->
+        <div class="flex items-center space-x-2 flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg {% if signal.direction == 'CE' %}bg-gradient-to-br from-green-500 to-emerald-500{% elif signal.direction == 'PE' %}bg-gradient-to-br from-red-500 to-rose-500{% else %}bg-gradient-to-br from-slate-500 to-slate-600{% endif %} flex items-center justify-center shadow-lg">
+                <span class="text-lg font-black text-white">{{ signal.direction }}</span>
+            </div>
+            <div class="min-w-0">
+                <div class="flex items-center space-x-1">
+                    {% if signal.recommended_option %}
+                    <p class="text-white font-mono font-bold text-xs truncate max-w-[80px]">{{ signal.recommended_option.strike }}{{ signal.direction }}</p>
+                    {% endif %}
+                    <span class="px-1 py-0.5 rounded {% if signal.direction == 'CE' %}bg-green-500/30 text-green-300{% elif signal.direction == 'PE' %}bg-red-500/30 text-red-300{% else %}bg-slate-500/30 text-slate-300{% endif %} text-[9px] font-bold flex-shrink-0">{{ signal.confidence }}%</span>
+                </div>
+                <p class="text-[9px] text-slate-500">{{ signal.timestamp.strftime('%H:%M:%S') }}</p>
+            </div>
+        </div>
+
+        <!-- LTP -->
+        {% if signal.recommended_option %}
+        <div class="text-center flex-shrink-0">
+            <p class="text-[8px] text-slate-500">LTP</p>
+            <p class="text-white font-mono font-bold text-sm">₹{{ "%.1f"|format(signal.recommended_option.ltp) }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Trade Levels (Compact) -->
+        <div class="flex items-center space-x-1 flex-shrink-0">
+            <div class="text-center px-1.5 py-0.5 bg-surface-800/50 rounded">
+                <p class="text-[8px] text-slate-500">Entry</p>
+                <p class="text-white font-mono text-[11px]">{{ "%.1f"|format(signal.entry_price) }}</p>
+            </div>
+            <div class="text-center px-1.5 py-0.5 bg-red-500/10 rounded border border-red-500/30">
+                <p class="text-[8px] text-red-400">SL</p>
+                <p class="text-red-400 font-mono text-[11px]">{{ "%.1f"|format(signal.stop_loss) }}</p>
+            </div>
+            <div class="text-center px-1.5 py-0.5 bg-green-500/10 rounded border border-green-500/30">
+                <p class="text-[8px] text-green-400">TGT</p>
+                <p class="text-green-400 font-mono text-[11px]">{{ "%.1f"|format(signal.target_1) }}</p>
+            </div>
+        </div>
+
+        <!-- Order Preview (Compact) -->
+        {% if order_preview and order_preview.lots > 0 %}
+        <div class="flex items-center space-x-2 pl-2 border-l border-slate-700/50 flex-shrink-0">
+            <div class="text-center">
+                <p class="text-[8px] text-slate-500">Lots</p>
+                <p class="text-white font-mono font-bold text-sm">{{ order_preview.lots }}</p>
+            </div>
+            <div class="text-center">
+                <p class="text-[8px] text-slate-500">Value</p>
+                <p class="text-blue-400 font-mono text-[11px]">₹{{ "{:,.0f}".format(order_preview.total_value / 1000) }}K</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Status -->
+        <div class="flex items-center space-x-1 pl-2 border-l border-slate-700/50 flex-shrink-0">
+            {% if stats.status.is_halted %}
+            <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+            <span class="text-red-400 text-[10px] font-bold">HALT</span>
+            {% else %}
+            <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+            <span class="text-green-400 text-[10px] font-bold">OK</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-xl h-[72px] flex items-center justify-center">
+    <div class="flex items-center space-x-2">
+        <svg class="w-4 h-4 text-slate-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <p class="text-slate-400 text-sm">Analyzing...</p>
+    </div>
+</div>
+{% endif %}

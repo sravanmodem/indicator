@@ -4,8 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Institutional-Grade Options Trading Platform">
-    <title>{% block title %}Trading Terminal{% endblock %} | OptiFlow Pro</title>
+    <title>{% block title %}Options Pro{% endblock %}</title>
 
     <!-- Preconnect for Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -101,11 +100,10 @@
                         '2xs': ['0.625rem', { lineHeight: '0.75rem' }],
                     },
                     animation: {
-                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'fade-in': 'fadeIn 0.3s ease-out',
-                        'slide-up': 'slideUp 0.3s ease-out',
-                        'slide-down': 'slideDown 0.3s ease-out',
-                        'scale-in': 'scaleIn 0.2s ease-out',
+                        'pulse-ce': 'pulse-ce 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'pulse-pe': 'pulse-pe 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                        'shimmer': 'shimmer 2s linear infinite',
                     },
                     keyframes: {
                         fadeIn: {
@@ -116,619 +114,249 @@
                             '0%': { opacity: '0', transform: 'translateY(10px)' },
                             '100%': { opacity: '1', transform: 'translateY(0)' },
                         },
-                        slideDown: {
-                            '0%': { opacity: '0', transform: 'translateY(-10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        'glow': {
+                            '0%': { boxShadow: '0 0 5px rgba(34, 197, 94, 0.5)' },
+                            '100%': { boxShadow: '0 0 20px rgba(34, 197, 94, 0.8)' },
                         },
-                        scaleIn: {
-                            '0%': { opacity: '0', transform: 'scale(0.95)' },
-                            '100%': { opacity: '1', transform: 'scale(1)' },
-                        },
-                    },
-                    boxShadow: {
-                        'glow-sm': '0 0 10px -3px rgba(99, 102, 241, 0.3)',
-                        'glow': '0 0 20px -5px rgba(99, 102, 241, 0.4)',
-                        'glow-lg': '0 0 30px -5px rgba(99, 102, 241, 0.5)',
-                        'inner-glow': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
-                    },
-                    backgroundImage: {
-                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-                        'grid-pattern': 'linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px)',
-                    },
-                },
-            },
+                        'shimmer': {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        }
+                    }
+                }
+            }
         }
     </script>
 
-    <!-- Enterprise Design System Styles -->
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
+
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        /* Base Styles */
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: #3f3f46 #18181b;
-        }
+        [x-cloak] { display: none !important; }
 
-        *::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        *::-webkit-scrollbar-track {
-            background: #18181b;
-        }
-
-        *::-webkit-scrollbar-thumb {
-            background: #3f3f46;
-            border-radius: 3px;
-        }
-
-        *::-webkit-scrollbar-thumb:hover {
-            background: #52525b;
-        }
-
-        /* Focus Ring */
-        .focus-ring {
-            @apply focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2 focus:ring-offset-surface-900;
-        }
-
-        /* Card Variants */
-        .card {
-            @apply bg-surface-850 border border-surface-700/50 rounded-xl shadow-lg;
-        }
-
-        .card-elevated {
-            @apply bg-surface-800 border border-surface-700/50 rounded-xl shadow-xl;
-        }
-
-        .card-interactive {
-            @apply card hover:border-surface-600 hover:shadow-glow-sm transition-all duration-200 cursor-pointer;
-        }
-
-        /* Button Variants */
-        .btn {
-            @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
-        }
-
-        .btn-primary {
-            @apply btn bg-primary-600 text-white hover:bg-primary-500 active:bg-primary-700;
-        }
-
-        .btn-secondary {
-            @apply btn bg-surface-700 text-surface-100 hover:bg-surface-600 active:bg-surface-800 border border-surface-600;
-        }
-
-        .btn-ghost {
-            @apply btn text-surface-300 hover:text-white hover:bg-surface-700/50;
-        }
-
-        .btn-danger {
-            @apply btn bg-bearish-600 text-white hover:bg-bearish-500 active:bg-bearish-700;
-        }
-
-        .btn-success {
-            @apply btn bg-bullish-600 text-white hover:bg-bullish-500 active:bg-bullish-700;
-        }
-
-        /* Input Variants */
-        .input {
-            @apply w-full px-4 py-2.5 rounded-lg text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all duration-200;
-            background-color: #09090b !important;
-            border: 1px solid #3f3f46 !important;
-            color: #f4f4f5 !important;
-        }
-
-        .input:focus {
-            border-color: #6366f1 !important;
-        }
-
-        .input-sm {
-            @apply w-full px-3 py-1.5 text-sm rounded-lg text-surface-100 placeholder-surface-500 focus:outline-none focus:ring-1 focus:ring-primary-500/50 transition-all duration-200;
-            background-color: #09090b !important;
-            border: 1px solid #3f3f46 !important;
-            color: #f4f4f5 !important;
-        }
-
-        .input-sm:focus {
-            border-color: #6366f1 !important;
-        }
-
-        /* All input types dark styling */
-        input[type="text"],
-        input[type="number"],
-        input[type="email"],
-        input[type="password"],
-        input[type="search"],
-        input[type="tel"],
-        input[type="url"],
-        input[type="time"],
-        input[type="date"],
-        input[type="datetime-local"],
-        textarea {
-            background-color: #09090b !important;
-            border-color: #3f3f46 !important;
-            color: #f4f4f5 !important;
-            color-scheme: dark;
-        }
-
-        input[type="text"]:focus,
-        input[type="number"]:focus,
-        input[type="email"]:focus,
-        input[type="password"]:focus,
-        input[type="search"]:focus,
-        input[type="tel"]:focus,
-        input[type="url"]:focus,
-        input[type="time"]:focus,
-        input[type="date"]:focus,
-        input[type="datetime-local"]:focus,
-        textarea:focus {
-            border-color: #6366f1 !important;
-            outline: none !important;
-        }
-
-        /* Checkbox styling */
-        input[type="checkbox"] {
-            @apply appearance-none w-4 h-4 rounded border cursor-pointer;
-            background-color: #18181b !important;
-            border-color: #52525b !important;
-        }
-
-        input[type="checkbox"]:checked {
-            background-color: #6366f1 !important;
-            border-color: #6366f1 !important;
-            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
-            background-size: 100% 100%;
-            background-position: center;
-            background-repeat: no-repeat;
-        }
-
-        input[type="checkbox"]:focus {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3) !important;
-        }
-
-        /* Select/Dropdown Styling */
-        select,
-        select.input,
-        select.input-sm {
-            @apply appearance-none cursor-pointer;
-            background-color: #09090b !important;
-            border: 1px solid #3f3f46 !important;
-            color: #f4f4f5 !important;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2371717a' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-            background-position: right 0.5rem center;
-            background-repeat: no-repeat;
-            background-size: 1.5em 1.5em;
-            padding-right: 2.5rem;
-        }
-
-        select:focus,
-        select.input:focus,
-        select.input-sm:focus {
-            border-color: #6366f1 !important;
-            outline: none !important;
-        }
-
-        select option,
-        select.input option,
-        select.input-sm option {
-            background-color: #18181b !important;
-            color: #fafafa !important;
-            padding: 0.5rem 1rem;
-        }
-
-        select option:hover,
-        select option:checked {
-            background-color: #3f3f46 !important;
-        }
-
-        /* Number input spinner buttons */
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            opacity: 0.5;
-        }
-
-        /* Time/Date picker styling */
-        input[type="time"]::-webkit-calendar-picker-indicator,
-        input[type="date"]::-webkit-calendar-picker-indicator,
-        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-            filter: invert(0.7);
-            cursor: pointer;
-        }
-
-        /* Badge Variants */
-        .badge {
-            @apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-md;
-        }
-
-        .badge-primary {
-            @apply badge bg-primary-500/20 text-primary-300 border border-primary-500/30;
-        }
-
-        .badge-success {
-            @apply badge bg-bullish-500/20 text-bullish-300 border border-bullish-500/30;
-        }
-
-        .badge-danger {
-            @apply badge bg-bearish-500/20 text-bearish-300 border border-bearish-500/30;
-        }
-
-        .badge-warning {
-            @apply badge bg-amber-500/20 text-amber-300 border border-amber-500/30;
-        }
-
-        .badge-neutral {
-            @apply badge bg-surface-600/50 text-surface-300 border border-surface-600;
-        }
-
-        /* Trading Signal Colors */
-        .signal-ce {
-            @apply text-bullish-400;
-        }
-
-        .signal-pe {
-            @apply text-bearish-400;
-        }
-
-        .signal-strong-ce {
-            @apply text-bullish-300 font-semibold;
-        }
-
-        .signal-strong-pe {
-            @apply text-bearish-300 font-semibold;
-        }
-
-        /* Data Display */
-        .data-label {
-            @apply text-xs font-medium text-surface-500 uppercase tracking-wider;
-        }
-
-        .data-value {
-            @apply text-sm font-semibold text-surface-100;
-        }
-
-        .data-value-lg {
-            @apply text-lg font-bold text-surface-50;
-        }
-
-        /* Price Display */
-        .price-up {
-            @apply text-bullish-400;
-        }
-
-        .price-down {
-            @apply text-bearish-400;
-        }
-
-        .price-neutral {
-            @apply text-surface-300;
-        }
-
-        /* Table Styles */
-        .table-enterprise {
-            @apply w-full text-sm;
-        }
-
-        .table-enterprise thead {
-            @apply bg-surface-800/50 border-b border-surface-700;
-        }
-
-        .table-enterprise th {
-            @apply px-4 py-3 text-left text-xs font-semibold text-surface-400 uppercase tracking-wider;
-        }
-
-        .table-enterprise tbody tr {
-            @apply border-b border-surface-800 hover:bg-surface-800/30 transition-colors;
-        }
-
-        .table-enterprise td {
-            @apply px-4 py-3 text-surface-200;
-        }
-
-        /* Skeleton Loading */
-        .skeleton {
-            @apply animate-pulse bg-surface-700/50 rounded;
-        }
-
-        /* Tooltip */
-        .tooltip {
-            @apply absolute z-50 px-2 py-1 text-xs font-medium text-white bg-surface-800 border border-surface-700 rounded-md shadow-lg whitespace-nowrap;
-        }
-
-        /* Grid Background Pattern */
-        .grid-bg {
-            background-size: 20px 20px;
-            background-image:
-                linear-gradient(to right, rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.02) 1px, transparent 1px);
-        }
-
-        /* Gradient Accents */
-        .gradient-primary {
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
-        }
-
-        .gradient-bullish {
-            background: linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%);
-        }
-
-        .gradient-bearish {
-            background: linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%);
-        }
-
-        /* Glassmorphism */
+        /* Glass morphism */
         .glass {
-            @apply bg-surface-900/80 backdrop-blur-xl border border-surface-700/50;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        /* Status Indicators */
-        .status-dot {
-            @apply w-2 h-2 rounded-full;
+        /* Gradient backgrounds */
+        .gradient-ce { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+        .gradient-pe { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .gradient-neutral { background: linear-gradient(135deg, #64748b 0%, #475569 100%); }
+
+        /* Sidebar styles */
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.625rem 0.875rem;
+            border-radius: 0.625rem;
+            color: #94a3b8;
+            font-weight: 500;
+            font-size: 0.8125rem;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-item:hover {
+            color: #f1f5f9;
+            background: rgba(51, 65, 85, 0.5);
+        }
+        .nav-item.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 60%;
+            background: linear-gradient(180deg, #6366f1, #8b5cf6);
+            border-radius: 0 2px 2px 0;
+        }
+        .nav-icon {
+            width: 1.25rem;
+            height: 1.25rem;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
         }
 
-        .status-online {
-            @apply status-dot bg-bullish-500 shadow-[0_0_8px_rgba(16,185,129,0.6)];
+        /* Index nav items with colors */
+        .nav-item-nifty.active {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+            border-color: rgba(59, 130, 246, 0.3);
         }
+        .nav-item-nifty.active::before { background: linear-gradient(180deg, #3b82f6, #6366f1); }
 
-        .status-offline {
-            @apply status-dot bg-surface-500;
+        .nav-item-banknifty.active {
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%);
+            border-color: rgba(168, 85, 247, 0.3);
         }
+        .nav-item-banknifty.active::before { background: linear-gradient(180deg, #a855f7, #ec4899); }
 
-        .status-warning {
-            @apply status-dot bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)];
+        .nav-item-sensex.active {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(249, 115, 22, 0.15) 100%);
+            border-color: rgba(245, 158, 11, 0.3);
         }
+        .nav-item-sensex.active::before { background: linear-gradient(180deg, #f59e0b, #f97316); }
 
-        .status-error {
-            @apply status-dot bg-bearish-500 shadow-[0_0_8px_rgba(239,68,68,0.6)];
+        /* Expiry badge animation */
+        .expiry-badge {
+            animation: shimmer 3s ease-in-out infinite;
+            background-size: 200% 100%;
         }
-
-        /* HTMX Loading States */
-        .htmx-request .htmx-indicator {
-            @apply opacity-100;
-        }
-
-        .htmx-indicator {
-            @apply opacity-0 transition-opacity;
-        }
-
-        /* Transitions */
-        .transition-panel {
-            @apply transition-all duration-300 ease-in-out;
+        .expiry-today {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.2) 0%, rgba(239, 68, 68, 0.4) 50%, rgba(239, 68, 68, 0.2) 100%);
         }
     </style>
 
     {% block head %}{% endblock %}
 </head>
-<body class="bg-surface-950 text-surface-100 font-sans antialiased min-h-screen">
-    <!-- Application Shell -->
-    <div class="flex h-screen overflow-hidden">
+<body class="bg-surface-950 text-slate-100 font-sans min-h-screen antialiased" x-data="{ sidebarOpen: false }">
+    <!-- Mobile Sidebar Overlay -->
+    <div x-show="sidebarOpen"
+         x-transition:enter="transition-opacity ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition-opacity ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click="sidebarOpen = false"
+         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+         x-cloak></div>
 
-        <!-- Sidebar Navigation -->
-        <aside
-            x-show="sidebarOpen"
-            x-transition:enter="transition-panel"
-            x-transition:enter-start="-translate-x-full"
-            x-transition:enter-end="translate-x-0"
-            x-transition:leave="transition-panel"
-            x-transition:leave-start="translate-x-0"
-            x-transition:leave-end="-translate-x-full"
-            :class="sidebarCollapsed ? 'w-16' : 'w-64'"
-            class="fixed lg:relative inset-y-0 left-0 z-40 flex flex-col bg-surface-900 border-r border-surface-800 transition-all duration-300"
-        >
-            <!-- Logo -->
-            <div class="flex items-center h-16 px-4 border-b border-surface-800">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center w-9 h-9 rounded-lg gradient-primary">
-                        <i data-lucide="activity" class="w-5 h-5 text-white"></i>
-                    </div>
-                    <span x-show="!sidebarCollapsed" class="text-lg font-bold text-white">OptiFlow</span>
+    <!-- Sidebar -->
+    <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+           class="fixed top-0 left-0 bottom-0 w-60 bg-surface-900/95 backdrop-blur-xl border-r border-slate-800/50 z-50 transition-transform duration-300 lg:z-30 flex flex-col">
+
+        <!-- Logo Section -->
+        <div class="p-4 border-b border-slate-800/50">
+            <a href="/dashboard" class="flex items-center space-x-3 group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:shadow-indigo-500/40 transition-shadow">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
                 </div>
-            </div>
-
-            <!-- Navigation -->
-            <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                <!-- Main Navigation -->
-                <div class="mb-6">
-                    <p x-show="!sidebarCollapsed" class="px-3 mb-2 text-xs font-semibold text-surface-500 uppercase tracking-wider">Main</p>
-
-                    <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/dashboard' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="layout-dashboard" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Dashboard</span>
-                    </a>
-
-                    <a href="/terminal" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/terminal' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="monitor" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Trading Terminal</span>
-                    </a>
+                <div>
+                    <h1 class="text-base font-bold text-white">Options Pro</h1>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-widest">Institutional</p>
                 </div>
+            </a>
+        </div>
 
-                <!-- Trading Section -->
-                <div class="mb-6">
-                    <p x-show="!sidebarCollapsed" class="px-3 mb-2 text-xs font-semibold text-surface-500 uppercase tracking-wider">Markets</p>
+        <!-- Navigation -->
+        <nav class="flex-1 p-3 space-y-1 overflow-y-auto">
+            <!-- Dashboard Link -->
+            <a href="/dashboard" class="nav-item {% if request.url.path == '/dashboard' %}active{% endif %} mb-3">
+                <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                </svg>
+                <span>Dashboard</span>
+            </a>
 
-                    <a href="/nifty" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/nifty' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="trending-up" class="w-5 h-5 text-bullish-400"></i>
-                        <span x-show="!sidebarCollapsed">NIFTY 50</span>
-                    </a>
+            <!-- Trading Section -->
+            <div class="mb-4">
+                <p class="px-3 mb-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Trading</p>
 
-                    <a href="/banknifty" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/banknifty' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="landmark" class="w-5 h-5 text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">BANKNIFTY</span>
-                    </a>
-
-                    <a href="/sensex" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/sensex' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="bar-chart-3" class="w-5 h-5 text-amber-400"></i>
-                        <span x-show="!sidebarCollapsed">SENSEX</span>
-                    </a>
-                </div>
-
-                <!-- Analysis Section -->
-                <div class="mb-6">
-                    <p x-show="!sidebarCollapsed" class="px-3 mb-2 text-xs font-semibold text-surface-500 uppercase tracking-wider">Analysis</p>
-
-                    <a href="/signals" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/signals' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="zap" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Signals</span>
-                    </a>
-
-                    <a href="/option-chain" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/option-chain' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="table-2" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Option Chain</span>
-                    </a>
-
-                    <a href="/history" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/history' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="history" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">History</span>
-                    </a>
-                </div>
-
-                <!-- Trading Section -->
-                <div class="mb-6">
-                    <p x-show="!sidebarCollapsed" class="px-3 mb-2 text-xs font-semibold text-surface-500 uppercase tracking-wider">Trading</p>
-
-                    <a href="/paper-trading" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/paper-trading' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="file-text" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Paper Trading</span>
-                    </a>
-
-                    <a href="/auto-trade" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group {% if request.url.path == '/auto-trade' %}bg-surface-800 text-white{% endif %}">
-                        <i data-lucide="bot" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                        <span x-show="!sidebarCollapsed">Auto Trading</span>
-                    </a>
-                </div>
-            </nav>
-
-            <!-- Sidebar Footer -->
-            <div class="p-4 border-t border-surface-800">
-                <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition-colors group">
-                    <i data-lucide="settings" class="w-5 h-5 text-surface-400 group-hover:text-primary-400"></i>
-                    <span x-show="!sidebarCollapsed">Settings</span>
+                <a href="/paper" class="nav-item {% if request.url.path == '/paper' %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Paper Trading</span>
                 </a>
 
-                <!-- Collapse Toggle -->
-                <button
-                    @click="sidebarCollapsed = !sidebarCollapsed"
-                    class="hidden lg:flex items-center gap-3 w-full px-3 py-2.5 mt-2 text-sm font-medium rounded-lg text-surface-400 hover:text-white hover:bg-surface-800 transition-colors"
-                >
-                    <i data-lucide="chevrons-left" class="w-5 h-5" :class="sidebarCollapsed && 'rotate-180'"></i>
-                    <span x-show="!sidebarCollapsed">Collapse</span>
-                </button>
+                <a href="/paper/order-history" class="nav-item {% if request.url.path == '/paper/order-history' %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    <span>Order History</span>
+                </a>
+
+                <a href="/option-chain" class="nav-item {% if request.url.path == '/option-chain' %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                    </svg>
+                    <span>Option Chain</span>
+                </a>
             </div>
-        </aside>
 
-        <!-- Mobile Sidebar Overlay -->
-        <div
-            x-show="sidebarOpen"
-            x-transition:enter="transition-opacity ease-out duration-300"
-            x-transition:enter-start="opacity-0"
-            x-transition:enter-end="opacity-100"
-            x-transition:leave="transition-opacity ease-in duration-200"
-            x-transition:leave-start="opacity-100"
-            x-transition:leave-end="opacity-0"
-            @click="sidebarOpen = false"
-            class="fixed inset-0 z-30 bg-black/50 lg:hidden"
-        ></div>
+        </nav>
 
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-
-            <!-- Top Header Bar -->
-            <header class="flex items-center justify-between h-16 px-4 lg:px-6 bg-surface-900/50 border-b border-surface-800 backdrop-blur-sm">
-                <!-- Left Section -->
-                <div class="flex items-center gap-4">
-                    <!-- Mobile Menu Toggle -->
-                    <button
-                        @click="sidebarOpen = !sidebarOpen"
-                        class="lg:hidden p-2 text-surface-400 hover:text-white rounded-lg hover:bg-surface-800 transition-colors"
-                    >
-                        <i data-lucide="menu" class="w-5 h-5"></i>
-                    </button>
-
-                    <!-- Page Title -->
-                    <div>
-                        <h1 class="text-lg font-semibold text-white">{% block page_title %}Dashboard{% endblock %}</h1>
-                        <p class="text-xs text-surface-500">{% block page_subtitle %}Overview{% endblock %}</p>
+        <!-- User Section -->
+        <div class="p-3 border-t border-slate-800/50">
+            <div id="sidebar-auth"
+                 hx-get="/htmx/auth-status"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="flex items-center space-x-3 p-2">
+                    <div class="w-8 h-8 rounded-lg bg-slate-700 animate-pulse"></div>
+                    <div class="flex-1">
+                        <div class="h-3 w-20 bg-slate-700 rounded animate-pulse"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </aside>
 
-                <!-- Center Section - Market Status -->
-                <div class="hidden md:flex items-center gap-6">
-                    <!-- Market Status Component -->
-                    <div id="market-status" hx-get="/htmx/market-status" hx-trigger="load, every 30s" class="flex items-center gap-4">
-                        {% include 'partials/market_status.html' ignore missing %}
+    <!-- Main Content Wrapper -->
+    <div class="lg:ml-60">
+        <!-- Top Bar -->
+        <header class="sticky top-0 z-40 glass border-b border-slate-800/50">
+            <div class="flex items-center justify-between h-14 px-4">
+                <!-- Mobile Menu Button -->
+                <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 -ml-2 rounded-lg text-slate-400 hover:text-white hover:bg-surface-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+
+                <!-- Market Overview -->
+                <div id="market-status" class="hidden md:flex items-center space-x-6"
+                     hx-get="/htmx/market-overview"
+                     hx-trigger="load, every 5s"
+                     hx-swap="innerHTML">
+                    <div class="flex items-center space-x-4">
+                        <div class="h-4 w-24 bg-slate-700 rounded animate-pulse"></div>
+                        <div class="h-4 w-24 bg-slate-700 rounded animate-pulse"></div>
                     </div>
                 </div>
 
                 <!-- Right Section -->
-                <div class="flex items-center gap-3">
-                    <!-- Connection Status -->
-                    <div id="connection-status" hx-get="/htmx/connection-status" hx-trigger="load, every 10s" class="flex items-center gap-2 px-3 py-1.5 bg-surface-800 rounded-lg">
-                        <span class="status-dot status-offline" id="ws-status-dot"></span>
-                        <span class="text-xs text-surface-400">Offline</span>
-                    </div>
-
-                    <!-- Theme Toggle -->
-                    <button
-                        @click="darkMode = !darkMode"
-                        class="p-2 text-surface-400 hover:text-white rounded-lg hover:bg-surface-800 transition-colors"
-                    >
-                        <i x-show="darkMode" data-lucide="sun" class="w-5 h-5"></i>
-                        <i x-show="!darkMode" data-lucide="moon" class="w-5 h-5"></i>
-                    </button>
-
-                    <!-- Notifications -->
-                    <button class="relative p-2 text-surface-400 hover:text-white rounded-lg hover:bg-surface-800 transition-colors">
-                        <i data-lucide="bell" class="w-5 h-5"></i>
-                        <span class="absolute top-1 right-1 w-2 h-2 bg-bearish-500 rounded-full"></span>
-                    </button>
-
-                    <!-- User Menu -->
-                    <div x-data="{ open: false }" class="relative">
-                        <button
-                            @click="open = !open"
-                            class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-800 transition-colors"
-                        >
-                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center">
-                                <span class="text-sm font-semibold text-white">U</span>
-                            </div>
-                            <i data-lucide="chevron-down" class="w-4 h-4 text-surface-400"></i>
-                        </button>
-
-                        <!-- Dropdown -->
-                        <div
-                            x-show="open"
-                            x-transition
-                            @click.away="open = false"
-                            class="absolute right-0 mt-2 w-48 py-2 bg-surface-800 border border-surface-700 rounded-xl shadow-xl z-50"
-                        >
-                            <div id="auth-status" hx-get="/htmx/auth-status" hx-trigger="load">
-                                <a href="/auth/login" class="flex items-center gap-2 px-4 py-2 text-sm text-surface-300 hover:text-white hover:bg-surface-700">
-                                    <i data-lucide="log-in" class="w-4 h-4"></i>
-                                    Connect Broker
-                                </a>
-                            </div>
-                            <hr class="my-2 border-surface-700">
-                            <a href="/settings" class="flex items-center gap-2 px-4 py-2 text-sm text-surface-300 hover:text-white hover:bg-surface-700">
-                                <i data-lucide="settings" class="w-4 h-4"></i>
-                                Settings
-                            </a>
-                        </div>
+                <div class="flex items-center space-x-3">
+                    <!-- WS Status -->
+                    <div id="ws-status"
+                         hx-get="/htmx/ws-status"
+                         hx-trigger="load, every 10s"
+                         hx-swap="innerHTML">
                     </div>
                 </div>
-            </header>
+            </div>
+        </header>
 
-            <!-- Main Content -->
-            <main class="flex-1 overflow-y-auto bg-surface-950">
-                <div class="p-4 lg:p-6">
-                    {% block content %}{% endblock %}
-                </div>
-            </main>
-
-            <!-- Footer -->
-            <footer class="flex items-center justify-between px-6 py-3 bg-surface-900/50 border-t border-surface-800 text-xs text-surface-500">
-                <span>OptiFlow Pro v2.0 | Institutional Trading Platform</span>
-                <span id="server-time" hx-get="/htmx/server-time" hx-trigger="load, every 1s">--:--:--</span>
-            </footer>
-        </div>
+        <!-- Main Content -->
+        <main class="p-4 lg:p-6">
+            {% block content %}{% endblock %}
+        </main>
     </div>
 
     <!-- Toast Container -->
@@ -740,9 +368,11 @@
             lucide.createIcons();
         });
 
-        // Reinitialize icons after HTMX swaps
-        document.body.addEventListener('htmx:afterSwap', () => {
-            lucide.createIcons();
+        document.body.addEventListener('htmx:beforeRequest', function(event) {
+            event.target.classList.add('opacity-60');
+        });
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            event.target.classList.remove('opacity-60');
         });
 
         // Toast notification function

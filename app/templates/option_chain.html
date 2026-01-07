@@ -1,278 +1,130 @@
 {% extends "base.html" %}
 
-{% block title %}Option Chain{% endblock %}
-{% block page_title %}Option Chain{% endblock %}
-{% block page_subtitle %}Real-time options data and analysis{% endblock %}
+{% block title %}Option Chain - Options Indicator{% endblock %}
 
 {% block content %}
-<div x-data="optionChain()" class="space-y-6 animate-fade-in">
-
-    <!-- Controls Bar -->
-    <div class="card p-4">
-        <div class="flex flex-wrap items-center gap-4">
-            <!-- Index Selection -->
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-surface-500">Index</span>
-                <div class="flex bg-surface-800 rounded-lg p-1">
-                    <button
-                        @click="selectedIndex = 'NIFTY'; loadChain()"
-                        :class="selectedIndex === 'NIFTY' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
-                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
-                    >
-                        NIFTY
-                    </button>
-                    <button
-                        @click="selectedIndex = 'BANKNIFTY'; loadChain()"
-                        :class="selectedIndex === 'BANKNIFTY' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
-                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
-                    >
-                        BANKNIFTY
-                    </button>
-                    <button
-                        @click="selectedIndex = 'SENSEX'; loadChain()"
-                        :class="selectedIndex === 'SENSEX' ? 'bg-primary-600 text-white' : 'text-surface-400 hover:text-white'"
-                        class="px-4 py-2 text-sm font-medium rounded-md transition-all"
-                    >
-                        SENSEX
-                    </button>
+<div x-data="{ activeIndex: 'nifty' }">
+    <!-- Ultra-Pro Header -->
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-purple-900/20 to-surface-900/50 border border-purple-500/20">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <!-- Logo -->
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Option Chain</h1>
+                    <p class="text-slate-400 text-sm">Real-time OI, Greeks & Max Pain analysis</p>
                 </div>
             </div>
 
-            <!-- Expiry Selection -->
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-surface-500">Expiry</span>
-                <select x-model="selectedExpiry" @change="loadChain()" class="input-sm w-40">
-                    <template x-for="expiry in expiries" :key="expiry">
-                        <option :value="expiry" x-text="expiry"></option>
-                    </template>
-                </select>
+            <!-- Index Selector -->
+            <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
+                <button @click="activeIndex = 'nifty'; switchIndex('nifty')"
+                        :class="activeIndex === 'nifty' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    NIFTY
+                </button>
+                <button @click="activeIndex = 'banknifty'; switchIndex('banknifty')"
+                        :class="activeIndex === 'banknifty' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    BANKNIFTY
+                </button>
+                <button @click="activeIndex = 'sensex'; switchIndex('sensex')"
+                        :class="activeIndex === 'sensex' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    SENSEX
+                </button>
             </div>
-
-            <!-- Strike Range -->
-            <div class="flex items-center gap-2">
-                <span class="text-xs font-medium text-surface-500">Strikes</span>
-                <select x-model="strikeRange" @change="loadChain()" class="input-sm w-28">
-                    <option value="5">±5 Strikes</option>
-                    <option value="10">±10 Strikes</option>
-                    <option value="15">±15 Strikes</option>
-                    <option value="20">±20 Strikes</option>
-                </select>
-            </div>
-
-            <!-- Refresh -->
-            <button @click="loadChain()" class="btn-primary ml-auto" :disabled="loading">
-                <i data-lucide="refresh-cw" class="w-4 h-4" :class="loading && 'animate-spin'"></i>
-                Refresh
-            </button>
         </div>
     </div>
 
-    <!-- Spot Price & Summary -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="card p-5">
-            <div class="flex items-center justify-between mb-2">
-                <span class="data-label">Spot Price</span>
-                <i data-lucide="activity" class="w-4 h-4 text-primary-400"></i>
+    <!-- Max Pain & OI Analysis Row (Compact - Above Chain) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+        <!-- Max Pain Compact -->
+        <div id="max-pain">
+            <div class="glass rounded-xl h-[80px] flex items-center px-4 border border-purple-500/30 bg-gradient-to-r from-purple-600/10 to-pink-600/10">
+                <div class="flex items-center justify-center w-full">
+                    <div class="w-8 h-8 bg-purple-500/20 rounded-lg animate-pulse"></div>
+                    <div class="ml-3 flex-1 h-8 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
             </div>
-            <span class="text-2xl font-bold text-white" x-text="spotPrice.toLocaleString('en-IN')">--</span>
-            <p class="text-xs mt-1" :class="spotChange >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-               x-text="(spotChange >= 0 ? '+' : '') + spotChange.toFixed(2) + ' (' + spotChangePct.toFixed(2) + '%)'"></p>
         </div>
 
-        <div class="card p-5">
-            <div class="flex items-center justify-between mb-2">
-                <span class="data-label">PCR (OI)</span>
-                <i data-lucide="bar-chart-2" class="w-4 h-4 text-amber-400"></i>
+        <!-- OI Analysis Compact -->
+        <div id="oi-analysis">
+            <div class="glass rounded-xl h-[80px] flex items-center px-4 border border-blue-500/30 bg-gradient-to-r from-blue-600/10 to-indigo-600/10">
+                <div class="flex items-center justify-center w-full">
+                    <div class="w-8 h-8 bg-blue-500/20 rounded-lg animate-pulse"></div>
+                    <div class="ml-3 flex-1 h-8 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
             </div>
-            <span class="text-2xl font-bold" :class="pcr > 1 ? 'text-bullish-400' : pcr < 0.8 ? 'text-bearish-400' : 'text-white'"
-                  x-text="pcr.toFixed(2)">--</span>
-            <p class="text-xs text-surface-500 mt-1" x-text="pcrSentiment">--</p>
         </div>
+    </div>
 
-        <div class="card p-5">
-            <div class="flex items-center justify-between mb-2">
-                <span class="data-label">Max Pain</span>
-                <i data-lucide="target" class="w-4 h-4 text-bearish-400"></i>
-            </div>
-            <span class="text-2xl font-bold text-white" x-text="maxPain.toLocaleString('en-IN')">--</span>
-            <p class="text-xs mt-1" :class="spotPrice > maxPain ? 'text-bearish-400' : 'text-bullish-400'"
-               x-text="(spotPrice > maxPain ? 'Above' : 'Below') + ' by ' + Math.abs(spotPrice - maxPain).toFixed(0)"></p>
-        </div>
-
-        <div class="card p-5">
-            <div class="flex items-center justify-between mb-2">
-                <span class="data-label">ATM IV</span>
-                <i data-lucide="activity" class="w-4 h-4 text-primary-400"></i>
-            </div>
-            <span class="text-2xl font-bold text-white" x-text="atmIV.toFixed(1) + '%'">--</span>
-            <p class="text-xs text-surface-500 mt-1" x-text="ivStatus">--</p>
+    <!-- Stats Row (Compact) -->
+    <div id="chain-stats" class="mb-3">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
         </div>
     </div>
 
     <!-- Option Chain Table -->
-    <div class="card overflow-hidden">
-        <div class="p-4 border-b border-surface-800 bg-surface-800/30">
-            <div class="flex items-center justify-between">
-                <h3 class="font-semibold text-white">Option Chain</h3>
-                <div class="flex items-center gap-2 text-xs text-surface-500">
-                    <span class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded bg-bullish-500/30"></span> ITM
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded bg-surface-700"></span> OTM
-                    </span>
-                    <span class="flex items-center gap-1">
-                        <span class="w-3 h-3 rounded border-2 border-primary-500"></span> ATM
-                    </span>
+    <div class="glass rounded-xl overflow-hidden mb-3">
+        <div class="h-[48px] px-4 border-b border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-surface-800/50 to-surface-900/50">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
                 </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Live Option Chain</h3>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="flex items-center space-x-1 text-slate-500 text-xs">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                    <span>Live</span>
+                </span>
+                <button onclick="refreshChain()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold transition-all">
+                    Refresh
+                </button>
             </div>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-                <thead class="bg-surface-800/50">
-                    <tr>
-                        <!-- CE Columns -->
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">OI</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">Chg OI</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">Volume</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">IV</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">LTP</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">Chg</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">Bid</th>
-                        <th class="px-3 py-3 text-right text-xs font-semibold text-bullish-400 uppercase">Ask</th>
-
-                        <!-- Strike -->
-                        <th class="px-4 py-3 text-center text-xs font-bold text-white uppercase bg-surface-700">Strike</th>
-
-                        <!-- PE Columns -->
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">Bid</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">Ask</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">Chg</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">LTP</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">IV</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">Volume</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">Chg OI</th>
-                        <th class="px-3 py-3 text-left text-xs font-semibold text-bearish-400 uppercase">OI</th>
-                    </tr>
-                </thead>
-                <tbody id="chain-data" class="divide-y divide-surface-800">
-                    <template x-for="row in chainData" :key="row.strike">
-                        <tr
-                            :class="{
-                                'bg-bullish-500/10': row.ce_itm,
-                                'bg-bearish-500/10': row.pe_itm,
-                                'border-2 border-primary-500': row.atm
-                            }"
-                            class="hover:bg-surface-800/50 transition-colors"
-                        >
-                            <!-- CE Data -->
-                            <td class="px-3 py-2 text-right text-surface-300" x-text="formatOI(row.ce_oi)"></td>
-                            <td class="px-3 py-2 text-right" :class="row.ce_oi_chg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                                x-text="formatOI(row.ce_oi_chg)"></td>
-                            <td class="px-3 py-2 text-right text-surface-400" x-text="formatOI(row.ce_volume)"></td>
-                            <td class="px-3 py-2 text-right text-surface-400" x-text="row.ce_iv.toFixed(1) + '%'"></td>
-                            <td class="px-3 py-2 text-right font-medium text-bullish-400" x-text="row.ce_ltp.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-right" :class="row.ce_chg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                                x-text="(row.ce_chg >= 0 ? '+' : '') + row.ce_chg.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-right text-surface-400" x-text="row.ce_bid.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-right text-surface-400" x-text="row.ce_ask.toFixed(2)"></td>
-
-                            <!-- Strike -->
-                            <td class="px-4 py-2 text-center font-bold bg-surface-800/50"
-                                :class="row.atm ? 'text-primary-400' : 'text-white'"
-                                x-text="row.strike.toLocaleString('en-IN')"></td>
-
-                            <!-- PE Data -->
-                            <td class="px-3 py-2 text-left text-surface-400" x-text="row.pe_bid.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-left text-surface-400" x-text="row.pe_ask.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-left" :class="row.pe_chg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                                x-text="(row.pe_chg >= 0 ? '+' : '') + row.pe_chg.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-left font-medium text-bearish-400" x-text="row.pe_ltp.toFixed(2)"></td>
-                            <td class="px-3 py-2 text-left text-surface-400" x-text="row.pe_iv.toFixed(1) + '%'"></td>
-                            <td class="px-3 py-2 text-left text-surface-400" x-text="formatOI(row.pe_volume)"></td>
-                            <td class="px-3 py-2 text-left" :class="row.pe_oi_chg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                                x-text="formatOI(row.pe_oi_chg)"></td>
-                            <td class="px-3 py-2 text-left text-surface-300" x-text="formatOI(row.pe_oi)"></td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Loading State -->
-        <div x-show="loading" class="p-8 text-center">
-            <i data-lucide="loader-2" class="w-8 h-8 mx-auto mb-3 animate-spin text-surface-600"></i>
-            <p class="text-surface-500">Loading option chain...</p>
-        </div>
-
-        <!-- Empty State -->
-        <div x-show="!loading && chainData.length === 0" class="p-8 text-center">
-            <i data-lucide="table-2" class="w-12 h-12 mx-auto mb-3 text-surface-700"></i>
-            <p class="text-surface-500">No option chain data available</p>
-            <p class="text-xs text-surface-600 mt-1">Connect to broker to fetch live data</p>
+        <div id="chain-table">
+            <div class="p-4">
+                <div class="h-96 bg-surface-700 rounded-lg animate-pulse"></div>
+            </div>
         </div>
     </div>
 
-    <!-- OI Analysis -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Max OI Strikes -->
-        <div class="card p-5">
-            <h3 class="font-semibold text-white mb-4">Max OI Analysis</h3>
-            <div class="space-y-4">
-                <div class="flex items-center justify-between p-3 bg-surface-800/50 rounded-lg">
-                    <div>
-                        <p class="text-xs text-surface-500">Max CE OI (Resistance)</p>
-                        <p class="text-lg font-bold text-bullish-400" x-text="maxCeOiStrike.toLocaleString('en-IN')">--</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs text-surface-500">OI</p>
-                        <p class="text-sm font-medium text-surface-300" x-text="formatOI(maxCeOi)">--</p>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between p-3 bg-surface-800/50 rounded-lg">
-                    <div>
-                        <p class="text-xs text-surface-500">Max PE OI (Support)</p>
-                        <p class="text-lg font-bold text-bearish-400" x-text="maxPeOiStrike.toLocaleString('en-IN')">--</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs text-surface-500">OI</p>
-                        <p class="text-sm font-medium text-surface-300" x-text="formatOI(maxPeOi)">--</p>
-                    </div>
-                </div>
+    <!-- OI Legend (Compact) -->
+    <div class="glass rounded-xl p-3">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+            <div class="bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-green-400 font-bold">Long Buildup</span>
+                <span class="text-slate-400">↑P+↑OI=CE</span>
             </div>
-        </div>
-
-        <!-- OI Buildup -->
-        <div class="card p-5">
-            <h3 class="font-semibold text-white mb-4">OI Change Buildup</h3>
-            <div class="space-y-4">
-                <div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-surface-400">Total CE OI Change</span>
-                        <span :class="totalCeOiChg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                              x-text="formatOI(totalCeOiChg)">--</span>
-                    </div>
-                    <div class="h-3 bg-surface-700 rounded-full overflow-hidden">
-                        <div class="h-full bg-bullish-500 transition-all"
-                             :style="'width: ' + Math.min(100, Math.abs(ceOiChgPct)) + '%'"></div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-surface-400">Total PE OI Change</span>
-                        <span :class="totalPeOiChg >= 0 ? 'text-bullish-400' : 'text-bearish-400'"
-                              x-text="formatOI(totalPeOiChg)">--</span>
-                    </div>
-                    <div class="h-3 bg-surface-700 rounded-full overflow-hidden">
-                        <div class="h-full bg-bearish-500 transition-all"
-                             :style="'width: ' + Math.min(100, Math.abs(peOiChgPct)) + '%'"></div>
-                    </div>
-                </div>
-
-                <p class="text-sm text-surface-500 text-center pt-2" x-text="oiBuildupSignal">--</p>
+            <div class="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-red-400 font-bold">Short Buildup</span>
+                <span class="text-slate-400">↓P+↑OI=PE</span>
+            </div>
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-yellow-400 font-bold">Short Cover</span>
+                <span class="text-slate-400">↑P+↓OI</span>
+            </div>
+            <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-orange-400 font-bold">Long Unwind</span>
+                <span class="text-slate-400">↓P+↓OI</span>
             </div>
         </div>
     </div>
@@ -281,147 +133,51 @@
 
 {% block scripts %}
 <script>
-function optionChain() {
-    return {
-        selectedIndex: 'NIFTY',
-        selectedExpiry: '',
-        strikeRange: '10',
-        expiries: [],
-        chainData: [],
-        loading: false,
+let currentIndex = 'nifty';
+let isLoading = false;
 
-        spotPrice: 0,
-        spotChange: 0,
-        spotChangePct: 0,
-        pcr: 0,
-        pcrSentiment: '',
-        maxPain: 0,
-        atmIV: 0,
-        ivStatus: '',
+function switchIndex(index) {
+    if (isLoading) return;
+    isLoading = true;
+    currentIndex = index;
 
-        maxCeOiStrike: 0,
-        maxCeOi: 0,
-        maxPeOiStrike: 0,
-        maxPeOi: 0,
-        totalCeOiChg: 0,
-        totalPeOiChg: 0,
-        ceOiChgPct: 0,
-        peOiChgPct: 0,
-        oiBuildupSignal: '',
+    // Show loading states
+    document.getElementById('chain-table').innerHTML = '<div class="p-4"><div class="h-96 bg-surface-700 rounded-lg animate-pulse flex items-center justify-center"><span class="text-slate-400">Loading...</span></div></div>';
+    document.getElementById('chain-stats').innerHTML = '<div class="grid grid-cols-3 md:grid-cols-6 gap-2"><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div></div>';
 
-        init() {
-            this.loadExpiries();
-        },
+    // Load all data for the selected index
+    htmx.ajax('GET', '/htmx/option-chain-full/' + index, {target: '#chain-table', swap: 'innerHTML'}).then(function() {
+        isLoading = false;
+    }).catch(function(e) {
+        console.error('Error loading chain:', e);
+        isLoading = false;
+    });
 
-        loadExpiries() {
-            fetch(`/api/market/expiries/${this.selectedIndex}`)
-                .then(r => r.json())
-                .then(data => {
-                    this.expiries = data.expiries || ['Current Week', 'Next Week', 'Monthly'];
-                    this.selectedExpiry = this.expiries[0];
-                    this.loadChain();
-                })
-                .catch(() => {
-                    this.expiries = ['Current Week', 'Next Week', 'Monthly'];
-                    this.selectedExpiry = this.expiries[0];
-                });
-        },
-
-        loadChain() {
-            this.loading = true;
-
-            fetch(`/market/option-chain/${this.selectedIndex}?expiry=${this.selectedExpiry}&range=${this.strikeRange}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data) {
-                        this.processChainData(data);
-                    }
-                })
-                .catch(() => {
-                    this.chainData = [];
-                })
-                .finally(() => {
-                    this.loading = false;
-                });
-        },
-
-        processChainData(data) {
-            this.spotPrice = data.spot_price || 0;
-            this.spotChange = data.spot_change || 0;
-            this.spotChangePct = data.spot_change_pct || 0;
-
-            // Calculate PCR
-            let totalCeOi = 0, totalPeOi = 0;
-            let totalCeOiChg = 0, totalPeOiChg = 0;
-            let maxCeOi = 0, maxPeOi = 0;
-            let maxCeOiStrike = 0, maxPeOiStrike = 0;
-
-            this.chainData = (data.chain || []).map(row => {
-                totalCeOi += row.ce_oi || 0;
-                totalPeOi += row.pe_oi || 0;
-                totalCeOiChg += row.ce_oi_chg || 0;
-                totalPeOiChg += row.pe_oi_chg || 0;
-
-                if ((row.ce_oi || 0) > maxCeOi) {
-                    maxCeOi = row.ce_oi;
-                    maxCeOiStrike = row.strike;
-                }
-                if ((row.pe_oi || 0) > maxPeOi) {
-                    maxPeOi = row.pe_oi;
-                    maxPeOiStrike = row.strike;
-                }
-
-                return {
-                    ...row,
-                    ce_itm: row.strike < this.spotPrice,
-                    pe_itm: row.strike > this.spotPrice,
-                    atm: Math.abs(row.strike - this.spotPrice) < 50
-                };
-            });
-
-            this.pcr = totalCeOi > 0 ? totalPeOi / totalCeOi : 0;
-            this.pcrSentiment = this.pcr > 1.2 ? 'Bullish (Put writing)' :
-                              this.pcr < 0.7 ? 'Bearish (Call writing)' :
-                              'Neutral';
-
-            this.maxPain = data.max_pain || 0;
-            this.atmIV = data.atm_iv || 0;
-            this.ivStatus = this.atmIV > 25 ? 'High Volatility' :
-                           this.atmIV < 15 ? 'Low Volatility' : 'Normal';
-
-            this.maxCeOiStrike = maxCeOiStrike;
-            this.maxCeOi = maxCeOi;
-            this.maxPeOiStrike = maxPeOiStrike;
-            this.maxPeOi = maxPeOi;
-
-            this.totalCeOiChg = totalCeOiChg;
-            this.totalPeOiChg = totalPeOiChg;
-
-            const maxChg = Math.max(Math.abs(totalCeOiChg), Math.abs(totalPeOiChg));
-            this.ceOiChgPct = maxChg > 0 ? (Math.abs(totalCeOiChg) / maxChg) * 100 : 0;
-            this.peOiChgPct = maxChg > 0 ? (Math.abs(totalPeOiChg) / maxChg) * 100 : 0;
-
-            if (totalPeOiChg > totalCeOiChg * 1.2) {
-                this.oiBuildupSignal = 'PE OI buildup suggests support holding';
-            } else if (totalCeOiChg > totalPeOiChg * 1.2) {
-                this.oiBuildupSignal = 'CE OI buildup suggests resistance forming';
-            } else {
-                this.oiBuildupSignal = 'Balanced OI change - range bound expected';
-            }
-        },
-
-        formatOI(value) {
-            if (!value) return '-';
-            if (Math.abs(value) >= 10000000) {
-                return (value / 10000000).toFixed(2) + ' Cr';
-            } else if (Math.abs(value) >= 100000) {
-                return (value / 100000).toFixed(2) + ' L';
-            } else if (Math.abs(value) >= 1000) {
-                return (value / 1000).toFixed(1) + ' K';
-            }
-            return value.toString();
-        }
-    }
+    // Load other components in parallel
+    htmx.ajax('GET', '/htmx/option-chain-stats/' + index, {target: '#chain-stats', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/max-pain/' + index, {target: '#max-pain', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/oi-analysis/' + index, {target: '#oi-analysis', swap: 'innerHTML'});
 }
+
+function refreshChain() {
+    isLoading = false; // Reset in case stuck
+    switchIndex(currentIndex);
+}
+
+// Load initial data and set up auto-refresh
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data for default index (nifty)
+    switchIndex(currentIndex);
+
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        if (!isLoading) {
+            htmx.ajax('GET', '/htmx/option-chain-full/' + currentIndex, {target: '#chain-table', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/option-chain-stats/' + currentIndex, {target: '#chain-stats', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/max-pain/' + currentIndex, {target: '#max-pain', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/oi-analysis/' + currentIndex, {target: '#oi-analysis', swap: 'innerHTML'});
+        }
+    }, 30000);
+});
 </script>
 {% endblock %}

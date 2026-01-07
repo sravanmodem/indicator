@@ -1,212 +1,668 @@
 """
 Paper Trading API Routes
-Virtual portfolio management endpoints (v2)
+Endpoints for paper trading management
 """
 
-from fastapi import APIRouter, HTTPException, Form
-from fastapi.responses import JSONResponse
+from datetime import datetime
+
+from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.services.paper_trading_service import get_paper_trading_service
+from app.services.zerodha_auth import get_auth_service
+from app.services.paper_trading import get_paper_trading_service
+from app.services.signal_engine import get_signal_engine, TradingStyle
+from app.services.data_fetcher import get_data_fetcher
+from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
-router = APIRouter(prefix="/api/paper-trading", tags=["Paper Trading"])
-
-
-@router.post("/open-position")
-async def open_paper_position(
-    signal_id: int = Form(None),
-    index_name: str = Form(...),
-    option_symbol: str = Form(...),
-    strike: float = Form(...),
-    option_type: str = Form(...),
-    entry_price: float = Form(...),
-    quantity: int = Form(...),
-    stop_loss: float = Form(...),
-    target: float = Form(...),
-    notes: str = Form(None),
-):
-    """Open a new paper trading position."""
-    try:
-        service = get_paper_trading_service()
-        position = service.open_position(
-            signal_id=signal_id,
-            index_name=index_name,
-            option_symbol=option_symbol,
-            strike=strike,
-            option_type=option_type,
-            entry_price=entry_price,
-            quantity=quantity,
-            stop_loss=stop_loss,
-            target=target,
-            notes=notes,
-        )
-
-        return JSONResponse({
-            "success": True,
-            "message": f"Paper position opened: {option_symbol}",
-            "position_id": position.id,
-        })
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error opening paper position: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+router = APIRouter(prefix="/paper", tags=["Paper Trading"])
+templates = Jinja2Templates(directory="app/templates")
 
 
-@router.post("/close-position/{position_id}")
-async def close_paper_position(
-    position_id: int,
-    exit_price: float = Form(...),
-    exit_reason: str = Form("manual_exit"),
-):
-    """Close a paper trading position."""
-    try:
-        service = get_paper_trading_service()
-        position = service.close_position(
-            position_id=position_id,
-            exit_price=exit_price,
-            exit_reason=exit_reason,
-        )
-
-        return JSONResponse({
-            "success": True,
-            "message": f"Position closed with P&L: ₹{position.pnl:,.0f}",
-            "pnl": position.pnl,
-            "pnl_percentage": position.pnl_percentage,
-        })
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.error(f"Error closing paper position: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+def require_auth():
+    """Check if user is authenticated."""
+    auth = get_auth_service()
+    if not auth.is_authenticated:
+        raise HTTPException(status_code=401, detail="Not authenticated")
 
 
-@router.get("/account")
-async def get_paper_account():
-    """Get paper trading account details."""
-    try:
-        service = get_paper_trading_service()
-        account = service.get_account()
+@router.get("/", response_class=HTMLResponse)
+async def paper_trading_page(request: Request):
+    """Render paper trading dashboard."""
+    auth = get_auth_service()
 
-        # Calculate win rate
-        total_closed = account.winning_trades + account.losing_trades
-        win_rate = (account.winning_trades / total_closed * 100) if total_closed > 0 else 0
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
 
-        return {
-            # For template compatibility
-            "capital": account.initial_capital,
-            "available": account.current_capital,
-            "today_pnl": account.total_pnl,
-            "win_rate": round(win_rate, 1),
-            "total_trades": account.total_trades,
-            # Additional details
-            "initial_capital": account.initial_capital,
-            "current_capital": account.current_capital,
-            "total_pnl": account.total_pnl,
-            "pnl_percentage": round(((account.current_capital - account.initial_capital) / account.initial_capital * 100), 2) if account.initial_capital > 0 else 0,
-            "winning_trades": account.winning_trades,
-            "losing_trades": account.losing_trades,
-            "is_active": account.is_active,
-        }
+    paper = get_paper_trading_service()
 
-    except Exception as e:
-        logger.error(f"Error getting paper account: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_trading.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+        },
+    )
 
 
-@router.post("/reset-account")
-async def reset_paper_account(
-    initial_capital: float = Form(500000),
-):
-    """Reset paper trading account."""
-    try:
-        service = get_paper_trading_service()
-        service.reset_account(initial_capital=initial_capital)
-
-        return JSONResponse({
-            "success": True,
-            "message": f"Paper trading account reset to ₹{initial_capital:,.0f}",
-        })
-
-    except Exception as e:
-        logger.error(f"Error resetting paper account: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/positions/open")
-async def get_open_positions():
-    """Get all open paper positions."""
-    try:
-        service = get_paper_trading_service()
-        positions = service.get_open_positions()
-
-        return [
-            {
-                "id": p.id,
-                "index_name": p.index_name,
-                "option_symbol": p.option_symbol,
-                "strike": p.strike,
-                "option_type": p.option_type,
-                "entry_time": p.entry_time.isoformat(),
-                "entry_price": p.entry_price,
-                "quantity": p.quantity,
-                "stop_loss": p.stop_loss,
-                "target": p.target,
-                "notes": p.notes,
-            }
-            for p in positions
-        ]
-
-    except Exception as e:
-        logger.error(f"Error getting open positions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/positions/all")
-async def get_all_positions(limit: int = 50):
-    """Get all paper positions."""
-    try:
-        service = get_paper_trading_service()
-        positions = service.get_all_positions(limit=limit)
-
-        return [
-            {
-                "id": p.id,
-                "index_name": p.index_name,
-                "option_symbol": p.option_symbol,
-                "strike": p.strike,
-                "option_type": p.option_type,
-                "entry_time": p.entry_time.isoformat(),
-                "entry_price": p.entry_price,
-                "quantity": p.quantity,
-                "stop_loss": p.stop_loss,
-                "target": p.target,
-                "exit_time": p.exit_time.isoformat() if p.exit_time else None,
-                "exit_price": p.exit_price,
-                "exit_reason": p.exit_reason,
-                "pnl": p.pnl,
-                "pnl_percentage": p.pnl_percentage,
-                "status": p.status.value,
-                "notes": p.notes,
-            }
-            for p in positions
-        ]
-
-    except Exception as e:
-        logger.error(f"Error getting all positions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/statistics")
-async def get_paper_statistics():
+@router.get("/stats")
+async def get_stats():
     """Get paper trading statistics."""
-    try:
-        service = get_paper_trading_service()
-        stats = service.get_statistics()
-        return stats
+    require_auth()
+    paper = get_paper_trading_service()
+    return paper.get_stats()
 
+
+@router.get("/trading-index")
+async def get_trading_index():
+    """Get the current trading index based on nearest expiry."""
+    require_auth()
+    paper = get_paper_trading_service()
+    trading_index = paper.get_trading_index()
+
+    return {
+        "index": trading_index.index,
+        "expiry_date": trading_index.expiry_date.isoformat(),
+        "days_to_expiry": trading_index.days_to_expiry,
+        "is_expiry_day": trading_index.is_expiry_day,
+        "lot_size": trading_index.lot_size,
+        "max_lots_per_order": trading_index.max_lots_per_order,
+    }
+
+
+@router.get("/expiries")
+async def get_all_expiries():
+    """Get expiry info for all indices."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    expiries = []
+    for index in ["NIFTY", "SENSEX", "BANKNIFTY"]:
+        exp = paper.get_next_expiry(index)
+        expiries.append({
+            "index": exp.index,
+            "expiry_date": exp.expiry_date.isoformat(),
+            "days_to_expiry": exp.days_to_expiry,
+            "is_expiry_day": exp.is_expiry_day,
+            "lot_size": exp.lot_size,
+        })
+
+    return {"expiries": expiries}
+
+
+@router.post("/execute-signal")
+async def execute_signal_trade():
+    """Execute trade based on current signal."""
+    require_auth()
+
+    paper = get_paper_trading_service()
+    fetcher = get_data_fetcher()
+
+    # Get trading index
+    trading_index = paper.get_trading_index()
+
+    # Get token for the index
+    tokens = {
+        "NIFTY": NIFTY_INDEX_TOKEN,
+        "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+        "SENSEX": SENSEX_INDEX_TOKEN,
+    }
+    token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+    # Fetch historical data
+    df = await fetcher.fetch_historical_data(
+        instrument_token=token,
+        timeframe="5minute",
+        days=3,
+    )
+
+    if df.empty:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Market closed - No data available"},
+        )
+
+    # Get option chain
+    chain_data = await fetcher.get_option_chain(index=trading_index.index)
+    option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+    # Generate signal
+    engine = get_signal_engine(TradingStyle.INTRADAY)
+    signal = engine.analyze(df=df, option_chain=option_chain)
+
+    if not signal:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "No signal generated"},
+        )
+
+    # Execute trade
+    order = await paper.execute_signal_trade(signal, trading_index)
+
+    if order:
+        return {
+            "success": True,
+            "order": {
+                "order_id": order.order_id,
+                "symbol": order.symbol,
+                "lots": order.lots,
+                "quantity": order.quantity,
+                "price": order.price,
+                "split_orders": order.split_orders,
+            },
+            "signal": {
+                "direction": signal.direction,
+                "confidence": signal.confidence,
+            },
+        }
+    else:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "success": False,
+                "error": paper.daily_stats.halt_reason if paper.daily_stats.is_trading_halted else "Trade not executed",
+            },
+        )
+
+
+@router.get("/positions")
+async def get_positions():
+    """Get all positions."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    open_positions = paper.get_open_positions()
+    closed_positions = paper.get_closed_positions()
+
+    return {
+        "open": [
+            {
+                "position_id": p.position_id,
+                "index": p.index,
+                "symbol": p.symbol,
+                "strike": p.strike,
+                "option_type": p.option_type,
+                "entry_price": p.entry_price,
+                "current_price": p.current_price,
+                "quantity": p.quantity,
+                "lots": p.lots,
+                "pnl": p.pnl,
+                "pnl_percent": p.pnl_percent,
+                "entry_time": p.entry_time.isoformat(),
+                "stop_loss": p.stop_loss,
+                "target": p.target,
+            }
+            for p in open_positions
+        ],
+        "closed": [
+            {
+                "position_id": p.position_id,
+                "index": p.index,
+                "symbol": p.symbol,
+                "strike": p.strike,
+                "option_type": p.option_type,
+                "entry_price": p.entry_price,
+                "exit_price": p.exit_price,
+                "quantity": p.quantity,
+                "lots": p.lots,
+                "pnl": p.pnl,
+                "pnl_percent": p.pnl_percent,
+                "entry_time": p.entry_time.isoformat(),
+                "exit_time": p.exit_time.isoformat() if p.exit_time else None,
+                "exit_reason": p.exit_reason,
+            }
+            for p in closed_positions[-10:]  # Last 10
+        ],
+    }
+
+
+@router.post("/positions/{position_id}/close")
+async def close_position(position_id: str):
+    """Close a specific position."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    # Find position
+    position = next(
+        (p for p in paper.positions if p.position_id == position_id),
+        None,
+    )
+
+    if not position:
+        raise HTTPException(status_code=404, detail="Position not found")
+
+    # Update position with current price first
+    await paper.update_positions()
+
+    # Close position
+    order = await paper.close_position(position, "Manual Close")
+
+    if order:
+        return {
+            "success": True,
+            "order_id": order.order_id,
+            "exit_price": order.executed_price,
+            "pnl": position.pnl,
+        }
+    else:
+        raise HTTPException(status_code=400, detail="Failed to close position")
+
+
+@router.post("/positions/close-all")
+async def close_all_positions():
+    """Close all open positions."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    # Update positions first
+    await paper.update_positions()
+
+    # Close all
+    orders = await paper.close_all_positions("Close All")
+
+    return {
+        "success": True,
+        "closed_count": len(orders),
+        "orders": [{"order_id": o.order_id, "symbol": o.symbol} for o in orders],
+    }
+
+
+@router.get("/orders")
+async def get_orders():
+    """Get today's orders."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    orders = paper.get_today_orders()
+
+    return {
+        "orders": [
+            {
+                "order_id": o.order_id,
+                "timestamp": o.timestamp.isoformat(),
+                "index": o.index,
+                "symbol": o.symbol,
+                "order_type": o.order_type.value,
+                "quantity": o.quantity,
+                "lots": o.lots,
+                "price": o.price,
+                "status": o.status.value,
+                "split_orders": o.split_orders,
+                "reason": o.reason,
+            }
+            for o in orders
+        ],
+    }
+
+
+@router.post("/update-positions")
+async def update_positions():
+    """Update all positions with current prices."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    updated = await paper.update_positions()
+
+    return {
+        "success": True,
+        "updated_count": len(updated),
+    }
+
+
+@router.post("/reset")
+async def reset_paper_trading():
+    """Reset all paper trading data."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    paper.reset_all()
+
+    return {"success": True, "message": "Paper trading reset to initial state"}
+
+
+@router.post("/reset-daily")
+async def reset_daily():
+    """Reset daily statistics only."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    paper.reset_daily()
+
+    return {"success": True, "message": "Daily statistics reset"}
+
+
+@router.post("/toggle-auto-trade")
+async def toggle_auto_trade(enabled: bool = None):
+    """Toggle auto trade on/off."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    new_status = paper.toggle_auto_trade(enabled)
+
+    return {
+        "success": True,
+        "is_auto_trade": new_status,
+        "message": f"Auto trade {'enabled' if new_status else 'disabled'}",
+    }
+
+
+@router.get("/auto-trade-status")
+async def get_auto_trade_status():
+    """Get auto trade status."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    return {
+        "is_auto_trade": paper.is_auto_trade,
+    }
+
+
+@router.get("/expiries-live")
+async def get_expiries_from_kite():
+    """Get expiry info for all indices fetched from Kite."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    # Refresh cache from Kite
+    await paper.refresh_expiry_cache()
+
+    expiries = []
+    for index in ["NIFTY", "SENSEX", "BANKNIFTY"]:
+        exp = paper.get_next_expiry(index)
+        expiries.append({
+            "index": exp.index,
+            "expiry_date": exp.expiry_date.isoformat(),
+            "expiry_weekday": exp.expiry_date.strftime("%a"),
+            "days_to_expiry": exp.days_to_expiry,
+            "is_expiry_day": exp.is_expiry_day,
+            "lot_size": exp.lot_size,
+        })
+
+    return {"expiries": expiries, "source": "kite"}
+
+
+# HTMX Partials
+
+@router.get("/htmx/stats", response_class=HTMLResponse)
+async def htmx_stats(request: Request):
+    """HTMX partial for stats card."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+        stats = paper.get_stats()
+
+        return templates.TemplateResponse(
+            "partials/paper_stats.html",
+            {"request": request, "stats": stats},
+        )
     except Exception as e:
-        logger.error(f"Error getting paper statistics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Stats error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_stats.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/trading-index", response_class=HTMLResponse)
+async def htmx_trading_index(request: Request):
+    """HTMX partial for trading index display."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+
+        # Refresh expiries from Kite
+        await paper.refresh_expiry_cache()
+
+        trading_index = paper.get_trading_index()
+
+        # Get all expiries (now from cache with fresh Kite data)
+        expiries = []
+        for index in ["NIFTY", "SENSEX", "BANKNIFTY"]:
+            exp = paper.get_next_expiry(index)
+            expiries.append(exp)
+
+        return templates.TemplateResponse(
+            "partials/paper_trading_index.html",
+            {
+                "request": request,
+                "trading_index": trading_index,
+                "expiries": expiries,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Trading index error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_trading_index.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/positions", response_class=HTMLResponse)
+async def htmx_positions(request: Request):
+    """HTMX partial for positions table."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+
+        # Update positions
+        await paper.update_positions()
+
+        open_positions = paper.get_open_positions()
+        closed_positions = paper.get_closed_positions()
+
+        return templates.TemplateResponse(
+            "partials/paper_positions.html",
+            {
+                "request": request,
+                "open_positions": open_positions,
+                "closed_positions": closed_positions[-10:],
+            },
+        )
+    except Exception as e:
+        logger.error(f"Positions error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_positions.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/orders", response_class=HTMLResponse)
+async def htmx_orders(request: Request):
+    """HTMX partial for orders table."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+
+        orders = paper.get_today_orders()
+
+        return templates.TemplateResponse(
+            "partials/paper_orders.html",
+            {"request": request, "orders": orders},
+        )
+    except Exception as e:
+        logger.error(f"Orders error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_orders.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/order-history", response_class=HTMLResponse)
+async def order_history_page(request: Request):
+    """Render order history page."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    paper = get_paper_trading_service()
+    history = paper.get_order_history(days=30)
+    summary = paper.get_order_history_summary()
+
+    return templates.TemplateResponse(
+        "order_history.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "history": history,
+            "summary": summary,
+        },
+    )
+
+
+@router.get("/order-history/data")
+async def get_order_history(days: int = 30):
+    """Get order history as JSON."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    history = paper.get_order_history(days=days)
+
+    return {
+        "history": [
+            {
+                "order_id": h.order_id,
+                "position_id": h.position_id,
+                "timestamp": h.timestamp.isoformat(),
+                "index": h.index,
+                "symbol": h.symbol,
+                "strike": h.strike,
+                "option_type": h.option_type,
+                "direction": h.direction,
+                "quantity": h.quantity,
+                "lots": h.lots,
+                "entry_price": h.entry_price,
+                "exit_price": h.exit_price,
+                "max_price": h.max_price,
+                "min_price": h.min_price,
+                "pnl": h.pnl,
+                "pnl_percent": h.pnl_percent,
+                "max_profit_percent": h.max_profit_percent,
+                "max_loss_percent": h.max_loss_percent,
+                "captured_move_percent": h.captured_move_percent,
+                "signal_confidence": h.signal_confidence,
+                "exit_reason": h.exit_reason,
+                "entry_time": h.entry_time.isoformat() if h.entry_time else None,
+                "exit_time": h.exit_time.isoformat() if h.exit_time else None,
+                "duration_minutes": h.duration_minutes,
+            }
+            for h in history
+        ],
+    }
+
+
+@router.get("/order-history/summary")
+async def get_order_history_summary():
+    """Get order history summary statistics."""
+    require_auth()
+    paper = get_paper_trading_service()
+
+    return paper.get_order_history_summary()
+
+
+@router.get("/htmx/order-history", response_class=HTMLResponse)
+async def htmx_order_history(request: Request, days: int = 30):
+    """HTMX partial for order history table."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+
+        history = paper.get_order_history(days=days)
+        summary = paper.get_order_history_summary()
+
+        return templates.TemplateResponse(
+            "partials/paper_order_history.html",
+            {
+                "request": request,
+                "history": history,
+                "summary": summary,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Order history error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_order_history.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/signal-panel", response_class=HTMLResponse)
+async def htmx_signal_panel(request: Request):
+    """HTMX partial for current signal panel."""
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+        fetcher = get_data_fetcher()
+
+        trading_index = paper.get_trading_index()
+
+        # Get token
+        tokens = {
+            "NIFTY": NIFTY_INDEX_TOKEN,
+            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+            "SENSEX": SENSEX_INDEX_TOKEN,
+        }
+        token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+        # Fetch data
+        df = await fetcher.fetch_historical_data(
+            instrument_token=token,
+            timeframe="5minute",
+            days=3,
+        )
+
+        if df.empty:
+            return templates.TemplateResponse(
+                "partials/paper_signal_panel.html",
+                {"request": request, "error": "Market closed"},
+            )
+
+        # Get option chain
+        chain_data = await fetcher.get_option_chain(index=trading_index.index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+        # Generate signal
+        engine = get_signal_engine(TradingStyle.INTRADAY)
+        signal = engine.analyze(df=df, option_chain=option_chain)
+
+        # Calculate order preview
+        order_preview = None
+        if signal and signal.recommended_option:
+            lots, qty, splits = paper.calculate_order_size(
+                price=signal.recommended_option.ltp,
+                lot_size=trading_index.lot_size,
+            )
+            order_preview = {
+                "lots": lots,
+                "quantity": qty,
+                "total_value": qty * signal.recommended_option.ltp,
+                "split_count": len(splits),
+                "splits": splits,
+            }
+
+        return templates.TemplateResponse(
+            "partials/paper_signal_panel.html",
+            {
+                "request": request,
+                "signal": signal,
+                "trading_index": trading_index,
+                "order_preview": order_preview,
+                "chain_data": chain_data if "error" not in chain_data else None,
+                "stats": paper.get_stats(),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Signal panel error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_signal_panel.html",
+            {"request": request, "error": str(e)},
+        )

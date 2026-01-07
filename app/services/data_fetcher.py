@@ -31,6 +31,9 @@ class DataFetcher:
         self.auth_service = get_auth_service()
         self._instruments_cache: dict[str, pd.DataFrame] = {}
         self._instruments_last_updated: datetime | None = None
+        # Option chain cache with short TTL (10 seconds)
+        self._option_chain_cache: dict[str, dict] = {}
+        self._option_chain_last_updated: dict[str, datetime] = {}
 
     @property
     def kite(self) -> KiteConnect:
@@ -229,6 +232,94 @@ class DataFetcher:
 
         return sensex_opts.sort_values(["strike", "instrument_type"])
 
+    async def get_next_expiry(self, index: str = "NIFTY") -> dict[str, Any]:
+        """
+        Get the next expiry date for an index from Kite instruments.
+
+        Args:
+            index: NIFTY, BANKNIFTY, or SENSEX
+
+        Returns:
+            Dictionary with expiry details
+        """
+        try:
+            today = datetime.now().date()
+            current_time = datetime.now()
+
+            # Determine exchange and index name
+            if index.upper() == "SENSEX":
+                exchange = "BFO"
+                name = "SENSEX"
+            else:
+                exchange = "NFO"
+                name = index.upper()
+
+            instruments = await self.fetch_instruments(exchange)
+            if instruments.empty:
+                return {"error": "Could not fetch instruments"}
+
+            # Filter options for the index
+            options = instruments[
+                (instruments["name"] == name)
+                & (instruments["instrument_type"].isin(["CE", "PE"]))
+            ].copy()
+
+            if options.empty:
+                return {"error": f"No options found for {index}"}
+
+            # Convert expiry to date
+            options["expiry"] = pd.to_datetime(options["expiry"]).dt.date
+
+            # Get all unique expiry dates
+            all_expiries = sorted(options["expiry"].unique())
+
+            # Filter to future expiries (including today if market still open)
+            market_close_hour = 15
+            market_close_minute = 30
+
+            if current_time.hour >= market_close_hour and current_time.minute >= market_close_minute:
+                # Market closed, exclude today
+                future_expiries = [e for e in all_expiries if e > today]
+            else:
+                # Market open or today is before market close
+                future_expiries = [e for e in all_expiries if e >= today]
+
+            if not future_expiries:
+                return {"error": "No future expiries found"}
+
+            next_expiry = future_expiries[0]
+            days_to_expiry = (next_expiry - today).days
+            is_expiry_day = (next_expiry == today)
+
+            # Get all expiry dates for display (next 4 expiries)
+            upcoming_expiries = future_expiries[:4]
+
+            return {
+                "index": index.upper(),
+                "expiry_date": next_expiry,
+                "days_to_expiry": days_to_expiry,
+                "is_expiry_day": is_expiry_day,
+                "expiry_weekday": next_expiry.strftime("%a"),  # Mon, Tue, etc.
+                "all_expiries": upcoming_expiries,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get next expiry for {index}: {e}")
+            return {"error": str(e)}
+
+    async def get_all_indices_expiry(self) -> dict[str, Any]:
+        """
+        Get next expiry for all indices.
+
+        Returns:
+            Dictionary with expiry info for NIFTY, BANKNIFTY, SENSEX
+        """
+        results = {}
+        for index in ["NIFTY", "BANKNIFTY", "SENSEX"]:
+            expiry = await self.get_next_expiry(index)
+            results[index] = expiry
+        return results
+
     async def fetch_historical_data(
         self,
         instrument_token: int,
@@ -336,6 +427,17 @@ class DataFetcher:
         Returns:
             Option chain data
         """
+        # Check cache first (10 second TTL)
+        cache_key = f"{index}_{strike_count}"
+        now = datetime.now()
+        if (
+            cache_key in self._option_chain_cache
+            and cache_key in self._option_chain_last_updated
+            and (now - self._option_chain_last_updated[cache_key]).seconds < 10
+        ):
+            logger.debug(f"Using cached option chain for {index}")
+            return self._option_chain_cache[cache_key]
+
         try:
             # Get current spot price
             if index == "NIFTY":
@@ -458,7 +560,7 @@ class DataFetcher:
             total_pe_oi = sum(c["pe"].get("oi", 0) for c in chain)
             pcr = total_pe_oi / total_ce_oi if total_ce_oi > 0 else 0
 
-            return {
+            result = {
                 "index": index,
                 "spot_price": spot_price,
                 "atm_strike": atm_strike,
@@ -469,6 +571,12 @@ class DataFetcher:
                 "pcr": round(pcr, 3),
                 "timestamp": datetime.now().isoformat(),
             }
+
+            # Cache the result
+            self._option_chain_cache[cache_key] = result
+            self._option_chain_last_updated[cache_key] = datetime.now()
+
+            return result
 
         except Exception as e:
             logger.error(f"Failed to build option chain: {e}")

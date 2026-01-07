@@ -1,0 +1,87 @@
+{% if error %}
+<div class="glass rounded-2xl h-[80px] flex items-center px-4 bg-gradient-to-br from-surface-800/90 via-amber-900/20 to-surface-900/90 border border-amber-500/20 shadow-lg shadow-amber-500/5">
+    <div class="flex items-center w-full gap-4">
+        <!-- Signal Badge -->
+        <div class="relative">
+            <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 flex items-center justify-center border border-amber-500/30">
+                <span class="text-amber-400 font-black text-xl">--</span>
+            </div>
+            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-500/50 border border-amber-400"></div>
+        </div>
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-bold tracking-wide">OFFLINE</span>
+            </div>
+            <p class="text-white font-semibold text-sm">Market Closed</p>
+            <p class="text-slate-500 text-[10px]">Waiting for market hours</p>
+        </div>
+        <!-- Placeholder Levels -->
+        <div class="flex items-center gap-2">
+            <div class="text-center px-3 py-2 bg-surface-900/80 rounded-xl border border-slate-700/50">
+                <p class="text-[8px] text-slate-500 uppercase tracking-wide">Entry</p>
+                <p class="text-slate-600 font-mono font-bold">--</p>
+            </div>
+            <div class="text-center px-3 py-2 bg-red-500/10 rounded-xl border border-red-500/30">
+                <p class="text-[8px] text-red-400 uppercase tracking-wide">SL</p>
+                <p class="text-slate-600 font-mono font-bold">--</p>
+            </div>
+            <div class="text-center px-3 py-2 bg-green-500/10 rounded-xl border border-green-500/30">
+                <p class="text-[8px] text-green-400 uppercase tracking-wide">Target</p>
+                <p class="text-slate-600 font-mono font-bold">--</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% elif signal %}
+<div class="glass rounded-2xl h-[80px] flex items-center px-4 bg-gradient-to-br {% if signal.direction == 'CE' %}from-surface-800/90 via-green-900/30 to-surface-900/90 border border-green-500/30 shadow-lg shadow-green-500/10{% elif signal.direction == 'PE' %}from-surface-800/90 via-red-900/30 to-surface-900/90 border border-red-500/30 shadow-lg shadow-red-500/10{% else %}from-surface-800/90 via-slate-900/30 to-surface-900/90 border border-slate-500/30{% endif %}">
+    <div class="flex items-center w-full gap-4">
+        <!-- Signal Badge -->
+        <div class="relative">
+            <div class="w-14 h-14 rounded-xl {% if signal.direction == 'CE' %}bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30{% elif signal.direction == 'PE' %}bg-gradient-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/30{% else %}bg-gradient-to-br from-slate-500 to-slate-600{% endif %} flex items-center justify-center">
+                <span class="text-2xl font-black text-white drop-shadow-lg">{{ signal.direction }}</span>
+            </div>
+            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse border-2 border-surface-800"></div>
+        </div>
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[9px] font-bold tracking-wide">LIVE</span>
+                <span class="px-2 py-0.5 rounded-full {% if style == 'scalping' %}bg-amber-500/20 text-amber-400{% elif style == 'intraday' %}bg-blue-500/20 text-blue-400{% else %}bg-purple-500/20 text-purple-400{% endif %} text-[9px] font-bold">{{ style | upper }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="{% if signal.direction == 'CE' %}text-green-400{% elif signal.direction == 'PE' %}text-red-400{% else %}text-slate-400{% endif %} font-black text-2xl">{{ signal.confidence }}%</span>
+                <div class="px-2 py-1 bg-yellow-500/20 rounded-lg border border-yellow-500/30">
+                    <span class="text-yellow-400 font-mono font-bold text-xs">1:{{ signal.risk_reward }}</span>
+                </div>
+            </div>
+        </div>
+        <!-- Trade Levels -->
+        <div class="flex items-center gap-2">
+            <div class="text-center px-3 py-2 bg-surface-900/80 rounded-xl border border-slate-700/50 backdrop-blur">
+                <p class="text-[8px] text-slate-500 uppercase tracking-wide">Entry</p>
+                <p class="text-white font-mono font-bold">{{ "%.0f"|format(signal.entry_price) }}</p>
+            </div>
+            <div class="text-center px-3 py-2 bg-red-500/10 rounded-xl border border-red-500/30">
+                <p class="text-[8px] text-red-400 uppercase tracking-wide">SL</p>
+                <p class="text-red-400 font-mono font-bold">{{ "%.0f"|format(signal.stop_loss) }}</p>
+            </div>
+            <div class="text-center px-3 py-2 bg-green-500/10 rounded-xl border border-green-500/30">
+                <p class="text-[8px] text-green-400 uppercase tracking-wide">Target</p>
+                <p class="text-green-400 font-mono font-bold">{{ "%.0f"|format(signal.target_1) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-2xl h-[80px] flex items-center justify-center bg-gradient-to-br from-surface-800/90 to-surface-900/90 border border-slate-700/50">
+    <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-slate-700/50 flex items-center justify-center">
+            <svg class="w-4 h-4 text-slate-400 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+        </div>
+        <p class="text-slate-400 text-sm font-medium">Analyzing market...</p>
+    </div>
+</div>
+{% endif %}
