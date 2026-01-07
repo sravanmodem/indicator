@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}Profile Settings{% endblock %}
+{% block page_title %}Account Settings{% endblock %}
+{% block page_subtitle %}Manage your login credentials{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6 animate-fade-in">
+
+    {% if message %}
+    <div class="p-4 rounded-lg bg-green-500/10 border border-green-500/30">
+        <p class="text-green-400 text-center">{{ message }}</p>
+    </div>
+    {% endif %}
+
+    {% if error %}
+    <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+        <p class="text-red-400 text-center">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <!-- User Info Card -->
+    <div class="card p-6">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-16 h-16 rounded-full bg-primary-600/20 flex items-center justify-center">
+                <i data-lucide="user" class="w-8 h-8 text-primary-400"></i>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-white">{{ user.username }}</h2>
+                <p class="text-surface-400 text-sm">
+                    {% if user.is_admin %}
+                    <span class="inline-flex items-center gap-1">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-amber-400"></i>
+                        Administrator
+                    </span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <p class="text-surface-500">Account Created</p>
+                <p class="text-white">{{ user.created_at[:10] if user.created_at else 'N/A' }}</p>
+            </div>
+            <div>
+                <p class="text-surface-500">Last Login</p>
+                <p class="text-white">{{ user.last_login[:10] if user.last_login else 'Never' }}</p>
+            </div>
+        </div>
+
+        {% if not user.password_changed %}
+        <div class="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <p class="text-amber-400 text-sm flex items-center gap-2">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                Please change your password from the default for security.
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Change Username Card -->
+    <div class="card p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="at-sign" class="w-5 h-5 text-primary-400"></i>
+            Change Username
+        </h3>
+
+        <form action="/user/change-username" method="POST" class="space-y-4">
+            <div>
+                <label for="new_username" class="block text-sm font-medium text-surface-300 mb-2">
+                    New Username
+                </label>
+                <input
+                    type="text"
+                    id="new_username"
+                    name="new_username"
+                    required
+                    minlength="3"
+                    class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Enter new username"
+                >
+            </div>
+
+            <div>
+                <label for="username_password" class="block text-sm font-medium text-surface-300 mb-2">
+                    Confirm Password
+                </label>
+                <input
+                    type="password"
+                    id="username_password"
+                    name="password"
+                    required
+                    class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Enter your current password"
+                >
+            </div>
+
+            <button
+                type="submit"
+                class="px-6 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors"
+            >
+                Update Username
+            </button>
+        </form>
+    </div>
+
+    <!-- Change Password Card -->
+    <div class="card p-6">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="lock" class="w-5 h-5 text-primary-400"></i>
+            Change Password
+        </h3>
+
+        <form action="/user/change-password" method="POST" class="space-y-4">
+            <div>
+                <label for="current_password" class="block text-sm font-medium text-surface-300 mb-2">
+                    Current Password
+                </label>
+                <input
+                    type="password"
+                    id="current_password"
+                    name="current_password"
+                    required
+                    class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Enter current password"
+                >
+            </div>
+
+            <div>
+                <label for="new_password" class="block text-sm font-medium text-surface-300 mb-2">
+                    New Password
+                </label>
+                <input
+                    type="password"
+                    id="new_password"
+                    name="new_password"
+                    required
+                    minlength="6"
+                    class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Enter new password (min 6 characters)"
+                >
+            </div>
+
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-surface-300 mb-2">
+                    Confirm New Password
+                </label>
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    required
+                    minlength="6"
+                    class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-surface-500 focus:outline-none focus:border-primary-500 transition-colors"
+                    placeholder="Confirm new password"
+                >
+            </div>
+
+            <button
+                type="submit"
+                class="px-6 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors"
+            >
+                Update Password
+            </button>
+        </form>
+    </div>
+
+    <!-- Logout -->
+    <div class="text-center">
+        <a href="/user/logout" class="inline-flex items-center gap-2 px-6 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 font-semibold transition-colors">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+            Logout
+        </a>
+    </div>
+</div>
+{% endblock %}

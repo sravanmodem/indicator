@@ -14,11 +14,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.api import auth, market, signals, htmx, paper_trading
+from app.api import auth, market, signals, htmx, paper_trading, user_auth
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.services.zerodha_auth import get_auth_service
 from app.services.paper_trading import get_paper_trading_service
+from app.services.user_auth import get_user_auth_service
 
 
 @asynccontextmanager
@@ -61,6 +62,48 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+# Authentication middleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Middleware to check user authentication for protected routes."""
+
+    EXCLUDED_PATHS = {
+        "/user/login",
+        "/user/logout",
+        "/static",
+        "/health",
+        "/zerodha/callback",
+    }
+
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+
+        # Allow excluded paths
+        for excluded in self.EXCLUDED_PATHS:
+            if path.startswith(excluded):
+                return await call_next(request)
+
+        # Check for user session
+        session_token = request.cookies.get("session_token")
+        if not session_token:
+            return RedirectResponse(url="/user/login", status_code=302)
+
+        user_auth_service = get_user_auth_service()
+        user = user_auth_service.validate_session(session_token)
+        if not user:
+            response = RedirectResponse(url="/user/login", status_code=302)
+            response.delete_cookie("session_token")
+            return response
+
+        # Add user to request state
+        request.state.user = user
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
+
 # Mount static files
 static_path = Path(__file__).parent / "static"
 static_path.mkdir(exist_ok=True)
@@ -70,6 +113,7 @@ app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 # Include routers
+app.include_router(user_auth.router)  # User login/logout
 app.include_router(auth.router)
 app.include_router(auth.zerodha_router)  # /zerodha/callback route
 app.include_router(market.router)
