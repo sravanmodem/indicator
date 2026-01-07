@@ -873,19 +873,29 @@ class SignalEngine:
             # 5. Profit/Loss based exit
             pnl_percent = ((current_ltp - entry_price) / entry_price) * 100
 
-            # Quick 10% profit exit - take profits early
+            # EXIT AT 10% PROFIT - Immediate exit, no other conditions needed
             if pnl_percent >= 10:
-                exit_reasons.append(f"Quick profit booked ({pnl_percent:.1f}%)")
-                exit_score += 50  # Strong exit signal at 10%+
+                return {
+                    "should_exit": True,
+                    "exit_score": 100,
+                    "reasons": [f"10% Profit Target Hit (+{pnl_percent:.1f}%)"],
+                    "pnl_percent": pnl_percent,
+                    "current_ltp": current_ltp,
+                    "entry_price": entry_price,
+                }
 
-            if pnl_percent >= 50:  # 50% profit - bonus exit
-                exit_reasons.append(f"Target profit reached ({pnl_percent:.1f}%)")
-                exit_score += 50
-            elif pnl_percent <= -30:  # 30% loss
-                exit_reasons.append(f"Stop loss hit ({pnl_percent:.1f}%)")
-                exit_score += 60
+            # Stop loss at -30%
+            if pnl_percent <= -30:
+                return {
+                    "should_exit": True,
+                    "exit_score": 100,
+                    "reasons": [f"Stop Loss Hit ({pnl_percent:.1f}%)"],
+                    "pnl_percent": pnl_percent,
+                    "current_ltp": current_ltp,
+                    "entry_price": entry_price,
+                }
 
-            # Generate exit signal if score is high enough
+            # Generate exit signal if score is high enough (other indicators)
             if exit_score >= 40:
                 return {
                     "should_exit": True,
