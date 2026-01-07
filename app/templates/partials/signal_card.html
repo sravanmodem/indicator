@@ -1,6 +1,8 @@
 {% if signal %}
 {% set score = quality_score.total_score if quality_score else 0 %}
 {% set is_bullish = signal.direction in ['CE', 'STRONG_CE'] %}
+{% set is_bearish = signal.direction in ['PE', 'STRONG_PE'] %}
+{% set is_neutral = signal.direction == 'NEUTRAL' %}
 <div data-signal-type="{{ signal.direction }}" class="space-y-4">
     <!-- Signal Header -->
     <div class="flex items-center justify-between">
@@ -9,13 +11,17 @@
             <div class="p-3 rounded-xl bg-bullish-500/20">
                 <i data-lucide="trending-up" class="w-6 h-6 text-bullish-400"></i>
             </div>
-            {% else %}
+            {% elif is_bearish %}
             <div class="p-3 rounded-xl bg-bearish-500/20">
                 <i data-lucide="trending-down" class="w-6 h-6 text-bearish-400"></i>
             </div>
+            {% else %}
+            <div class="p-3 rounded-xl bg-slate-500/20">
+                <i data-lucide="minus-circle" class="w-6 h-6 text-slate-400"></i>
+            </div>
             {% endif %}
             <div>
-                <h3 class="text-xl font-bold {% if is_bullish %}text-bullish-400{% else %}text-bearish-400{% endif %}">
+                <h3 class="text-xl font-bold {% if is_bullish %}text-bullish-400{% elif is_bearish %}text-bearish-400{% else %}text-slate-400{% endif %}">
                     {{ signal.direction }} Signal
                 </h3>
                 <p class="text-xs text-surface-500">{{ signal.timestamp.strftime('%H:%M:%S') if signal.timestamp else 'Just now' }}</p>
@@ -73,7 +79,7 @@
 </div>
 {% elif signal %}
 <div class="glass rounded-2xl overflow-hidden relative">
-    <div class="p-6 relative overflow-hidden {% if signal.direction == 'CE' %}bg-gradient-to-br from-green-600 via-emerald-600 to-green-700{% elif signal.direction == 'PE' %}bg-gradient-to-br from-red-600 via-rose-600 to-red-700{% else %}bg-gradient-to-br from-slate-600 to-slate-700{% endif %}">
+    <div class="p-6 relative overflow-hidden {% if is_bullish %}bg-gradient-to-br from-green-600 via-emerald-600 to-green-700{% elif is_bearish %}bg-gradient-to-br from-red-600 via-rose-600 to-red-700{% else %}bg-gradient-to-br from-slate-600 via-slate-700 to-slate-800{% endif %}">
         <div class="absolute inset-0 overflow-hidden">
             <div class="absolute top-2 left-4 w-1 h-1 bg-white/30 rounded-full"></div>
             <div class="absolute bottom-4 right-8 w-1 h-1 bg-white/20 rounded-full"></div>
