@@ -608,8 +608,8 @@ class PaperTradingService:
             logger.warning("Trading halted due to daily loss limit")
             return None
 
-        # Check cooldown period (10 minutes after last exit)
-        COOLDOWN_MINUTES = 10
+        # Check cooldown period (2 minutes after last exit)
+        COOLDOWN_MINUTES = 2
         if self.daily_stats.last_exit_time:
             time_since_exit = (datetime.now() - self.daily_stats.last_exit_time).total_seconds() / 60
             if time_since_exit < COOLDOWN_MINUTES:
@@ -769,27 +769,39 @@ class PaperTradingService:
                 exit_reason = ""
 
                 # TRAILING STOP LOSS LOGIC
-                # Activation: When price moves 5 points above entry, set SL 2 points below current
-                # Example: Entry ₹50, price hits ₹55 → SL = ₹53
-                # Then trail every 5 points: price ₹60 → SL ₹58, price ₹65 → SL ₹63
-                ACTIVATION_PROFIT = 5  # Activate trailing after 5 points profit
-                TRAIL_BUFFER = 2  # Keep SL 2 points below high
+                # Phase 1: Entry ₹50 → Price ₹53 (+3pts) → SL at ₹52 (1pt buffer)
+                # Phase 2: Price ₹60 (+10pts) → SL at ₹55 (5pt buffer, lock 5pt profit)
+                # Phase 3: Trail every 5pts: Price ₹65 → SL ₹60, Price ₹70 → SL ₹65
+
+                PHASE1_ACTIVATION = 3   # Activate after 3 points profit
+                PHASE1_BUFFER = 1       # Keep SL 1 point below current
+                PHASE2_ACTIVATION = 10  # At 10 points profit, set SL at +5
+                TRAIL_INTERVAL = 5      # Trail every 5 points after phase 2
 
                 profit_from_entry = position.max_price - position.entry_price
+                new_trailing_sl = position.stop_loss  # Default: keep current SL
 
-                # Only activate trailing SL after price moves 5 points above entry
-                if profit_from_entry >= ACTIVATION_PROFIT:
-                    # Calculate trailing SL: 2 points below max price
-                    new_trailing_sl = position.max_price - TRAIL_BUFFER
+                if profit_from_entry >= PHASE2_ACTIVATION:
+                    # Phase 2+: At 10+ points profit, SL = entry + floor((profit-5)/5)*5
+                    # Entry 50, Max 60 → SL 55 (lock 5 profit)
+                    # Entry 50, Max 65 → SL 60 (lock 10 profit)
+                    # Entry 50, Max 70 → SL 65 (lock 15 profit)
+                    locked_profit = ((profit_from_entry - 5) // TRAIL_INTERVAL) * TRAIL_INTERVAL
+                    new_trailing_sl = position.entry_price + locked_profit
+                elif profit_from_entry >= PHASE1_ACTIVATION:
+                    # Phase 1: 3-9 points profit → SL 1 point below max
+                    # Entry 50, Max 53 → SL 52
+                    # Entry 50, Max 58 → SL 57
+                    new_trailing_sl = position.max_price - PHASE1_BUFFER
 
-                    # Only update SL if new SL is higher than current SL
-                    if new_trailing_sl > position.stop_loss:
-                        old_sl = position.stop_loss
-                        position.stop_loss = new_trailing_sl
-                        logger.info(
-                            f"Trailing SL updated: {position.symbol} | "
-                            f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
-                        )
+                # Only update SL if new SL is higher than current SL
+                if new_trailing_sl > position.stop_loss:
+                    old_sl = position.stop_loss
+                    position.stop_loss = new_trailing_sl
+                    logger.info(
+                        f"Trailing SL updated: {position.symbol} | "
+                        f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
+                    )
 
                 # Check if stop loss is hit
                 if current_premium <= position.stop_loss and position.stop_loss > 0:
