@@ -612,8 +612,8 @@ class PaperTradingService:
             logger.info("No clear signal direction")
             return None
 
-        # Check confidence threshold (at least 55%)
-        if signal.confidence < 55:
+        # Check confidence threshold (at least 40%)
+        if signal.confidence < 40:
             logger.info(f"Signal confidence too low: {signal.confidence}%")
             return None
 
@@ -754,27 +754,24 @@ class PaperTradingService:
                 position.pnl = (position.current_price - position.entry_price) * position.quantity
                 position.pnl_percent = ((position.current_price - position.entry_price) / position.entry_price) * 100
 
-                # Check stop loss / target
-                spot_price = chain_data.get("spot_price", 0)
+                # Check PREMIUM-BASED stop loss / target
+                # Now stop_loss and target are option premium values (not spot prices)
+                current_premium = position.current_price
 
                 should_exit = False
                 exit_reason = ""
 
-                # 1. Check price-based exit (SL/Target)
-                if position.option_type == "CE":
-                    if spot_price <= position.stop_loss:
-                        should_exit = True
-                        exit_reason = "Stop Loss Hit"
-                    elif spot_price >= position.target:
-                        should_exit = True
-                        exit_reason = "Target Hit"
-                else:  # PE
-                    if spot_price >= position.stop_loss:
-                        should_exit = True
-                        exit_reason = "Stop Loss Hit"
-                    elif spot_price <= position.target:
-                        should_exit = True
-                        exit_reason = "Target Hit"
+                # 1. Check PREMIUM-BASED exit (SL/Target)
+                # Target: Exit when premium reaches target price (profit)
+                # SL: Exit when premium drops to stop loss price (loss)
+                if current_premium >= position.target and position.target > 0:
+                    should_exit = True
+                    profit_pct = ((current_premium - position.entry_price) / position.entry_price) * 100
+                    exit_reason = f"Target Hit ₹{current_premium:.1f} (+{profit_pct:.0f}%)"
+                elif current_premium <= position.stop_loss and position.stop_loss > 0:
+                    should_exit = True
+                    loss_pct = ((position.entry_price - current_premium) / position.entry_price) * 100
+                    exit_reason = f"Stop Loss Hit ₹{current_premium:.1f} (-{loss_pct:.0f}%)"
 
                 # 2. Check signal-based exit (market reversal)
                 if not should_exit:

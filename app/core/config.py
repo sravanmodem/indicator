@@ -144,3 +144,10 @@ OPTION_FILTERS = {
     "min_oi": 10000,        # Minimum open interest
     "min_volume": 100,      # Minimum volume
 }
+
+# Premium-based targets (based on Delta) - Aggressive
+PREMIUM_TARGETS = {
+    "high_delta": {"target": 0.40, "sl": 0.20},    # Delta 0.6-0.9: 40% profit, 20% SL
+    "medium_delta": {"target": 0.50, "sl": 0.25},  # Delta 0.4-0.6: 50% profit, 25% SL
+    "low_delta": {"target": 0.60, "sl": 0.30},     # Delta 0.2-0.4: 60% profit, 30% SL
+}

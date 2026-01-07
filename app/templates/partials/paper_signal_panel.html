@@ -39,19 +39,29 @@
         </div>
         {% endif %}
 
-        <!-- Trade Levels (Compact) -->
+        <!-- Premium-Based Trade Levels -->
         <div class="flex items-center space-x-1 flex-shrink-0">
             <div class="text-center px-1.5 py-0.5 bg-surface-800/50 rounded">
                 <p class="text-[8px] text-slate-500">Entry</p>
-                <p class="text-white font-mono text-[11px]">{{ "%.1f"|format(signal.entry_price) }}</p>
+                <p class="text-white font-mono text-[11px]">₹{{ "%.1f"|format(signal.entry_price) }}</p>
             </div>
             <div class="text-center px-1.5 py-0.5 bg-red-500/10 rounded border border-red-500/30">
                 <p class="text-[8px] text-red-400">SL</p>
-                <p class="text-red-400 font-mono text-[11px]">{{ "%.1f"|format(signal.stop_loss) }}</p>
+                <p class="text-red-400 font-mono text-[11px]">₹{{ "%.1f"|format(signal.stop_loss) }}</p>
             </div>
             <div class="text-center px-1.5 py-0.5 bg-green-500/10 rounded border border-green-500/30">
                 <p class="text-[8px] text-green-400">TGT</p>
-                <p class="text-green-400 font-mono text-[11px]">{{ "%.1f"|format(signal.target_1) }}</p>
+                <p class="text-green-400 font-mono text-[11px]">₹{{ "%.1f"|format(signal.target_1) }}</p>
+            </div>
+            {% if signal.recommended_option and signal.recommended_option.delta %}
+            <div class="text-center px-1.5 py-0.5 bg-blue-500/10 rounded border border-blue-500/30">
+                <p class="text-[8px] text-blue-400">Δ</p>
+                <p class="text-blue-400 font-mono text-[11px]">{{ "%.2f"|format(signal.recommended_option.delta|abs) }}</p>
+            </div>
+            {% endif %}
+            <div class="text-center px-1.5 py-0.5 bg-purple-500/10 rounded border border-purple-500/30">
+                <p class="text-[8px] text-purple-400">R:R</p>
+                <p class="text-purple-400 font-mono text-[11px]">1:{{ "%.1f"|format(signal.risk_reward) }}</p>
             </div>
         </div>
 

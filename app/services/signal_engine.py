@@ -45,7 +45,7 @@ from app.indicators.greeks import (
     estimate_implied_volatility,
     get_days_to_expiry,
 )
-from app.core.config import INDICATOR_PARAMS, SIGNAL_THRESHOLDS, OPTION_FILTERS
+from app.core.config import INDICATOR_PARAMS, SIGNAL_THRESHOLDS, OPTION_FILTERS, PREMIUM_TARGETS
 
 
 class SignalType(Enum):
@@ -469,30 +469,15 @@ class SignalEngine:
             else:
                 signal_type = SignalType.WEAK_PE
 
-        # Calculate levels
-        atr_mult = 1.5 if self.trading_style == TradingStyle.SCALPING else 2.0
-
+        # Set confidence based on direction
         if direction == "CE":
-            stop_loss = current_price - (atr_value * atr_mult)
-            target_1 = current_price + (atr_value * atr_mult * 1.5)
-            target_2 = current_price + (atr_value * atr_mult * 2.5)
             confidence = ce_confidence
         elif direction == "PE":
-            stop_loss = current_price + (atr_value * atr_mult)
-            target_1 = current_price - (atr_value * atr_mult * 1.5)
-            target_2 = current_price - (atr_value * atr_mult * 2.5)
             confidence = pe_confidence
         else:
-            stop_loss = current_price
-            target_1 = current_price
-            target_2 = None
             confidence = 50
 
-        risk = abs(current_price - stop_loss)
-        reward = abs(target_1 - current_price)
-        risk_reward = reward / risk if risk > 0 else 0
-
-        # Find best option to buy
+        # Find best option to buy FIRST (before calculating targets)
         recommended_option = None
         if option_chain and direction in ["CE", "PE"]:
             recommended_option = self._find_best_option(
@@ -500,9 +485,69 @@ class SignalEngine:
                 spot_price=spot_price,
                 direction=direction,
                 trading_style=self.trading_style,
-                target_price=target_1,
-                stop_loss_price=stop_loss,
             )
+
+        # Calculate PREMIUM-BASED targets using Delta
+        # Entry = Option LTP, Target/SL = % of premium based on Delta
+        if recommended_option and recommended_option.ltp:
+            entry_premium = recommended_option.ltp
+            delta = abs(recommended_option.delta or 0.5)  # Default to 0.5 if no delta
+
+            # Determine target/SL percentages based on Delta level
+            if delta >= 0.6:
+                # High Delta (0.6-0.9): 40% profit, 20% SL
+                target_pct = PREMIUM_TARGETS["high_delta"]["target"]
+                sl_pct = PREMIUM_TARGETS["high_delta"]["sl"]
+            elif delta >= 0.4:
+                # Medium Delta (0.4-0.6): 50% profit, 25% SL
+                target_pct = PREMIUM_TARGETS["medium_delta"]["target"]
+                sl_pct = PREMIUM_TARGETS["medium_delta"]["sl"]
+            else:
+                # Low Delta (0.2-0.4): 60% profit, 30% SL
+                target_pct = PREMIUM_TARGETS["low_delta"]["target"]
+                sl_pct = PREMIUM_TARGETS["low_delta"]["sl"]
+
+            # Calculate premium-based levels
+            # Target = Entry × (1 + target_pct), e.g., ₹50 × 1.50 = ₹75
+            # SL = Entry × (1 - sl_pct), e.g., ₹50 × 0.75 = ₹37.50
+            target_1 = entry_premium * (1 + target_pct)
+            target_2 = entry_premium * (1 + target_pct * 1.5)  # 1.5x the target %
+            stop_loss = entry_premium * (1 - sl_pct)
+
+            # Risk/Reward based on premium
+            risk = entry_premium - stop_loss  # e.g., ₹50 - ₹37.50 = ₹12.50
+            reward = target_1 - entry_premium  # e.g., ₹75 - ₹50 = ₹25
+            risk_reward = reward / risk if risk > 0 else 0
+
+            # Use premium as entry price (not spot price)
+            entry_price = entry_premium
+
+            logger.info(
+                f"Premium-based targets: Entry=₹{entry_premium:.1f}, "
+                f"Delta={delta:.2f}, Target%={target_pct*100:.0f}%, SL%={sl_pct*100:.0f}% | "
+                f"TGT=₹{target_1:.1f}, SL=₹{stop_loss:.1f}, R:R=1:{risk_reward:.1f}"
+            )
+        else:
+            # Fallback to ATR-based spot levels if no option found
+            atr_mult = 1.5 if self.trading_style == TradingStyle.SCALPING else 2.0
+            entry_price = current_price
+
+            if direction == "CE":
+                stop_loss = current_price - (atr_value * atr_mult)
+                target_1 = current_price + (atr_value * atr_mult * 1.5)
+                target_2 = current_price + (atr_value * atr_mult * 2.5)
+            elif direction == "PE":
+                stop_loss = current_price + (atr_value * atr_mult)
+                target_1 = current_price - (atr_value * atr_mult * 1.5)
+                target_2 = current_price - (atr_value * atr_mult * 2.5)
+            else:
+                stop_loss = current_price
+                target_1 = current_price
+                target_2 = None
+
+            risk = abs(current_price - stop_loss)
+            reward = abs(target_1 - current_price)
+            risk_reward = reward / risk if risk > 0 else 0
 
         return TradeSignal(
             timestamp=datetime.now(),
@@ -510,7 +555,7 @@ class SignalEngine:
             signal_type=signal_type,
             direction=direction,
             confidence=round(confidence, 1),
-            entry_price=round(current_price, 2),
+            entry_price=round(entry_price, 2),
             stop_loss=round(stop_loss, 2),
             target_1=round(target_1, 2),
             target_2=round(target_2, 2) if target_2 else None,
@@ -528,16 +573,14 @@ class SignalEngine:
         spot_price: float,
         direction: str,
         trading_style: TradingStyle,
-        target_price: float | None = None,
-        stop_loss_price: float | None = None,
     ) -> RecommendedOption | None:
         """
         Find the best option to buy based on signal direction and premium range.
-        Primary filter: Premium must be between 45-50 (configurable).
-        Includes Greeks and expected price calculations.
+        Primary filter: Premium must be between 45-55 (configurable).
+        Includes Greeks calculation for Delta-based target/SL.
 
         Selection criteria:
-        1. Premium in target range (45-50 by default)
+        1. Premium in target range (45-55 by default)
         2. Good OI (liquidity)
         3. Reasonable bid-ask spread
         4. Sufficient volume
@@ -676,19 +719,27 @@ class SignalEngine:
                         current_premium=ltp,
                     )
 
-                    # Calculate expected prices
-                    expected_prices = None
-                    if target_price and stop_loss_price:
-                        expected_prices = calculate_expected_prices(
-                            spot_price=spot_price,
-                            strike_price=opt["strike"],
-                            current_premium=ltp,
-                            greeks=greeks,
-                            target_price=target_price,
-                            stop_loss=stop_loss_price,
-                            days_to_expiry=days_to_expiry,
-                            current_iv=iv,
-                        )
+                    # Calculate premium-based targets using Delta
+                    delta_abs = abs(greeks.delta) if greeks.delta else 0.5
+                    if delta_abs >= 0.6:
+                        target_pct = PREMIUM_TARGETS["high_delta"]["target"]
+                        sl_pct = PREMIUM_TARGETS["high_delta"]["sl"]
+                    elif delta_abs >= 0.4:
+                        target_pct = PREMIUM_TARGETS["medium_delta"]["target"]
+                        sl_pct = PREMIUM_TARGETS["medium_delta"]["sl"]
+                    else:
+                        target_pct = PREMIUM_TARGETS["low_delta"]["target"]
+                        sl_pct = PREMIUM_TARGETS["low_delta"]["sl"]
+
+                    # Premium-based target/SL
+                    premium_target = ltp * (1 + target_pct)
+                    premium_sl = ltp * (1 - sl_pct)
+                    premium_profit = premium_target - ltp
+                    premium_loss = ltp - premium_sl
+
+                    # Calculate theta decay for tomorrow
+                    theta_decay = abs(greeks.theta) if greeks.theta else 0
+                    price_tomorrow = ltp - theta_decay
 
                     best_option = RecommendedOption(
                         symbol=opt_data.get("symbol", f"{opt['strike']}{direction}"),
@@ -699,19 +750,19 @@ class SignalEngine:
                         volume=volume,
                         bid=bid,
                         ask=ask,
-                        reason=f"{strike_type} strike, Premium ₹{ltp:.0f} (Target: {premium_min}-{premium_max}), OI: {oi:,}",
+                        reason=f"{strike_type} strike, Premium ₹{ltp:.0f}, Delta {delta_abs:.2f} → TGT {target_pct*100:.0f}%/SL {sl_pct*100:.0f}%",
                         # Greeks
                         delta=greeks.delta,
                         gamma=greeks.gamma,
                         theta=greeks.theta,
                         vega=greeks.vega,
                         delta_percent=greeks.delta_percent,
-                        # Expected prices
-                        expected_at_target=expected_prices.expected_target if expected_prices else None,
-                        expected_at_stop=expected_prices.expected_stop if expected_prices else None,
-                        expected_profit=expected_prices.profit_at_target if expected_prices else None,
-                        expected_loss=expected_prices.loss_at_stop if expected_prices else None,
-                        price_tomorrow=expected_prices.price_tomorrow if expected_prices else None,
+                        # Premium-based expected prices (not spot-based)
+                        expected_at_target=premium_target,
+                        expected_at_stop=premium_sl,
+                        expected_profit=premium_profit,
+                        expected_loss=premium_loss,
+                        price_tomorrow=price_tomorrow,
                         # Interpretations
                         delta_interpretation=greeks.delta_interpretation,
                         theta_interpretation=greeks.theta_interpretation,
