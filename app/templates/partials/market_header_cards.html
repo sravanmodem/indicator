@@ -1,66 +1,126 @@
 {% if error %}
-<div class="flex items-center space-x-2 text-slate-500 text-xs h-full">
+<div class="flex items-center justify-center w-full text-slate-500 text-xs h-full">
     {{ error }}
 </div>
 {% else %}
-<div class="flex items-center gap-3 overflow-x-auto h-full">
+<div class="flex items-center justify-center gap-4 h-full w-full px-2">
     <!-- NIFTY Card -->
-    <div class="glass rounded-lg px-3 py-1.5 border border-slate-700/50 min-w-max flex-shrink-0 h-full flex items-center">
-        <div class="flex items-center gap-2">
-            <div>
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">NIFTY 50</p>
-                <p class="text-sm font-bold text-white font-mono">{{ "{:,.0f}".format(nifty.last_price or 0) }}</p>
+    <div class="flex-1 max-w-sm bg-gradient-to-r from-slate-800/80 to-slate-900/60 rounded-lg border border-slate-700/50 backdrop-blur-sm h-full flex items-center px-4 py-1.5 shadow-lg shadow-black/20">
+        <div class="flex items-center justify-between w-full gap-3">
+            <!-- Left: Name & LTP -->
+            <div class="flex items-center gap-3">
+                <div class="w-1 h-8 rounded-full bg-gradient-to-b from-blue-500 to-blue-600"></div>
+                <div>
+                    <p class="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">NIFTY 50</p>
+                    <p class="text-base font-bold text-white font-mono tracking-tight">{{ "{:,.2f}".format(nifty.last_price or 0) }}</p>
+                </div>
             </div>
-            <div class="h-8 w-px bg-slate-700/50"></div>
-            <div class="text-right">
-                <p class="text-[8px] text-slate-500">O/H/L</p>
-                <p class="text-xs font-mono text-slate-300">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('open') or nifty.get('open') or 0) }}/</p>
-                <p class="text-xs font-mono text-green-400">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('high') or nifty.get('high') or 0) }}/</p>
-                <p class="text-xs font-mono text-red-400">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('low') or nifty.get('low') or 0) }}</p>
+            <!-- Center: OHLC -->
+            <div class="hidden sm:flex items-center gap-2 text-[10px] font-mono">
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">O</span>
+                    <span class="text-slate-300">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('open') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">H</span>
+                    <span class="text-green-400">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('high') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">L</span>
+                    <span class="text-red-400">{{ "{:,.0f}".format(nifty.get('ohlc', {}).get('low') or 0) }}</span>
+                </div>
             </div>
-            <span class="text-[9px] font-bold {% if (nifty.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %} ml-1">
-                {{ "{:+.2f}".format(nifty.change or 0) }}%
-            </span>
+            <!-- Right: Change -->
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] font-bold {% if (nifty.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {{ "{:+.2f}".format(nifty.change or 0) }}%
+                </span>
+                <span class="text-[9px] font-mono {% if (nifty.net_change or 0) >= 0 %}text-green-500/70{% else %}text-red-500/70{% endif %}">
+                    {{ "{:+.2f}".format(nifty.net_change or 0) }}
+                </span>
+            </div>
         </div>
     </div>
 
     <!-- BANKNIFTY Card -->
-    <div class="glass rounded-lg px-3 py-1.5 border border-slate-700/50 min-w-max flex-shrink-0 h-full flex items-center">
-        <div class="flex items-center gap-2">
-            <div>
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">BANKNIFTY</p>
-                <p class="text-sm font-bold text-white font-mono">{{ "{:,.0f}".format(banknifty.last_price or 0) }}</p>
+    <div class="flex-1 max-w-sm bg-gradient-to-r from-slate-800/80 to-slate-900/60 rounded-lg border border-slate-700/50 backdrop-blur-sm h-full flex items-center px-4 py-1.5 shadow-lg shadow-black/20">
+        <div class="flex items-center justify-between w-full gap-3">
+            <!-- Left: Name & LTP -->
+            <div class="flex items-center gap-3">
+                <div class="w-1 h-8 rounded-full bg-gradient-to-b from-purple-500 to-purple-600"></div>
+                <div>
+                    <p class="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">BANKNIFTY</p>
+                    <p class="text-base font-bold text-white font-mono tracking-tight">{{ "{:,.2f}".format(banknifty.last_price or 0) }}</p>
+                </div>
             </div>
-            <div class="h-8 w-px bg-slate-700/50"></div>
-            <div class="text-right">
-                <p class="text-[8px] text-slate-500">O/H/L</p>
-                <p class="text-xs font-mono text-slate-300">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('open') or banknifty.get('open') or 0) }}/</p>
-                <p class="text-xs font-mono text-green-400">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('high') or banknifty.get('high') or 0) }}/</p>
-                <p class="text-xs font-mono text-red-400">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('low') or banknifty.get('low') or 0) }}</p>
+            <!-- Center: OHLC -->
+            <div class="hidden sm:flex items-center gap-2 text-[10px] font-mono">
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">O</span>
+                    <span class="text-slate-300">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('open') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">H</span>
+                    <span class="text-green-400">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('high') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">L</span>
+                    <span class="text-red-400">{{ "{:,.0f}".format(banknifty.get('ohlc', {}).get('low') or 0) }}</span>
+                </div>
             </div>
-            <span class="text-[9px] font-bold {% if (banknifty.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %} ml-1">
-                {{ "{:+.2f}".format(banknifty.change or 0) }}%
-            </span>
+            <!-- Right: Change -->
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] font-bold {% if (banknifty.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {{ "{:+.2f}".format(banknifty.change or 0) }}%
+                </span>
+                <span class="text-[9px] font-mono {% if (banknifty.net_change or 0) >= 0 %}text-green-500/70{% else %}text-red-500/70{% endif %}">
+                    {{ "{:+.2f}".format(banknifty.net_change or 0) }}
+                </span>
+            </div>
         </div>
     </div>
 
     <!-- SENSEX Card -->
-    <div class="glass rounded-lg px-3 py-1.5 border border-slate-700/50 min-w-max flex-shrink-0 h-full flex items-center">
-        <div class="flex items-center gap-2">
-            <div>
-                <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">SENSEX</p>
-                <p class="text-sm font-bold text-white font-mono">{{ "{:,.0f}".format(sensex.last_price or 0) }}</p>
+    <div class="flex-1 max-w-sm bg-gradient-to-r from-slate-800/80 to-slate-900/60 rounded-lg border border-slate-700/50 backdrop-blur-sm h-full flex items-center px-4 py-1.5 shadow-lg shadow-black/20">
+        <div class="flex items-center justify-between w-full gap-3">
+            <!-- Left: Name & LTP -->
+            <div class="flex items-center gap-3">
+                <div class="w-1 h-8 rounded-full bg-gradient-to-b from-amber-500 to-amber-600"></div>
+                <div>
+                    <p class="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">SENSEX</p>
+                    <p class="text-base font-bold text-white font-mono tracking-tight">{{ "{:,.2f}".format(sensex.last_price or 0) }}</p>
+                </div>
             </div>
-            <div class="h-8 w-px bg-slate-700/50"></div>
-            <div class="text-right">
-                <p class="text-[8px] text-slate-500">O/H/L</p>
-                <p class="text-xs font-mono text-slate-300">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('open') or sensex.get('open') or 0) }}/</p>
-                <p class="text-xs font-mono text-green-400">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('high') or sensex.get('high') or 0) }}/</p>
-                <p class="text-xs font-mono text-red-400">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('low') or sensex.get('low') or 0) }}</p>
+            <!-- Center: OHLC -->
+            <div class="hidden sm:flex items-center gap-2 text-[10px] font-mono">
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">O</span>
+                    <span class="text-slate-300">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('open') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">H</span>
+                    <span class="text-green-400">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('high') or 0) }}</span>
+                </div>
+                <div class="w-px h-6 bg-slate-700/50"></div>
+                <div class="flex flex-col items-center">
+                    <span class="text-slate-500 text-[8px]">L</span>
+                    <span class="text-red-400">{{ "{:,.0f}".format(sensex.get('ohlc', {}).get('low') or 0) }}</span>
+                </div>
             </div>
-            <span class="text-[9px] font-bold {% if (sensex.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %} ml-1">
-                {{ "{:+.2f}".format(sensex.change or 0) }}%
-            </span>
+            <!-- Right: Change -->
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] font-bold {% if (sensex.change or 0) >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {{ "{:+.2f}".format(sensex.change or 0) }}%
+                </span>
+                <span class="text-[9px] font-mono {% if (sensex.net_change or 0) >= 0 %}text-green-500/70{% else %}text-red-500/70{% endif %}">
+                    {{ "{:+.2f}".format(sensex.net_change or 0) }}
+                </span>
+            </div>
         </div>
     </div>
 </div>

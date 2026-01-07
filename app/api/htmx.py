@@ -373,10 +373,30 @@ async def market_header_cards_partial(request: Request):
         # Also fetch quotes for change percentage
         quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
 
-        # Merge OHLC with quote data (change percentage)
-        nifty = {**ohlc_data.get("NSE:NIFTY 50", {}), **quotes.get("NSE:NIFTY 50", {})}
-        banknifty = {**ohlc_data.get("NSE:NIFTY BANK", {}), **quotes.get("NSE:NIFTY BANK", {})}
-        sensex = {**ohlc_data.get("BSE:SENSEX", {}), **quotes.get("BSE:SENSEX", {})}
+        def build_index_data(ohlc: dict, quote: dict) -> dict:
+            """Merge OHLC and quote data, calculate percentage change."""
+            merged = {**ohlc, **quote}
+            # Calculate percentage change from net_change and previous close
+            net_change = merged.get("net_change", 0) or 0
+            prev_close = merged.get("ohlc", {}).get("close", 0) or 0
+            if prev_close > 0:
+                merged["change"] = (net_change / prev_close) * 100
+            else:
+                merged["change"] = 0
+            return merged
+
+        nifty = build_index_data(
+            ohlc_data.get("NSE:NIFTY 50", {}),
+            quotes.get("NSE:NIFTY 50", {})
+        )
+        banknifty = build_index_data(
+            ohlc_data.get("NSE:NIFTY BANK", {}),
+            quotes.get("NSE:NIFTY BANK", {})
+        )
+        sensex = build_index_data(
+            ohlc_data.get("BSE:SENSEX", {}),
+            quotes.get("BSE:SENSEX", {})
+        )
 
         return templates.TemplateResponse(
             "partials/market_header_cards.html",

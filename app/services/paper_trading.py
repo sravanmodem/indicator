@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 
 from app.core.config import get_settings
-from app.services.signal_engine import TradingStyle, SignalType
+from app.services.signal_engine import TradingStyle, SignalType, get_signal_engine
 
 
 class OrderStatus(Enum):
@@ -490,8 +490,8 @@ class PaperTradingService:
         Check if current time is within trading hours.
 
         Trading Hours:
-        - Normal Day: 9:30 AM to 2:00 PM
-        - Expiry Day: 9:30 AM to 1:00 PM
+        - Normal Day: 9:20 AM to 3:15 PM
+        - Expiry Day: 9:20 AM to 3:15 PM (same, we handle exit separately)
 
         Args:
             trading_index: ExpiryInfo to check if it's expiry day
@@ -503,27 +503,18 @@ class PaperTradingService:
         current_hour = now.hour
         current_minute = now.minute
 
-        # Market open time: 9:30 AM
+        # Market open time: 9:20 AM (5 min after market open)
         market_open_hour = 9
-        market_open_minute = 30
+        market_open_minute = 20
 
         # Before market open
         if current_hour < market_open_hour or (current_hour == market_open_hour and current_minute < market_open_minute):
-            return False, "Market not yet open (Opens at 9:30 AM)"
+            return False, "Market not yet open (Opens at 9:20 AM)"
 
-        # Determine close time based on expiry
-        is_expiry = trading_index.is_expiry_day if trading_index else False
-
-        if is_expiry:
-            # Expiry day: Close at 1:00 PM
-            close_hour = 13
-            close_minute = 0
-            close_time_str = "1:00 PM"
-        else:
-            # Normal day: Close at 2:00 PM
-            close_hour = 14
-            close_minute = 0
-            close_time_str = "2:00 PM"
+        # Trading close time: 3:15 PM (15 min before market close)
+        close_hour = 15
+        close_minute = 15
+        close_time_str = "3:15 PM"
 
         # After trading close time
         if current_hour > close_hour or (current_hour == close_hour and current_minute >= close_minute):
@@ -717,14 +708,16 @@ class PaperTradingService:
 
         return order
 
-    async def update_positions(self) -> list[PaperPosition]:
+    async def update_positions(self) -> tuple[list[PaperPosition], list[dict]]:
         """
         Update all open positions with current prices.
+        Checks for exit signals and closes positions automatically.
 
         Returns:
-            List of updated positions
+            Tuple of (updated positions, closed positions info)
         """
         updated = []
+        closed_positions = []
 
         for position in self.positions:
             if position.status != PositionStatus.OPEN:
@@ -767,6 +760,7 @@ class PaperTradingService:
                 should_exit = False
                 exit_reason = ""
 
+                # 1. Check price-based exit (SL/Target)
                 if position.option_type == "CE":
                     if spot_price <= position.stop_loss:
                         should_exit = True
@@ -782,8 +776,52 @@ class PaperTradingService:
                         should_exit = True
                         exit_reason = "Target Hit"
 
+                # 2. Check signal-based exit (market reversal)
+                if not should_exit:
+                    try:
+                        from app.api.paper_trading import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+
+                        tokens = {
+                            "NIFTY": NIFTY_INDEX_TOKEN,
+                            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+                            "SENSEX": SENSEX_INDEX_TOKEN,
+                        }
+                        token = tokens.get(position.index, NIFTY_INDEX_TOKEN)
+
+                        # Fetch historical data for signal analysis
+                        df = await self.data_fetcher.fetch_historical_data(
+                            instrument_token=token,
+                            timeframe="5minute",
+                            days=3,
+                        )
+
+                        if not df.empty:
+                            engine = get_signal_engine(TradingStyle.INTRADAY)
+                            exit_signal = engine.check_exit_signal(
+                                df=df,
+                                position_type=position.option_type,
+                                entry_price=position.entry_price,
+                                current_ltp=position.current_price,
+                            )
+
+                            if exit_signal and exit_signal.get("should_exit"):
+                                should_exit = True
+                                reasons = exit_signal.get("reasons", [])
+                                pnl_pct = exit_signal.get("pnl_percent", 0)
+                                exit_reason = f"Exit Signal: {', '.join(reasons[:2])} | P&L: {pnl_pct:+.1f}%"
+                                logger.info(f"Exit signal triggered for {position.symbol}: {exit_reason}")
+                    except Exception as e:
+                        logger.error(f"Error checking exit signal: {e}")
+
                 if should_exit:
                     await self.close_position(position, exit_reason)
+                    closed_positions.append({
+                        "position_id": position.position_id,
+                        "symbol": position.symbol,
+                        "exit_reason": exit_reason,
+                        "pnl": position.pnl,
+                        "pnl_percent": position.pnl_percent,
+                    })
 
                 updated.append(position)
 
@@ -806,7 +844,7 @@ class PaperTradingService:
         # Save state
         self._save_state()
 
-        return updated
+        return updated, closed_positions
 
     async def close_position(
         self,

@@ -45,7 +45,7 @@ from app.indicators.greeks import (
     estimate_implied_volatility,
     get_days_to_expiry,
 )
-from app.core.config import INDICATOR_PARAMS, SIGNAL_THRESHOLDS
+from app.core.config import INDICATOR_PARAMS, SIGNAL_THRESHOLDS, OPTION_FILTERS
 
 
 class SignalType(Enum):
@@ -532,23 +532,25 @@ class SignalEngine:
         stop_loss_price: float | None = None,
     ) -> RecommendedOption | None:
         """
-        Find the best option to buy based on signal direction and trading style.
+        Find the best option to buy based on signal direction and premium range.
+        Primary filter: Premium must be between 45-50 (configurable).
         Includes Greeks and expected price calculations.
 
         Selection criteria:
-        - Scalping: ATM or 1 strike ITM for quick moves
-        - Intraday: ATM or 1 strike OTM for good delta
-        - Swing: 1-2 strikes OTM for lower cost
-
-        Filters:
-        - Good OI (liquidity)
-        - Reasonable bid-ask spread
-        - Sufficient volume
+        1. Premium in target range (45-50 by default)
+        2. Good OI (liquidity)
+        3. Reasonable bid-ask spread
+        4. Sufficient volume
         """
         try:
             option_type = "ce" if direction == "CE" else "pe"
 
-            # Find ATM strike
+            # Get premium filter settings
+            premium_min = OPTION_FILTERS.get("premium_min", 45)
+            premium_max = OPTION_FILTERS.get("premium_max", 50)
+            min_oi = OPTION_FILTERS.get("min_oi", 10000)
+
+            # Find ATM strike (for reference)
             atm_strike = None
             min_diff = float("inf")
             for opt in option_chain:
@@ -560,38 +562,12 @@ class SignalEngine:
             if not atm_strike:
                 return None
 
-            # Determine target strikes based on trading style
-            strikes = sorted([opt["strike"] for opt in option_chain])
-            atm_idx = strikes.index(atm_strike) if atm_strike in strikes else 0
-            strike_interval = strikes[1] - strikes[0] if len(strikes) > 1 else 50
-
-            if trading_style == TradingStyle.SCALPING:
-                # ATM or 1 ITM
-                if direction == "CE":
-                    target_strikes = [atm_strike, atm_strike - strike_interval]
-                else:
-                    target_strikes = [atm_strike, atm_strike + strike_interval]
-            elif trading_style == TradingStyle.INTRADAY:
-                # ATM or 1 OTM
-                if direction == "CE":
-                    target_strikes = [atm_strike, atm_strike + strike_interval]
-                else:
-                    target_strikes = [atm_strike, atm_strike - strike_interval]
-            else:  # SWING
-                # 1-2 OTM for lower premium
-                if direction == "CE":
-                    target_strikes = [atm_strike + strike_interval, atm_strike + 2 * strike_interval]
-                else:
-                    target_strikes = [atm_strike - strike_interval, atm_strike - 2 * strike_interval]
-
-            # Find best option from target strikes
+            # Find best option with premium in 45-50 range
             best_option = None
             best_score = -1
+            candidates = []
 
             for opt in option_chain:
-                if opt["strike"] not in target_strikes:
-                    continue
-
                 opt_data = opt.get(option_type, {})
                 if not opt_data or not opt_data.get("ltp"):
                     continue
@@ -602,9 +578,62 @@ class SignalEngine:
                 bid = opt_data.get("bid", 0)
                 ask = opt_data.get("ask", 0)
 
-                # Skip illiquid options
-                if oi < 10000 or ltp < 5:
+                # PRIMARY FILTER: Premium must be in 45-50 range
+                if ltp < premium_min or ltp > premium_max:
                     continue
+
+                # Skip illiquid options
+                if oi < min_oi:
+                    continue
+
+                candidates.append({
+                    "opt": opt,
+                    "ltp": ltp,
+                    "oi": oi,
+                    "volume": volume,
+                    "bid": bid,
+                    "ask": ask,
+                })
+
+            # If no options in 45-50 range, expand search slightly
+            if not candidates:
+                logger.warning(f"No options in {premium_min}-{premium_max} range, expanding search...")
+                for opt in option_chain:
+                    opt_data = opt.get(option_type, {})
+                    if not opt_data or not opt_data.get("ltp"):
+                        continue
+
+                    ltp = opt_data.get("ltp", 0)
+                    oi = opt_data.get("oi", 0)
+                    volume = opt_data.get("volume", 0)
+                    bid = opt_data.get("bid", 0)
+                    ask = opt_data.get("ask", 0)
+
+                    # Expanded range: 40-60
+                    if ltp < 40 or ltp > 60:
+                        continue
+
+                    if oi < min_oi:
+                        continue
+
+                    candidates.append({
+                        "opt": opt,
+                        "ltp": ltp,
+                        "oi": oi,
+                        "volume": volume,
+                        "bid": bid,
+                        "ask": ask,
+                    })
+
+            # Score candidates
+            for candidate in candidates:
+                opt = candidate["opt"]
+                ltp = candidate["ltp"]
+                oi = candidate["oi"]
+                volume = candidate["volume"]
+                bid = candidate["bid"]
+                ask = candidate["ask"]
+                opt_data = opt.get(option_type, {})
 
                 # Calculate score
                 spread = (ask - bid) / ltp if ltp > 0 else 1
@@ -613,11 +642,16 @@ class SignalEngine:
                 oi_score = min(oi / 500000, 1)  # Cap at 500k OI
                 volume_score = min(volume / 50000, 1)  # Cap at 50k volume
 
-                # ATM gets bonus
-                atm_bonus = 0.3 if opt["strike"] == atm_strike else 0
+                # Premium score - closer to ideal (47.5) is better
+                ideal_premium = (premium_min + premium_max) / 2  # 47.5
+                premium_diff = abs(ltp - ideal_premium)
+                premium_score = max(0, 1 - (premium_diff / 10))  # Score based on distance from ideal
 
-                # Calculate total score
-                score = (spread_score * 0.3 + oi_score * 0.3 + volume_score * 0.2 + atm_bonus * 0.2)
+                # ATM gets small bonus
+                atm_bonus = 0.1 if opt["strike"] == atm_strike else 0
+
+                # Calculate total score (premium score is most important)
+                score = (premium_score * 0.35 + spread_score * 0.25 + oi_score * 0.25 + volume_score * 0.1 + atm_bonus * 0.05)
 
                 if score > best_score:
                     best_score = score
@@ -665,7 +699,7 @@ class SignalEngine:
                         volume=volume,
                         bid=bid,
                         ask=ask,
-                        reason=f"{strike_type} strike, High OI: {oi:,}, Good liquidity",
+                        reason=f"{strike_type} strike, Premium ₹{ltp:.0f} (Target: {premium_min}-{premium_max}), OI: {oi:,}",
                         # Greeks
                         delta=greeks.delta,
                         gamma=greeks.gamma,
@@ -687,6 +721,129 @@ class SignalEngine:
 
         except Exception as e:
             logger.error(f"Error finding best option: {e}")
+            return None
+
+    def check_exit_signal(
+        self,
+        df: pd.DataFrame,
+        position_type: str,  # "CE" or "PE"
+        entry_price: float,
+        current_ltp: float,
+    ) -> dict | None:
+        """
+        Check if an exit signal should be generated for an open position.
+
+        Exit conditions:
+        1. Signal reversal (CE position gets PE signal or vice versa)
+        2. Momentum exhaustion (RSI overbought/oversold reversal)
+        3. Trend reversal (SuperTrend flip)
+        4. Profit target reached (based on signal)
+        5. Stop loss hit
+
+        Args:
+            df: OHLCV DataFrame
+            position_type: "CE" or "PE" - the current position type
+            entry_price: Entry price of the position
+            current_ltp: Current LTP of the option
+
+        Returns:
+            Exit signal dict with reason, or None if no exit
+        """
+        try:
+            if df.empty or len(df) < 20:
+                return None
+
+            # Calculate indicators
+            df = calculate_supertrend(df)
+            df = calculate_rsi(df)
+            df = calculate_macd(df)
+            df = calculate_ema(df, period=9)
+            df = calculate_ema(df, period=21)
+
+            latest = df.iloc[-1]
+            prev = df.iloc[-2] if len(df) > 1 else latest
+
+            exit_reasons = []
+            exit_score = 0
+
+            # 1. SuperTrend Reversal - Strong exit signal
+            supertrend_dir = latest.get("supertrend_direction", 0)
+            prev_supertrend_dir = prev.get("supertrend_direction", 0)
+
+            if position_type == "CE" and supertrend_dir == -1:
+                exit_reasons.append("SuperTrend turned bearish")
+                exit_score += 40
+            elif position_type == "PE" and supertrend_dir == 1:
+                exit_reasons.append("SuperTrend turned bullish")
+                exit_score += 40
+
+            # SuperTrend just flipped - immediate exit
+            if supertrend_dir != prev_supertrend_dir and supertrend_dir != 0:
+                exit_reasons.append("SuperTrend FLIP - Trend reversal")
+                exit_score += 30
+
+            # 2. RSI Exhaustion
+            rsi = latest.get("rsi", 50)
+            if position_type == "CE" and rsi > 75:
+                exit_reasons.append(f"RSI overbought ({rsi:.0f}) - Momentum exhaustion")
+                exit_score += 25
+            elif position_type == "PE" and rsi < 25:
+                exit_reasons.append(f"RSI oversold ({rsi:.0f}) - Momentum exhaustion")
+                exit_score += 25
+
+            # 3. MACD Crossover (Signal reversal)
+            macd = latest.get("macd", 0)
+            macd_signal = latest.get("macd_signal", 0)
+            prev_macd = prev.get("macd", 0)
+            prev_macd_signal = prev.get("macd_signal", 0)
+
+            # MACD crossed below signal (bearish for CE)
+            if position_type == "CE" and prev_macd > prev_macd_signal and macd < macd_signal:
+                exit_reasons.append("MACD bearish crossover")
+                exit_score += 20
+            # MACD crossed above signal (bullish for PE)
+            elif position_type == "PE" and prev_macd < prev_macd_signal and macd > macd_signal:
+                exit_reasons.append("MACD bullish crossover")
+                exit_score += 20
+
+            # 4. EMA Crossover
+            ema9 = latest.get("ema_9", 0)
+            ema21 = latest.get("ema_21", 0)
+            prev_ema9 = prev.get("ema_9", 0)
+            prev_ema21 = prev.get("ema_21", 0)
+
+            if position_type == "CE" and prev_ema9 > prev_ema21 and ema9 < ema21:
+                exit_reasons.append("EMA bearish crossover (9 crossed below 21)")
+                exit_score += 20
+            elif position_type == "PE" and prev_ema9 < prev_ema21 and ema9 > ema21:
+                exit_reasons.append("EMA bullish crossover (9 crossed above 21)")
+                exit_score += 20
+
+            # 5. Profit/Loss based exit
+            pnl_percent = ((current_ltp - entry_price) / entry_price) * 100
+
+            if pnl_percent >= 50:  # 50% profit
+                exit_reasons.append(f"Target profit reached ({pnl_percent:.1f}%)")
+                exit_score += 50
+            elif pnl_percent <= -30:  # 30% loss
+                exit_reasons.append(f"Stop loss hit ({pnl_percent:.1f}%)")
+                exit_score += 60
+
+            # Generate exit signal if score is high enough
+            if exit_score >= 40:
+                return {
+                    "should_exit": True,
+                    "exit_score": exit_score,
+                    "reasons": exit_reasons,
+                    "pnl_percent": pnl_percent,
+                    "current_ltp": current_ltp,
+                    "entry_price": entry_price,
+                }
+
+            return None
+
+        except Exception as e:
+            logger.error(f"Error checking exit signal: {e}")
             return None
 
 

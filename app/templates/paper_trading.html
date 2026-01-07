@@ -258,6 +258,9 @@ function paperTrading() {
 
             // Refresh stats every 5 seconds
             setInterval(() => this.refreshStats(), 5000);
+
+            // Check exit signals every 10 seconds (for open positions)
+            setInterval(() => this.checkExitSignals(), 10000);
         },
 
         async refreshStats() {
@@ -287,20 +290,44 @@ function paperTrading() {
             const minutes = now.getMinutes();
             const currentTime = hours * 60 + minutes; // Minutes since midnight
 
-            const tradingStartTime = 13 * 60; // 1:00 PM
-            const squareOffTime = 14 * 60;    // 2:00 PM
+            const tradingStartTime = 9 * 60 + 20;  // 9:20 AM (5 min after market open)
+            const tradingEndTime = 15 * 60 + 15;   // 3:15 PM (15 min before close)
+            const squareOffTime = 15 * 60 + 20;    // 3:20 PM (auto square-off)
 
-            // Auto square-off at 2:00 PM
+            // Auto square-off at 3:20 PM
             if (currentTime >= squareOffTime && this.stats.status.open_positions > 0) {
                 this.autoSquareOff();
                 return;
             }
 
-            // Only trade between 1:00 PM and 2:00 PM
-            if (currentTime >= tradingStartTime && currentTime < squareOffTime) {
+            // Only trade between 9:20 AM and 3:15 PM
+            if (currentTime >= tradingStartTime && currentTime < tradingEndTime) {
                 if (!this.stats.status.is_halted) {
                     this.executeSignal();
                 }
+            }
+        },
+
+        async checkExitSignals() {
+            // Only check if there are open positions
+            if (this.stats.status.open_positions === 0) return;
+
+            try {
+                const response = await fetch('/paper/update-positions', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.closed && data.closed.length > 0) {
+                    // Positions were closed by exit signal
+                    data.closed.forEach(pos => {
+                        this.showToast(`Exit Signal: ${pos.symbol} closed - ${pos.exit_reason}`, 'warning');
+                    });
+                    htmx.trigger('#positions-table', 'htmx:trigger');
+                    htmx.trigger('#history-table', 'htmx:trigger');
+                }
+
+                await this.refreshStats();
+            } catch (e) {
+                console.error('Exit signal check error:', e);
             }
         },
 

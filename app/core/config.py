@@ -136,3 +136,11 @@ SIGNAL_THRESHOLDS = {
     "vix_high": 25,
     "vix_extreme": 35,
 }
+
+# Option selection filters
+OPTION_FILTERS = {
+    "premium_min": 45,      # Minimum option premium (LTP)
+    "premium_max": 55,      # Maximum option premium (LTP)
+    "min_oi": 10000,        # Minimum open interest
+    "min_volume": 100,      # Minimum volume
+}

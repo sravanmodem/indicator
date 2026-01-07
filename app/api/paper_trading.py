@@ -119,6 +119,7 @@ async def get_all_expiries():
 @router.post("/execute-signal")
 async def execute_signal_trade():
     """Execute trade based on current signal."""
+    logger.info("Execute signal endpoint called")
     require_auth()
 
     # Check trading time restrictions
@@ -331,15 +332,16 @@ async def get_orders():
 
 @router.post("/update-positions")
 async def update_positions():
-    """Update all positions with current prices."""
+    """Update all positions with current prices and check exit signals."""
     require_auth()
     paper = get_paper_trading_service()
 
-    updated = await paper.update_positions()
+    updated, closed = await paper.update_positions()
 
     return {
         "success": True,
         "updated_count": len(updated),
+        "closed": closed,  # List of positions closed by exit signals
     }
 
 
