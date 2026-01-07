@@ -360,6 +360,38 @@ async def market_overview_partial(request: Request):
         )
 
 
+@router.get("/market-header-cards", response_class=HTMLResponse)
+async def market_header_cards_partial(request: Request):
+    """Render market header cards with OHLC data for NIFTY, BANKNIFTY, and SENSEX."""
+    try:
+        require_auth()
+        fetcher = get_data_fetcher()
+
+        # Fetch quotes for all indices
+        quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+
+        nifty = quotes.get("NSE:NIFTY 50", {})
+        banknifty = quotes.get("NSE:NIFTY BANK", {})
+        sensex = quotes.get("BSE:SENSEX", {})
+
+        return templates.TemplateResponse(
+            "partials/market_header_cards.html",
+            {
+                "request": request,
+                "nifty": nifty,
+                "banknifty": banknifty,
+                "sensex": sensex,
+            },
+        )
+
+    except Exception as e:
+        logger.error(f"Market header cards error: {e}")
+        return templates.TemplateResponse(
+            "partials/market_header_cards.html",
+            {"request": request, "error": "Market data unavailable"},
+        )
+
+
 @router.get("/ws-status", response_class=HTMLResponse)
 async def ws_status_partial(request: Request):
     """Render WebSocket connection status."""

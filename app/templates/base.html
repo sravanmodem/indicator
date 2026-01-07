@@ -333,14 +333,15 @@
                     </svg>
                 </button>
 
-                <!-- Market Overview -->
-                <div id="market-status" class="hidden md:flex items-center space-x-6"
-                     hx-get="/htmx/market-overview"
+                <!-- Market Overview OHLC Cards -->
+                <div id="market-status" class="hidden lg:flex items-center"
+                     hx-get="/htmx/market-header-cards"
                      hx-trigger="load, every 5s"
                      hx-swap="innerHTML">
-                    <div class="flex items-center space-x-4">
-                        <div class="h-4 w-24 bg-slate-700 rounded animate-pulse"></div>
-                        <div class="h-4 w-24 bg-slate-700 rounded animate-pulse"></div>
+                    <div class="flex items-center gap-4">
+                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
+                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
+                        <div class="h-16 w-32 bg-slate-700 rounded animate-pulse"></div>
                     </div>
                 </div>
 
