@@ -776,7 +776,7 @@ class PaperTradingService:
                 # 2. Check signal-based exit (market reversal)
                 if not should_exit:
                     try:
-                        from app.api.paper_trading import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+                        from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
                         tokens = {
                             "NIFTY": NIFTY_INDEX_TOKEN,
