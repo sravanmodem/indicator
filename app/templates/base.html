@@ -135,6 +135,9 @@
     <!-- Alpine.js for interactivity -->
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+    <!-- Toast Notifications -->
+    <script src="/static/js/toast.js" defer></script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -375,24 +378,99 @@
             event.target.classList.remove('opacity-60');
         });
 
-        // Toast notification function
-        function showToast(message, type = 'info') {
+        // Enhanced Toast notification function with 5 second display
+        function showToast(message, type = 'info', duration = 5000) {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            const colors = {
-                success: 'bg-bullish-600 border-bullish-500',
-                error: 'bg-bearish-600 border-bearish-500',
-                warning: 'bg-amber-600 border-amber-500',
-                info: 'bg-primary-600 border-primary-500'
+
+            // Define colors and icons for each toast type
+            const styles = {
+                success: {
+                    color: 'bg-emerald-600 border-emerald-500',
+                    icon: 'check-circle',
+                    text: 'text-emerald-50'
+                },
+                error: {
+                    color: 'bg-rose-600 border-rose-500',
+                    icon: 'alert-circle',
+                    text: 'text-rose-50'
+                },
+                warning: {
+                    color: 'bg-amber-600 border-amber-500',
+                    icon: 'alert-triangle',
+                    text: 'text-amber-50'
+                },
+                info: {
+                    color: 'bg-blue-600 border-blue-500',
+                    icon: 'info',
+                    text: 'text-blue-50'
+                }
             };
-            toast.className = `px-4 py-3 rounded-lg border shadow-lg text-white text-sm font-medium animate-slide-up ${colors[type]}`;
-            toast.textContent = message;
+
+            const style = styles[type] || styles.info;
+
+            // Create toast HTML with icon
+            toast.innerHTML = `
+                <div class="flex items-center gap-3 px-4 py-3 rounded-lg border shadow-xl ${style.color} ${style.text} text-sm font-medium
+                    transition-all duration-300 ease-out
+                    animate-in fade-in slide-in-from-top-2">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        ${getIconSVG(style.icon)}
+                    </svg>
+                    <span>${escapeHtml(message)}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto p-1 hover:bg-white/20 rounded transition-colors flex-shrink-0">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+
             container.appendChild(toast);
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'transition-opacity');
+
+            // Auto-dismiss after specified duration (default 5 seconds)
+            const timeoutId = setTimeout(() => {
+                toast.style.animation = 'fadeOut 300ms ease-in forwards';
                 setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            }, duration);
+
+            // Allow manual dismissal to clear timeout
+            const closeBtn = toast.querySelector('button');
+            closeBtn.addEventListener('click', () => clearTimeout(timeoutId));
         }
+
+        // Helper function to get SVG icons
+        function getIconSVG(iconType) {
+            const icons = {
+                'check-circle': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'alert-circle': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>',
+                'alert-triangle': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 0H9m3 0h3m-3-11L3 20h18L12 1z"/>',
+                'info': '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+            };
+            return icons[iconType] || icons.info;
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        // Add animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeOut {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 
     {% block scripts %}{% endblock %}
