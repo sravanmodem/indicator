@@ -1,0 +1,36 @@
+<!-- Dynamic Expiry Days for Sidebar -->
+<a href="/nifty" class="nav-item nav-item-nifty {% if request.url.path == '/nifty' %}active{% endif %}">
+    <div class="nav-icon flex items-center justify-center">
+        <div class="w-5 h-5 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+            <span class="text-[9px] font-black text-white">N</span>
+        </div>
+    </div>
+    <span>NIFTY</span>
+    <span class="ml-auto text-[10px] font-mono {% if expiries.NIFTY.is_expiry_day %}text-red-400 font-bold{% else %}text-slate-500{% endif %}">
+        {% if expiries.NIFTY.is_expiry_day %}EXP{% else %}{{ expiries.NIFTY.weekday }}{% endif %}
+    </span>
+</a>
+
+<a href="/banknifty" class="nav-item nav-item-banknifty {% if request.url.path == '/banknifty' %}active{% endif %}">
+    <div class="nav-icon flex items-center justify-center">
+        <div class="w-5 h-5 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <span class="text-[8px] font-black text-white">BN</span>
+        </div>
+    </div>
+    <span>BANK NIFTY</span>
+    <span class="ml-auto text-[10px] font-mono {% if expiries.BANKNIFTY.is_expiry_day %}text-red-400 font-bold{% else %}text-slate-500{% endif %}">
+        {% if expiries.BANKNIFTY.is_expiry_day %}EXP{% else %}{{ expiries.BANKNIFTY.weekday }}{% endif %}
+    </span>
+</a>
+
+<a href="/sensex" class="nav-item nav-item-sensex {% if request.url.path == '/sensex' %}active{% endif %}">
+    <div class="nav-icon flex items-center justify-center">
+        <div class="w-5 h-5 rounded bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+            <span class="text-[9px] font-black text-white">S</span>
+        </div>
+    </div>
+    <span>SENSEX</span>
+    <span class="ml-auto text-[10px] font-mono {% if expiries.SENSEX.is_expiry_day %}text-red-400 font-bold{% else %}text-slate-500{% endif %}">
+        {% if expiries.SENSEX.is_expiry_day %}EXP{% else %}{{ expiries.SENSEX.weekday }}{% endif %}
+    </span>
+</a>

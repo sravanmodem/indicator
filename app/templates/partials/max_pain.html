@@ -1,0 +1,65 @@
+{% if error %}
+<div class="glass rounded-xl h-[80px] flex items-center justify-center border border-purple-500/30 bg-gradient-to-r from-purple-600/10 to-pink-600/10">
+    <p class="text-red-400 text-sm">{{ error }}</p>
+</div>
+{% elif max_pain and max_pain.max_pain_strike > 0 %}
+<div class="glass rounded-xl h-[80px] flex items-center px-4 bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/30">
+    <div class="flex items-center justify-between w-full gap-4">
+        <!-- Max Pain Strike -->
+        <div class="flex items-center space-x-3 flex-shrink-0">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-[9px] text-slate-500 uppercase">Max Pain</p>
+                <p class="text-xl font-black text-white">{{ max_pain.max_pain_strike }}</p>
+            </div>
+        </div>
+
+        <!-- Spot Price -->
+        <div class="text-center flex-shrink-0">
+            <p class="text-[8px] text-slate-500">SPOT</p>
+            <p class="text-white font-mono font-bold text-sm">{{ "{:,.0f}".format(spot_price) }}</p>
+        </div>
+
+        <!-- Distance -->
+        <div class="text-center px-3 py-1.5 rounded-lg {% if max_pain.distance_from_spot > 0 %}bg-green-500/20 border border-green-500/30{% elif max_pain.distance_from_spot < 0 %}bg-red-500/20 border border-red-500/30{% else %}bg-slate-500/20 border border-slate-500/30{% endif %} flex-shrink-0">
+            <p class="text-[8px] {% if max_pain.distance_from_spot > 0 %}text-green-400{% elif max_pain.distance_from_spot < 0 %}text-red-400{% else %}text-slate-400{% endif %}">DISTANCE</p>
+            <p class="font-mono font-bold text-sm {% if max_pain.distance_from_spot > 0 %}text-green-400{% elif max_pain.distance_from_spot < 0 %}text-red-400{% else %}text-white{% endif %}">
+                {{ "{:+.1f}".format(max_pain.distance_from_spot) }}%
+            </p>
+        </div>
+
+        <!-- Magnet Direction -->
+        <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg flex-shrink-0 {% if max_pain.magnet_direction == 'up' %}bg-green-500/10 border border-green-500/30{% elif max_pain.magnet_direction == 'down' %}bg-red-500/10 border border-red-500/30{% else %}bg-blue-500/10 border border-blue-500/30{% endif %}">
+            {% if max_pain.magnet_direction == 'up' %}
+            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+            </svg>
+            <span class="text-green-400 font-bold text-sm">Bullish</span>
+            {% elif max_pain.magnet_direction == 'down' %}
+            <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+            </svg>
+            <span class="text-red-400 font-bold text-sm">Bearish</span>
+            {% else %}
+            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-blue-400 font-bold text-sm">Neutral</span>
+            {% endif %}
+        </div>
+
+        <!-- Signal -->
+        <div class="px-4 py-2 rounded-lg font-bold text-lg flex-shrink-0 {% if max_pain.magnet_direction == 'up' %}bg-green-500/30 text-green-400{% elif max_pain.magnet_direction == 'down' %}bg-red-500/30 text-red-400{% else %}bg-slate-500/30 text-slate-400{% endif %}">
+            {% if max_pain.magnet_direction == 'up' %}CE{% elif max_pain.magnet_direction == 'down' %}PE{% else %}WAIT{% endif %}
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-xl h-[80px] flex items-center justify-center border border-purple-500/30 bg-gradient-to-r from-purple-600/10 to-pink-600/10 animate-pulse">
+    <div class="w-full h-10 mx-4 bg-surface-600 rounded-lg"></div>
+</div>
+{% endif %}

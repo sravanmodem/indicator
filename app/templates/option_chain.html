@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Option Chain - Options Indicator{% endblock %}
+
+{% block content %}
+<div x-data="{ activeIndex: 'nifty' }">
+    <!-- Ultra-Pro Header -->
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-purple-900/20 to-surface-900/50 border border-purple-500/20">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <!-- Logo -->
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-pink-500 to-rose-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Option Chain</h1>
+                    <p class="text-slate-400 text-sm">Real-time OI, Greeks & Max Pain analysis</p>
+                </div>
+            </div>
+
+            <!-- Index Selector -->
+            <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
+                <button @click="activeIndex = 'nifty'; switchIndex('nifty')"
+                        :class="activeIndex === 'nifty' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    NIFTY
+                </button>
+                <button @click="activeIndex = 'banknifty'; switchIndex('banknifty')"
+                        :class="activeIndex === 'banknifty' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    BANKNIFTY
+                </button>
+                <button @click="activeIndex = 'sensex'; switchIndex('sensex')"
+                        :class="activeIndex === 'sensex' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-5 py-2.5 rounded-lg font-bold text-sm transition-all">
+                    SENSEX
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Max Pain & OI Analysis Row (Compact - Above Chain) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
+        <!-- Max Pain Compact -->
+        <div id="max-pain">
+            <div class="glass rounded-xl h-[80px] flex items-center px-4 border border-purple-500/30 bg-gradient-to-r from-purple-600/10 to-pink-600/10">
+                <div class="flex items-center justify-center w-full">
+                    <div class="w-8 h-8 bg-purple-500/20 rounded-lg animate-pulse"></div>
+                    <div class="ml-3 flex-1 h-8 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OI Analysis Compact -->
+        <div id="oi-analysis">
+            <div class="glass rounded-xl h-[80px] flex items-center px-4 border border-blue-500/30 bg-gradient-to-r from-blue-600/10 to-indigo-600/10">
+                <div class="flex items-center justify-center w-full">
+                    <div class="w-8 h-8 bg-blue-500/20 rounded-lg animate-pulse"></div>
+                    <div class="ml-3 flex-1 h-8 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row (Compact) -->
+    <div id="chain-stats" class="mb-3">
+        <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+            <div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div>
+        </div>
+    </div>
+
+    <!-- Option Chain Table -->
+    <div class="glass rounded-xl overflow-hidden mb-3">
+        <div class="h-[48px] px-4 border-b border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-surface-800/50 to-surface-900/50">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Live Option Chain</h3>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <span class="flex items-center space-x-1 text-slate-500 text-xs">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                    <span>Live</span>
+                </span>
+                <button onclick="refreshChain()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold transition-all">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div id="chain-table">
+            <div class="p-4">
+                <div class="h-96 bg-surface-700 rounded-lg animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OI Legend (Compact) -->
+    <div class="glass rounded-xl p-3">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+            <div class="bg-green-500/10 border border-green-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-green-400 font-bold">Long Buildup</span>
+                <span class="text-slate-400">↑P+↑OI=CE</span>
+            </div>
+            <div class="bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-red-400 font-bold">Short Buildup</span>
+                <span class="text-slate-400">↓P+↑OI=PE</span>
+            </div>
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-yellow-400 font-bold">Short Cover</span>
+                <span class="text-slate-400">↑P+↓OI</span>
+            </div>
+            <div class="bg-orange-500/10 border border-orange-500/30 rounded-lg px-3 py-2 flex items-center space-x-2">
+                <span class="text-orange-400 font-bold">Long Unwind</span>
+                <span class="text-slate-400">↓P+↓OI</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentIndex = 'nifty';
+let isLoading = false;
+
+function switchIndex(index) {
+    if (isLoading) return;
+    isLoading = true;
+    currentIndex = index;
+
+    // Show loading states
+    document.getElementById('chain-table').innerHTML = '<div class="p-4"><div class="h-96 bg-surface-700 rounded-lg animate-pulse flex items-center justify-center"><span class="text-slate-400">Loading...</span></div></div>';
+    document.getElementById('chain-stats').innerHTML = '<div class="grid grid-cols-3 md:grid-cols-6 gap-2"><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div><div class="glass rounded-lg p-2 h-[56px] animate-pulse"></div></div>';
+
+    // Load all data for the selected index
+    htmx.ajax('GET', '/htmx/option-chain-full/' + index, {target: '#chain-table', swap: 'innerHTML'}).then(function() {
+        isLoading = false;
+    }).catch(function(e) {
+        console.error('Error loading chain:', e);
+        isLoading = false;
+    });
+
+    // Load other components in parallel
+    htmx.ajax('GET', '/htmx/option-chain-stats/' + index, {target: '#chain-stats', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/max-pain/' + index, {target: '#max-pain', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/oi-analysis/' + index, {target: '#oi-analysis', swap: 'innerHTML'});
+}
+
+function refreshChain() {
+    isLoading = false; // Reset in case stuck
+    switchIndex(currentIndex);
+}
+
+// Load initial data and set up auto-refresh
+document.addEventListener('DOMContentLoaded', function() {
+    // Load initial data for default index (nifty)
+    switchIndex(currentIndex);
+
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        if (!isLoading) {
+            htmx.ajax('GET', '/htmx/option-chain-full/' + currentIndex, {target: '#chain-table', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/option-chain-stats/' + currentIndex, {target: '#chain-stats', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/max-pain/' + currentIndex, {target: '#max-pain', swap: 'innerHTML'});
+            htmx.ajax('GET', '/htmx/oi-analysis/' + currentIndex, {target: '#oi-analysis', swap: 'innerHTML'});
+        }
+    }, 30000);
+});
+</script>
+{% endblock %}

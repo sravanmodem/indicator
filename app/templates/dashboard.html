@@ -1,273 +1,306 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard - Options Indicator{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div x-data="{ activeTab: 'nifty', tradingStyle: 'intraday' }">
-    <!-- Header Row - Mobile Optimized -->
-    <div class="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <!-- Top Row: Index Tabs + WebSocket Status -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <!-- Index Tabs - Responsive -->
-            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 overflow-x-auto">
-                <button @click="activeTab = 'nifty'; switchTab('nifty')"
-                        :class="activeTab === 'nifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    NIFTY
-                </button>
-                <button @click="activeTab = 'banknifty'; switchTab('banknifty')"
-                        :class="activeTab === 'banknifty' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-3 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    BANK NIFTY
-                </button>
-                <button @click="activeTab = 'sensex'; switchTab('sensex')"
-                        :class="activeTab === 'sensex' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="px-4 sm:px-6 py-1.5 sm:py-2 rounded-lg font-medium text-sm sm:text-base transition-all whitespace-nowrap">
-                    SENSEX
-                </button>
+<div x-data="{ tradingStyle: 'intraday' }" class="space-y-4">
+    <!-- Header with Trading Style -->
+    <div class="glass rounded-xl h-[48px] flex items-center px-4 bg-gradient-to-r from-surface-900/80 via-blue-900/10 to-surface-900/80">
+        <div class="flex items-center justify-between w-full">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-white font-bold text-sm">All Indices Dashboard</p>
+                    <p class="text-slate-500 text-[10px]">NIFTY | BANKNIFTY | SENSEX</p>
+                </div>
             </div>
-            <!-- WebSocket Status - Hidden on Mobile -->
-            <div id="ws-status" class="hidden sm:block"
-                 hx-get="/htmx/ws-status"
-                 hx-trigger="load, every 10s"
-                 hx-swap="innerHTML">
-            </div>
-        </div>
 
-        <!-- Trading Style - Full Width on Mobile -->
-        <div class="flex items-center space-x-3 sm:space-x-4">
-            <span class="text-slate-400 text-xs sm:text-sm font-medium whitespace-nowrap">Style:</span>
-            <div class="flex items-center space-x-1 sm:space-x-2 bg-surface-800 rounded-lg sm:rounded-xl p-1 flex-1 sm:flex-none">
-                <button @click="tradingStyle = 'scalping'; switchStyle('scalping')"
-                        :class="tradingStyle === 'scalping' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Scalping
+            <!-- Trading Style -->
+            <div class="flex items-center space-x-1 bg-surface-900/80 rounded-lg p-0.5">
+                <button @click="tradingStyle = 'scalping'; switchAllStyles('scalping')"
+                        :class="tradingStyle === 'scalping' ? 'bg-amber-500/30 text-amber-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    SCALP
                 </button>
-                <button @click="tradingStyle = 'intraday'; switchStyle('intraday')"
-                        :class="tradingStyle === 'intraday' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Intraday
+                <button @click="tradingStyle = 'intraday'; switchAllStyles('intraday')"
+                        :class="tradingStyle === 'intraday' ? 'bg-blue-500/30 text-blue-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    INTRA
                 </button>
-                <button @click="tradingStyle = 'swing'; switchStyle('swing')"
-                        :class="tradingStyle === 'swing' ? 'bg-surface-700 text-white' : 'text-slate-400 hover:text-white'"
-                        class="flex-1 sm:flex-none px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all">
-                    Swing
+                <button @click="tradingStyle = 'swing'; switchAllStyles('swing')"
+                        :class="tradingStyle === 'swing' ? 'bg-purple-500/30 text-purple-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    SWING
                 </button>
             </div>
+
+            <!-- Refresh Button -->
+            <button onclick="refreshAll()" class="p-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-300 transition-colors" title="Refresh All">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </button>
         </div>
     </div>
 
-    <!-- Signal Card - Top on Mobile/Tablet, Left on Desktop -->
-    <div class="xl:hidden mb-4 sm:mb-6">
-        <div id="signal-card-mobile"
-             hx-get="/htmx/signal-card/nifty?style=intraday"
-             hx-trigger="load"
-             hx-swap="innerHTML transition:true">
-            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
+    <!-- NIFTY Row -->
+    <div class="glass rounded-xl p-3 border border-blue-500/20 bg-gradient-to-r from-blue-900/10 to-indigo-900/10 overflow-hidden">
+        <div class="flex items-center space-x-2 mb-2">
+            <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
+                <span class="text-white font-black text-[10px]">N</span>
             </div>
+            <span class="text-white font-bold text-sm">NIFTY</span>
+            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold" id="nifty-expiry">-D</span>
         </div>
-    </div>
-
-    <!-- Main Grid - Mobile Optimized -->
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
-        <!-- Left Column - Signal Card (Desktop Only) & Quick Actions -->
-        <div class="xl:col-span-1 space-y-4 sm:space-y-6">
-            <!-- Primary Signal Card - Desktop Only -->
-            <div id="signal-card" class="hidden xl:block"
-                 hx-get="/htmx/signal-card/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-32 sm:h-40 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                </div>
-            </div>
-
-            <!-- Quick Actions - Responsive -->
-            <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                <h3 class="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-4">Quick Actions</h3>
-                <div class="grid grid-cols-2 gap-2 sm:gap-3">
-                    <button onclick="refreshSignal()"
-                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                        </svg>
-                        <span class="text-xs sm:text-sm">Refresh</span>
-                    </button>
-                    <button onclick="connectWS()"
-                            class="px-3 sm:px-4 py-2 sm:py-3 rounded-lg sm:rounded-xl bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium transition-colors">
-                        <svg class="w-4 h-4 sm:w-5 sm:h-5 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                        </svg>
-                        <span class="text-xs sm:text-sm">Connect WS</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Center Column - Indicators & Option Chain -->
-        <div class="xl:col-span-2 space-y-4 sm:space-y-6">
-            <!-- Indicator Panel -->
-            <div id="indicator-panel"
-                 hx-get="/htmx/indicator-panel/nifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                        <div class="h-20 sm:h-24 bg-surface-700 rounded-lg sm:rounded-xl col-span-2 sm:col-span-1"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recommended Option Card with Greeks -->
-            <div id="recommended-option"
-                 hx-get="/htmx/recommended-option/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML transition:true">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                </div>
-            </div>
-
-            <!-- Option Chain Table -->
-            <div id="option-chain"
-                 hx-get="/htmx/option-chain-table/nifty"
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div id="nifty-signal"
+                 hx-get="/htmx/signal-card-compact/nifty?style=intraday"
                  hx-trigger="load"
                  hx-swap="innerHTML">
-                <div class="glass rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                    <div class="h-48 sm:h-64 bg-surface-700 rounded-lg sm:rounded-xl"></div>
-                </div>
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+            </div>
+            <div id="nifty-indicators" class="overflow-hidden"
+                 hx-get="/htmx/indicator-panel-compact/nifty"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Row - Additional Info -->
-    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <!-- Trading Rules Reminder -->
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">CE Entry Rules</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Price above VWAP</li>
-                <li>- SuperTrend green</li>
-                <li>- RSI > 50</li>
-                <li>- ADX > 25</li>
-            </ul>
+    <!-- BANKNIFTY Row -->
+    <div class="glass rounded-xl p-3 border border-purple-500/20 bg-gradient-to-r from-purple-900/10 to-pink-900/10 overflow-hidden">
+        <div class="flex items-center space-x-2 mb-2">
+            <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center">
+                <span class="text-white font-black text-[8px]">BN</span>
+            </div>
+            <span class="text-white font-bold text-sm">BANKNIFTY</span>
+            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[9px] font-bold" id="banknifty-expiry">-D</span>
         </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">PE Entry Rules</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Price below VWAP</li>
-                <li>- SuperTrend red</li>
-                <li>- RSI < 50</li>
-                <li>- ADX > 25</li>
-            </ul>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div id="banknifty-signal"
+                 hx-get="/htmx/signal-card-compact/banknifty?style=intraday"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+            </div>
+            <div id="banknifty-indicators" class="overflow-hidden"
+                 hx-get="/htmx/indicator-panel-compact/banknifty"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+            </div>
         </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">Avoid Trading When</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- First 15 mins</li>
-                <li>- Last 30 mins</li>
-                <li>- ADX < 20</li>
-                <li>- VIX > 25</li>
-            </ul>
+    </div>
+
+    <!-- SENSEX Row -->
+    <div class="glass rounded-xl p-3 border border-amber-500/20 bg-gradient-to-r from-amber-900/10 to-orange-900/10 overflow-hidden">
+        <div class="flex items-center space-x-2 mb-2">
+            <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-600 to-orange-600 flex items-center justify-center">
+                <span class="text-white font-black text-[10px]">S</span>
+            </div>
+            <span class="text-white font-bold text-sm">SENSEX</span>
+            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold" id="sensex-expiry">-D</span>
         </div>
-        <div class="glass rounded-xl p-4">
-            <h4 class="text-sm font-semibold text-slate-400 mb-2">Risk Management</h4>
-            <ul class="text-xs text-slate-300 space-y-1">
-                <li>- Max 1-2% per trade</li>
-                <li>- 1:2 Risk-Reward min</li>
-                <li>- Max 3 trades/day</li>
-                <li>- 3% daily loss limit</li>
-            </ul>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div id="sensex-signal"
+                 hx-get="/htmx/signal-card-compact/sensex?style=intraday"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+            </div>
+            <div id="sensex-indicators" class="overflow-hidden"
+                 hx-get="/htmx/indicator-panel-compact/sensex"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trading Strategy Guide Cards -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+        <!-- CE Entry Criteria -->
+        <div class="glass rounded-xl p-4 border border-green-500/30 bg-gradient-to-br from-green-900/20 to-emerald-900/10">
+            <div class="flex items-center space-x-2 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                </div>
+                <span class="text-green-400 font-bold text-sm">CE Entry Criteria</span>
+            </div>
+            <div class="space-y-2 text-[11px]">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    <span class="text-slate-300">SuperTrend = <span class="text-green-400 font-bold">BUY</span></span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    <span class="text-slate-300">Price > EMA20 & VWAP</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    <span class="text-slate-300">RSI > 50 (Bullish)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    <span class="text-slate-300">MACD > Signal line</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                    <span class="text-slate-300">ADX > 20 (Trending)</span>
+                </div>
+                <div class="mt-2 pt-2 border-t border-green-500/20">
+                    <span class="text-green-400 text-[10px] font-bold">Signal: Buy ATM/OTM CE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PE Entry Criteria -->
+        <div class="glass rounded-xl p-4 border border-red-500/30 bg-gradient-to-br from-red-900/20 to-rose-900/10">
+            <div class="flex items-center space-x-2 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                    </svg>
+                </div>
+                <span class="text-red-400 font-bold text-sm">PE Entry Criteria</span>
+            </div>
+            <div class="space-y-2 text-[11px]">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    <span class="text-slate-300">SuperTrend = <span class="text-red-400 font-bold">SELL</span></span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    <span class="text-slate-300">Price < EMA20 & VWAP</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    <span class="text-slate-300">RSI < 50 (Bearish)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    <span class="text-slate-300">MACD < Signal line</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+                    <span class="text-slate-300">ADX > 20 (Trending)</span>
+                </div>
+                <div class="mt-2 pt-2 border-t border-red-500/20">
+                    <span class="text-red-400 text-[10px] font-bold">Signal: Buy ATM/OTM PE</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avoid Trading -->
+        <div class="glass rounded-xl p-4 border border-yellow-500/30 bg-gradient-to-br from-yellow-900/20 to-amber-900/10">
+            <div class="flex items-center space-x-2 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <span class="text-yellow-400 font-bold text-sm">Avoid Trading</span>
+            </div>
+            <div class="space-y-2 text-[11px]">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                    <span class="text-slate-300">First 15 min after open</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                    <span class="text-slate-300">ADX < 20 (No trend)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                    <span class="text-slate-300">RSI 40-60 (Neutral)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                    <span class="text-slate-300">Price between S1 & R1</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
+                    <span class="text-slate-300">Major news events</span>
+                </div>
+                <div class="mt-2 pt-2 border-t border-yellow-500/20">
+                    <span class="text-yellow-400 text-[10px] font-bold">Action: Wait for clarity</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Management -->
+        <div class="glass rounded-xl p-4 border border-blue-500/30 bg-gradient-to-br from-blue-900/20 to-cyan-900/10">
+            <div class="flex items-center space-x-2 mb-3">
+                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                    </svg>
+                </div>
+                <span class="text-blue-400 font-bold text-sm">Risk Management</span>
+            </div>
+            <div class="space-y-2 text-[11px]">
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="text-slate-300">Max <span class="text-blue-400 font-bold">1-2%</span> per trade</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="text-slate-300">R:R ratio = <span class="text-blue-400 font-bold">1:2</span> min</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="text-slate-300">Max daily loss <span class="text-red-400 font-bold">20%</span></span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="text-slate-300">SL = SuperTrend level</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span class="text-slate-300">Target = 1.5x SL distance</span>
+                </div>
+                <div class="mt-2 pt-2 border-t border-blue-500/20">
+                    <span class="text-blue-400 text-[10px] font-bold">Rule: Never risk more than 2%</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Current tab state for polling
-    let currentTab = 'nifty';
-    let currentStyle = 'intraday';
+window.currentStyle = 'intraday';
 
-    function switchTab(tab) {
-        currentTab = tab;
-        // Use htmx.ajax to directly fetch with correct URLs
-        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/signal-card/' + tab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/indicator-panel/' + tab, {target: '#indicator-panel', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/recommended-option/' + tab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/option-chain-table/' + tab, {target: '#option-chain', swap: 'innerHTML'});
-    }
+function loadIndexData(index, style) {
+    htmx.ajax('GET', '/htmx/signal-card-compact/' + index + '?style=' + style, {target: '#' + index + '-signal', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/indicator-panel-compact/' + index, {target: '#' + index + '-indicators', swap: 'innerHTML'});
+}
 
-    function switchStyle(style) {
-        currentStyle = style;
-        // Signal card and recommended option use style parameter
-        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + style, {target: '#signal-card-mobile', swap: 'innerHTML'});
-        htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + style, {target: '#recommended-option', swap: 'innerHTML'});
-    }
+function switchAllStyles(style) {
+    window.currentStyle = style;
+    loadIndexData('nifty', style);
+    loadIndexData('banknifty', style);
+    loadIndexData('sensex', style);
+}
 
-    async function refreshSignal() {
-        switchTab(currentTab);
-    }
+function refreshAll() {
+    loadIndexData('nifty', window.currentStyle);
+    loadIndexData('banknifty', window.currentStyle);
+    loadIndexData('sensex', window.currentStyle);
+}
 
-    async function connectWS() {
-        try {
-            const response = await fetch('/market/ws/connect', { method: 'POST' });
-            const data = await response.json();
-            if (data.success) {
-                showToast('WebSocket connected!', 'success');
-            } else {
-                showToast('Connection failed', 'error');
-            }
-        } catch (e) {
-            showToast('Connection error: ' + e.message, 'error');
-        }
-    }
-
-    function showToast(message, type = 'info') {
-        const container = document.getElementById('toast-container');
-        const colors = {
-            success: 'bg-green-500',
-            error: 'bg-red-500',
-            warning: 'bg-yellow-500',
-            info: 'bg-blue-500'
-        };
-
-        const toast = document.createElement('div');
-        toast.className = `${colors[type]} text-white px-4 py-2 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
-        toast.textContent = message;
-
-        container.appendChild(toast);
-
-        // Animate in
-        setTimeout(() => toast.classList.remove('translate-x-full'), 10);
-
-        // Remove after 3s
-        setTimeout(() => {
-            toast.classList.add('translate-x-full');
-            setTimeout(() => toast.remove(), 300);
-        }, 3000);
-    }
-
-    // Setup polling with current tab
-    document.addEventListener('DOMContentLoaded', () => {
-        // Poll signal card, indicator panel and recommended option every second
-        setInterval(() => {
-            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/signal-card/' + currentTab + '?style=' + currentStyle, {target: '#signal-card-mobile', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/indicator-panel/' + currentTab, {target: '#indicator-panel', swap: 'innerHTML'});
-            htmx.ajax('GET', '/htmx/recommended-option/' + currentTab + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
-        }, 1000);
-
-        // Poll option chain every 30 seconds
-        setInterval(() => {
-            htmx.ajax('GET', '/htmx/option-chain-table/' + currentTab, {target: '#option-chain', swap: 'innerHTML'});
-        }, 30000);
-    });
+// Auto-refresh every 3 seconds (HTMX handles initial load via hx-trigger="load")
+document.addEventListener('DOMContentLoaded', () => {
+    setInterval(refreshAll, 3000);
+});
 </script>
 {% endblock %}

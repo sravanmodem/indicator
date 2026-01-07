@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Order History - Options Pro{% endblock %}
+
+{% block content %}
+<div x-data="{ filterDays: 30 }">
+    <!-- Header -->
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-indigo-900/20 to-surface-900/50 border border-indigo-500/20">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <!-- Logo -->
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Order History</h1>
+                    <p class="text-slate-400 text-sm">Track your paper trading performance</p>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
+                <button @click="filterDays = 7; loadHistory(7)"
+                        :class="filterDays === 7 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    7 Days
+                </button>
+                <button @click="filterDays = 30; loadHistory(30)"
+                        :class="filterDays === 30 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    30 Days
+                </button>
+                <button @click="filterDays = 90; loadHistory(90)"
+                        :class="filterDays === 90 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    90 Days
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+        <!-- Total Trades -->
+        <div class="glass rounded-xl p-4 border border-slate-700/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Total Trades</p>
+                    <p class="text-xl font-bold text-white">{{ summary.total_trades }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Win Rate -->
+        <div class="glass rounded-xl p-4 border {% if summary.win_rate >= 50 %}border-green-500/30{% else %}border-red-500/30{% endif %}">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg {% if summary.win_rate >= 50 %}bg-green-500/20{% else %}bg-red-500/20{% endif %} flex items-center justify-center">
+                    <svg class="w-5 h-5 {% if summary.win_rate >= 50 %}text-green-400{% else %}text-red-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Win Rate</p>
+                    <p class="text-xl font-bold {% if summary.win_rate >= 50 %}text-green-400{% else %}text-red-400{% endif %}">{{ "%.1f"|format(summary.win_rate) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Max Profit % -->
+        <div class="glass rounded-xl p-4 border border-green-500/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Avg Max Profit</p>
+                    <p class="text-xl font-bold text-green-400">{{ "%.1f"|format(summary.avg_max_profit_percent) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Max Loss % -->
+        <div class="glass rounded-xl p-4 border border-red-500/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Avg Max Loss</p>
+                    <p class="text-xl font-bold text-red-400">{{ "%.1f"|format(summary.avg_max_loss_percent) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Captured Move -->
+        <div class="glass rounded-xl p-4 border border-purple-500/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Captured Move</p>
+                    <p class="text-xl font-bold text-purple-400">{{ "%.1f"|format(summary.avg_captured_move) }}%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avg Duration -->
+        <div class="glass rounded-xl p-4 border border-amber-500/30">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-[10px] text-slate-500 uppercase">Avg Duration</p>
+                    <p class="text-xl font-bold text-amber-400">{{ "%.0f"|format(summary.avg_duration_minutes) }}m</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order History Table -->
+    <div class="glass rounded-xl overflow-hidden">
+        <div class="h-[48px] px-4 border-b border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-surface-800/50 to-surface-900/50">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-sm font-bold text-white">Trade History</h3>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-500 text-xs">{{ history|length }} trades</span>
+            </div>
+        </div>
+
+        <div id="history-table"
+             hx-get="/paper/htmx/order-history?days=30"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            {% include "partials/paper_order_history.html" %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function loadHistory(days) {
+    htmx.ajax('GET', '/paper/htmx/order-history?days=' + days, {target: '#history-table', swap: 'innerHTML'});
+}
+</script>
+{% endblock %}

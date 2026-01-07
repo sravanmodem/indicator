@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}{{ index }} - Options Indicator{% endblock %}
+{% block page_title %}{{ index }}{% endblock %}
+
+{% block content %}
+<div x-data="{ tradingStyle: 'intraday' }" class="space-y-3">
+    <!-- Ultra Compact Header Row -->
+    <div class="glass rounded-xl h-[56px] flex items-center px-4 bg-gradient-to-r {% if index == 'NIFTY' %}from-blue-900/20 via-indigo-900/10 to-blue-900/20{% elif index == 'BANKNIFTY' %}from-purple-900/20 via-pink-900/10 to-purple-900/20{% else %}from-amber-900/20 via-orange-900/10 to-amber-900/20{% endif %}">
+        <div class="flex items-center justify-between w-full">
+            <!-- Index Info -->
+            <div class="flex items-center space-x-3 flex-shrink-0">
+                <div class="w-10 h-10 rounded-xl {% if index == 'NIFTY' %}bg-gradient-to-br from-blue-600 to-indigo-600{% elif index == 'BANKNIFTY' %}bg-gradient-to-br from-purple-600 to-pink-600{% else %}bg-gradient-to-br from-amber-600 to-orange-600{% endif %} flex items-center justify-center shadow-lg">
+                    <span class="text-white font-black text-lg">{% if index == 'NIFTY' %}N{% elif index == 'BANKNIFTY' %}BN{% else %}S{% endif %}</span>
+                </div>
+                <div>
+                    <p class="text-white font-black text-lg">{{ index }}</p>
+                    <p class="text-slate-500 text-[10px]">Options Trading</p>
+                </div>
+            </div>
+
+            <!-- Expiry Badge -->
+            <div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg {% if expiry_info.is_expiry_day %}bg-red-500/20 border border-red-500/30{% elif expiry_info.days_to_expiry <= 2 %}bg-yellow-500/20 border border-yellow-500/30{% else %}bg-green-500/20 border border-green-500/30{% endif %} flex-shrink-0">
+                <span class="{% if expiry_info.is_expiry_day %}text-red-400{% elif expiry_info.days_to_expiry <= 2 %}text-yellow-400{% else %}text-green-400{% endif %} text-xs font-bold">
+                    {% if expiry_info.is_expiry_day %}EXPIRY{% else %}{{ expiry_info.days_to_expiry }}D{% endif %}
+                </span>
+                <span class="text-slate-400 text-[10px]">{{ expiry_info.expiry_date.strftime('%d %b') }}</span>
+            </div>
+
+            <!-- Trading Style -->
+            <div class="flex items-center space-x-1 bg-surface-900/80 rounded-lg p-0.5 flex-shrink-0">
+                <button @click="tradingStyle = 'scalping'; switchStyle('scalping')"
+                        :class="tradingStyle === 'scalping' ? 'bg-amber-500/30 text-amber-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    SCALP
+                </button>
+                <button @click="tradingStyle = 'intraday'; switchStyle('intraday')"
+                        :class="tradingStyle === 'intraday' ? 'bg-blue-500/30 text-blue-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    INTRA
+                </button>
+                <button @click="tradingStyle = 'swing'; switchStyle('swing')"
+                        :class="tradingStyle === 'swing' ? 'bg-purple-500/30 text-purple-400' : 'text-slate-400 hover:text-white'"
+                        class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
+                    SWING
+                </button>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex items-center space-x-2 flex-shrink-0">
+                <button onclick="refreshSignal()" class="p-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-300 transition-colors" title="Refresh">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 1: Signal Card + Indicator Panel (Same Height) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <!-- Signal Card (Compact) -->
+        <div id="signal-card"
+             hx-get="/htmx/signal-card-compact/{{ index_lower }}?style=intraday"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="glass rounded-xl h-[80px] flex items-center justify-center">
+                <div class="w-full h-12 bg-surface-700 rounded-lg animate-pulse mx-4"></div>
+            </div>
+        </div>
+
+        <!-- Indicator Panel (Compact) -->
+        <div id="indicator-panel" class="lg:col-span-2"
+             hx-get="/htmx/indicator-panel-compact/{{ index_lower }}"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="glass rounded-xl h-[80px] flex items-center justify-center">
+                <div class="w-full h-12 bg-surface-700 rounded-lg animate-pulse mx-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Recommended Option (Compact) -->
+    <div id="recommended-option"
+         hx-get="/htmx/recommended-option-compact/{{ index_lower }}?style=intraday"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="glass rounded-xl h-[100px] flex items-center justify-center">
+            <div class="w-full h-16 bg-surface-700 rounded-lg animate-pulse mx-4"></div>
+        </div>
+    </div>
+
+    <!-- Row 3: Quick Stats Row -->
+    <div class="grid grid-cols-4 gap-3">
+        <div class="glass rounded-xl h-[60px] flex items-center px-4 bg-gradient-to-r from-green-600/10 to-emerald-600/10 border border-green-500/20">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-slate-500 uppercase">CE Entry</p>
+                        <p class="text-green-400 text-[10px] font-bold">Price > VWAP</p>
+                    </div>
+                </div>
+                <span class="text-green-400 text-xs font-mono">ST ↑</span>
+            </div>
+        </div>
+        <div class="glass rounded-xl h-[60px] flex items-center px-4 bg-gradient-to-r from-red-600/10 to-rose-600/10 border border-red-500/20">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-slate-500 uppercase">PE Entry</p>
+                        <p class="text-red-400 text-[10px] font-bold">Price < VWAP</p>
+                    </div>
+                </div>
+                <span class="text-red-400 text-xs font-mono">ST ↓</span>
+            </div>
+        </div>
+        <div class="glass rounded-xl h-[60px] flex items-center px-4 bg-gradient-to-r from-yellow-600/10 to-amber-600/10 border border-yellow-500/20">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-slate-500 uppercase">Avoid</p>
+                        <p class="text-yellow-400 text-[10px] font-bold">First 15 min</p>
+                    </div>
+                </div>
+                <span class="text-yellow-400 text-xs font-mono">ADX<20</span>
+            </div>
+        </div>
+        <div class="glass rounded-xl h-[60px] flex items-center px-4 bg-gradient-to-r from-blue-600/10 to-cyan-600/10 border border-blue-500/20">
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-[9px] text-slate-500 uppercase">Risk</p>
+                        <p class="text-blue-400 text-[10px] font-bold">1-2% / Trade</p>
+                    </div>
+                </div>
+                <span class="text-blue-400 text-xs font-mono">1:2 RR</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const currentIndex = '{{ index_lower }}';
+let currentStyle = 'intraday';
+
+function switchStyle(style) {
+    currentStyle = style;
+    htmx.ajax('GET', '/htmx/signal-card-compact/' + currentIndex + '?style=' + style, {target: '#signal-card', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/recommended-option-compact/' + currentIndex + '?style=' + style, {target: '#recommended-option', swap: 'innerHTML'});
+}
+
+function refreshSignal() {
+    htmx.ajax('GET', '/htmx/signal-card-compact/' + currentIndex + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/indicator-panel-compact/' + currentIndex, {target: '#indicator-panel', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/recommended-option-compact/' + currentIndex + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
+}
+
+// Auto-refresh every 2 seconds
+document.addEventListener('DOMContentLoaded', () => {
+    setInterval(() => {
+        htmx.ajax('GET', '/htmx/signal-card-compact/' + currentIndex + '?style=' + currentStyle, {target: '#signal-card', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/indicator-panel-compact/' + currentIndex, {target: '#indicator-panel', swap: 'innerHTML'});
+        htmx.ajax('GET', '/htmx/recommended-option-compact/' + currentIndex + '?style=' + currentStyle, {target: '#recommended-option', swap: 'innerHTML'});
+    }, 2000);
+});
+</script>
+{% endblock %}

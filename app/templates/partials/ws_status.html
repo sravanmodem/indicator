@@ -1,10 +1,9 @@
-<div class="flex items-center space-x-2">
-    <span class="w-2 h-2 rounded-full {% if status.is_connected %}bg-green-400{% else %}bg-red-400{% endif %}"></span>
-    <span class="text-sm {% if status.is_connected %}text-green-400{% else %}text-red-400{% endif %}">
-        {% if status.is_connected %}
-        WS Connected ({{ status.subscriptions_count }} subs)
-        {% else %}
-        WS Disconnected
-        {% endif %}
-    </span>
+<div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-surface-800/80 border border-slate-700/50">
+    {% if status and status.connected %}
+    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+    <span class="text-green-400 text-xs font-medium">Live</span>
+    {% else %}
+    <div class="w-2 h-2 rounded-full bg-slate-500"></div>
+    <span class="text-slate-400 text-xs font-medium">Offline</span>
+    {% endif %}
 </div>

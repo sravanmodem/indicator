@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Technical Indicators - Options Indicator{% endblock %}
+
+{% block content %}
+<div x-data="{ activeIndex: 'nifty', activeTimeframe: '5minute' }">
+    <!-- Ultra-Pro Header -->
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-blue-900/20 to-surface-900/50 border border-blue-500/20">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <!-- Logo -->
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Technical Indicators</h1>
+                    <p class="text-slate-400 text-sm">Real-time technical analysis with multiple indicators</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <!-- Index Selector -->
+                <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
+                    <button @click="activeIndex = 'nifty'; refreshIndicators()"
+                            :class="activeIndex === 'nifty' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                        NIFTY
+                    </button>
+                    <button @click="activeIndex = 'banknifty'; refreshIndicators()"
+                            :class="activeIndex === 'banknifty' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                        BANKNIFTY
+                    </button>
+                    <button @click="activeIndex = 'sensex'; refreshIndicators()"
+                            :class="activeIndex === 'sensex' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                            class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                        SENSEX
+                    </button>
+                </div>
+
+                <!-- Refresh Button -->
+                <button onclick="refreshIndicators()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-sm font-bold transition-all shadow-lg shadow-blue-500/20">
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicator Panel -->
+    <div id="indicators-panel"
+         hx-get="/htmx/indicator-panel/nifty"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+        <div class="glass rounded-2xl p-6">
+            <div class="h-48 bg-surface-700 rounded-xl animate-pulse"></div>
+        </div>
+    </div>
+
+    <!-- Detailed Indicators Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <!-- Trend Indicators -->
+        <div class="glass rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50 bg-gradient-to-r from-green-900/30 to-emerald-900/30">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Trend Indicators</h3>
+                        <p class="text-slate-500 text-xs">SuperTrend, EMA, ADX analysis</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4" id="trend-indicators"
+                 hx-get="/htmx/trend-indicators/nifty"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="space-y-3">
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Momentum Indicators -->
+        <div class="glass rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50 bg-gradient-to-r from-purple-900/30 to-pink-900/30">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Momentum Indicators</h3>
+                        <p class="text-slate-500 text-xs">RSI, MACD, Stochastic analysis</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4" id="momentum-indicators"
+                 hx-get="/htmx/momentum-indicators/nifty"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="space-y-3">
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Volatility Indicators -->
+        <div class="glass rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50 bg-gradient-to-r from-amber-900/30 to-orange-900/30">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Volatility Indicators</h3>
+                        <p class="text-slate-500 text-xs">ATR, Bollinger Bands analysis</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4" id="volatility-indicators"
+                 hx-get="/htmx/volatility-indicators/nifty"
+                 hx-trigger="load, every 30s"
+                 hx-swap="innerHTML">
+                <div class="space-y-3">
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pivot Points -->
+        <div class="glass rounded-2xl overflow-hidden">
+            <div class="p-4 border-b border-slate-700/50 bg-gradient-to-r from-cyan-900/30 to-blue-900/30">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-white">Pivot Points</h3>
+                        <p class="text-slate-500 text-xs">Standard & Camarilla pivots</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4" id="pivot-indicators"
+                 hx-get="/htmx/pivot-indicators/nifty"
+                 hx-trigger="load, every 60s"
+                 hx-swap="innerHTML">
+                <div class="space-y-3">
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                    <div class="h-20 bg-surface-700 rounded-xl animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Indicator Legend -->
+    <div class="mt-6 glass rounded-2xl p-4">
+        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Indicator Interpretation Guide</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                <p class="text-green-400 font-bold mb-2">SuperTrend</p>
+                <p class="text-slate-300 text-xs">Green = Bullish trend, Red = Bearish trend. ATR-based trend following indicator.</p>
+            </div>
+            <div class="bg-purple-500/10 border border-purple-500/30 rounded-xl p-4">
+                <p class="text-purple-400 font-bold mb-2">RSI</p>
+                <p class="text-slate-300 text-xs">&lt;30 = Oversold (Buy), &gt;70 = Overbought (Sell). Momentum oscillator.</p>
+            </div>
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
+                <p class="text-amber-400 font-bold mb-2">ADX</p>
+                <p class="text-slate-300 text-xs">&gt;25 = Strong trend, &lt;20 = Weak/No trend. +DI &gt; -DI = Bullish.</p>
+            </div>
+            <div class="bg-cyan-500/10 border border-cyan-500/30 rounded-xl p-4">
+                <p class="text-cyan-400 font-bold mb-2">MACD</p>
+                <p class="text-slate-300 text-xs">Histogram &gt; 0 = Bullish momentum. Crossovers signal trend changes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentIndex = 'nifty';
+
+function refreshIndicators() {
+    const index = document.querySelector('[x-data]').__x.$data.activeIndex;
+    currentIndex = index;
+    htmx.ajax('GET', '/htmx/indicator-panel/' + index, {target: '#indicators-panel', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/trend-indicators/' + index, {target: '#trend-indicators', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/momentum-indicators/' + index, {target: '#momentum-indicators', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/volatility-indicators/' + index, {target: '#volatility-indicators', swap: 'innerHTML'});
+    htmx.ajax('GET', '/htmx/pivot-indicators/' + index, {target: '#pivot-indicators', swap: 'innerHTML'});
+}
+
+// Auto-refresh every 30 seconds
+document.addEventListener('DOMContentLoaded', () => {
+    setInterval(() => {
+        refreshIndicators();
+    }, 30000);
+});
+</script>
+{% endblock %}

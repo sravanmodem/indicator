@@ -105,6 +105,18 @@ def calculate_max_pain(
     Returns:
         MaxPainResult with max pain strike and analysis
     """
+    # Handle empty option chain
+    if not option_chain:
+        return MaxPainResult(
+            max_pain_strike=0,
+            max_pain_value=0,
+            call_pain={},
+            put_pain={},
+            total_pain={},
+            distance_from_spot=0,
+            magnet_direction="at_pain",
+        )
+
     call_pain: dict[int, float] = {}
     put_pain: dict[int, float] = {}
     total_pain: dict[int, float] = {}

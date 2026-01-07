@@ -1,0 +1,80 @@
+{% if error %}
+<div class="glass rounded-xl p-3 h-[72px] flex items-center">
+    <div class="flex items-center space-x-3 text-red-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <p class="text-sm">{{ error }}</p>
+    </div>
+</div>
+{% else %}
+<div class="glass rounded-xl h-[72px] flex items-center px-4 bg-gradient-to-r {% if trading_index.index == 'NIFTY' %}from-blue-600/10 to-indigo-600/10{% elif trading_index.index == 'BANKNIFTY' %}from-purple-600/10 to-pink-600/10{% else %}from-amber-600/10 to-orange-600/10{% endif %}">
+    <div class="flex items-center justify-between w-full">
+        <!-- Active Index -->
+        <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-xl {% if trading_index.index == 'NIFTY' %}bg-gradient-to-br from-blue-500 to-indigo-500{% elif trading_index.index == 'BANKNIFTY' %}bg-gradient-to-br from-purple-500 to-pink-500{% else %}bg-gradient-to-br from-amber-500 to-orange-500{% endif %} flex items-center justify-center shadow-lg">
+                {% if trading_index.index == 'NIFTY' %}
+                <span class="text-xl font-black text-white">N</span>
+                {% elif trading_index.index == 'BANKNIFTY' %}
+                <span class="text-sm font-black text-white">BN</span>
+                {% else %}
+                <span class="text-xl font-black text-white">S</span>
+                {% endif %}
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <p class="text-lg font-black text-white">{{ trading_index.index }}</p>
+                    {% if trading_index.is_expiry_day %}
+                    <span class="px-1.5 py-0.5 rounded bg-red-500/30 text-red-400 text-[9px] font-bold animate-pulse">EXP</span>
+                    {% endif %}
+                </div>
+                <p class="text-[10px] text-slate-500">Trading Index (Auto)</p>
+            </div>
+        </div>
+
+        <!-- Key Stats -->
+        <div class="flex items-center space-x-5">
+            <div class="text-center">
+                <p class="text-[9px] text-slate-500 uppercase">Expiry</p>
+                <p class="text-white font-mono font-bold">{{ trading_index.expiry_date.strftime('%d %b') }}</p>
+            </div>
+            <div class="text-center">
+                <p class="text-[9px] text-slate-500 uppercase">DTE</p>
+                <p class="{% if trading_index.days_to_expiry == 0 %}text-red-400{% elif trading_index.days_to_expiry <= 2 %}text-yellow-400{% else %}text-green-400{% endif %} font-mono font-black text-lg">{{ trading_index.days_to_expiry }}D</p>
+            </div>
+            <div class="text-center">
+                <p class="text-[9px] text-slate-500 uppercase">Lot Size</p>
+                <p class="text-white font-mono font-bold">{{ trading_index.lot_size }}</p>
+            </div>
+            <div class="text-center">
+                <p class="text-[9px] text-slate-500 uppercase">Hours</p>
+                <p class="text-white font-mono text-sm">09:30-{% if trading_index.is_expiry_day %}13:00{% else %}14:00{% endif %}</p>
+            </div>
+        </div>
+
+        <!-- Other Indices -->
+        <div class="flex items-center space-x-2">
+            {% for exp in expiries %}
+            {% if exp.index != trading_index.index %}
+            <div class="flex items-center space-x-1.5 px-2 py-1.5 rounded-lg bg-surface-800/60 border border-slate-700/30">
+                {% if exp.index == 'NIFTY' %}
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center">
+                    <span class="text-[7px] font-black text-white">N</span>
+                </div>
+                {% elif exp.index == 'BANKNIFTY' %}
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <span class="text-[6px] font-black text-white">BN</span>
+                </div>
+                {% else %}
+                <div class="w-5 h-5 rounded bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center">
+                    <span class="text-[7px] font-black text-white">S</span>
+                </div>
+                {% endif %}
+                <span class="text-slate-400 text-[10px]">{% if exp.is_expiry_day %}<span class="text-red-400 font-bold">EXP</span>{% else %}{{ exp.days_to_expiry }}d{% endif %}</span>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

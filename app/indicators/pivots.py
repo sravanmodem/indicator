@@ -248,6 +248,78 @@ def calculate_camarilla(
     )
 
 
+@dataclass
+class StandardPivotResult:
+    """Standard Pivot Points result for template."""
+    pivot: float
+    r1: float
+    r2: float
+    r3: float
+    s1: float
+    s2: float
+    s3: float
+
+
+@dataclass
+class CamarillaPivotResult:
+    """Camarilla Pivot Points result for template."""
+    r1: float
+    r2: float
+    r3: float
+    r4: float
+    s1: float
+    s2: float
+    s3: float
+    s4: float
+
+
+def calculate_standard_pivots(high: float, low: float, close: float) -> StandardPivotResult:
+    """Calculate standard pivot points for template display."""
+    pivot = (high + low + close) / 3
+    r1 = (2 * pivot) - low
+    s1 = (2 * pivot) - high
+    r2 = pivot + (high - low)
+    s2 = pivot - (high - low)
+    r3 = high + 2 * (pivot - low)
+    s3 = low - 2 * (high - pivot)
+
+    return StandardPivotResult(
+        pivot=round(pivot, 2),
+        r1=round(r1, 2),
+        r2=round(r2, 2),
+        r3=round(r3, 2),
+        s1=round(s1, 2),
+        s2=round(s2, 2),
+        s3=round(s3, 2),
+    )
+
+
+def calculate_camarilla_pivots(high: float, low: float, close: float) -> CamarillaPivotResult:
+    """Calculate camarilla pivot points for template display."""
+    range_hl = high - low
+
+    r4 = close + (range_hl * 1.1 / 2)
+    r3 = close + (range_hl * 1.1 / 4)
+    r2 = close + (range_hl * 1.1 / 6)
+    r1 = close + (range_hl * 1.1 / 12)
+
+    s1 = close - (range_hl * 1.1 / 12)
+    s2 = close - (range_hl * 1.1 / 6)
+    s3 = close - (range_hl * 1.1 / 4)
+    s4 = close - (range_hl * 1.1 / 2)
+
+    return CamarillaPivotResult(
+        r1=round(r1, 2),
+        r2=round(r2, 2),
+        r3=round(r3, 2),
+        r4=round(r4, 2),
+        s1=round(s1, 2),
+        s2=round(s2, 2),
+        s3=round(s3, 2),
+        s4=round(s4, 2),
+    )
+
+
 def get_nearest_level(
     price: float,
     pivot_result: PivotResult | None = None,
