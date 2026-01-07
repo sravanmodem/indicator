@@ -472,31 +472,37 @@ class PaperTradingService:
     def check_daily_loss_limit(self) -> bool:
         """
         Check if daily loss limit or profit target has been reached.
+        Based on TOTAL P&L, not max drawdown.
 
         Returns:
             True if trading should be halted
         """
-        if self.daily_stats.is_trading_halted:
-            return True
+        # Calculate current P&L percentage
+        daily_pnl_percent = self.daily_stats.total_pnl / self.daily_stats.starting_capital
 
         # Check daily profit target (80% of capital)
         # ₹5L capital → Stop at ₹4L profit
         # ₹2.5L capital → Stop at ₹2L profit
-        profit_target = self.daily_stats.starting_capital * self.DAILY_PROFIT_TARGET_PERCENT
-        if self.daily_stats.total_pnl >= profit_target:
-            self.daily_stats.is_trading_halted = True
-            self.daily_stats.halt_reason = f"Daily profit target reached: ₹{self.daily_stats.total_pnl:,.0f} (Target: ₹{profit_target:,.0f})"
-            logger.info(self.daily_stats.halt_reason)
+        if daily_pnl_percent >= self.DAILY_PROFIT_TARGET_PERCENT:
+            if not self.daily_stats.is_trading_halted:
+                self.daily_stats.is_trading_halted = True
+                self.daily_stats.halt_reason = f"Daily profit target reached: {daily_pnl_percent*100:.1f}% (Target: {self.DAILY_PROFIT_TARGET_PERCENT*100}%)"
+                logger.info(self.daily_stats.halt_reason)
             return True
 
-        # Check daily loss limit
-        daily_loss_percent = abs(self.daily_stats.total_pnl) / self.daily_stats.starting_capital
-
-        if self.daily_stats.total_pnl < 0 and daily_loss_percent >= self.MAX_DAILY_LOSS_PERCENT:
-            self.daily_stats.is_trading_halted = True
-            self.daily_stats.halt_reason = f"Daily loss limit reached: {daily_loss_percent*100:.1f}% (Max: {self.MAX_DAILY_LOSS_PERCENT*100}%)"
-            logger.warning(self.daily_stats.halt_reason)
+        # Check daily loss limit based on TOTAL P&L (not drawdown)
+        if daily_pnl_percent <= -self.MAX_DAILY_LOSS_PERCENT:
+            if not self.daily_stats.is_trading_halted:
+                self.daily_stats.is_trading_halted = True
+                self.daily_stats.halt_reason = f"Daily loss limit reached: {abs(daily_pnl_percent)*100:.1f}% (Max: {self.MAX_DAILY_LOSS_PERCENT*100}%)"
+                logger.warning(self.daily_stats.halt_reason)
             return True
+
+        # If P&L is back within limits, allow trading again
+        if self.daily_stats.is_trading_halted:
+            logger.info(f"Trading resumed: P&L {daily_pnl_percent*100:.1f}% is within limits")
+            self.daily_stats.is_trading_halted = False
+            self.daily_stats.halt_reason = ""
 
         return False
 
