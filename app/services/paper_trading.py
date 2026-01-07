@@ -15,6 +15,7 @@ from loguru import logger
 
 from app.core.config import get_settings
 from app.services.signal_engine import TradingStyle, SignalType, get_signal_engine
+from app.services.ai_trader import get_ai_trader, AITradeDecision
 
 
 class OrderStatus(Enum):
@@ -624,6 +625,62 @@ class PaperTradingService:
 
         opt = signal.recommended_option
 
+        # AI-POWERED ENTRY ANALYSIS
+        ai_trader = get_ai_trader()
+        ai_decision = None
+        if ai_trader.is_configured:
+            try:
+                # Prepare data for AI analysis
+                signal_data = {
+                    "index": trading_index.index,
+                    "spot_price": signal.entry_price,
+                    "direction": signal.direction,
+                    "confidence": signal.confidence,
+                    "signal_type": signal.signal_type.value if signal.signal_type else "N/A",
+                }
+
+                indicators_data = [
+                    {
+                        "name": ind.name,
+                        "signal": ind.signal,
+                        "strength": ind.strength,
+                        "reason": ind.reason,
+                    }
+                    for ind in (signal.indicators or [])
+                ]
+
+                option_data = {
+                    "strike": opt.strike,
+                    "option_type": opt.option_type,
+                    "ltp": opt.ltp,
+                    "delta": opt.delta,
+                    "theta": opt.theta,
+                    "oi": opt.oi,
+                    "volume": opt.volume,
+                    "bid": opt.bid,
+                    "ask": opt.ask,
+                }
+
+                ai_decision = await ai_trader.analyze_entry(
+                    signal_data=signal_data,
+                    indicators=indicators_data,
+                    option_data=option_data,
+                )
+
+                logger.info(
+                    f"AI Entry Decision ({ai_decision.ai_provider}): "
+                    f"{ai_decision.action} ({ai_decision.confidence}%) - {ai_decision.reasoning[:100]}..."
+                )
+
+                # If AI says SKIP with high confidence, don't enter
+                if ai_decision.action == "SKIP" and ai_decision.confidence >= 60:
+                    logger.info(f"AI recommends SKIP ({ai_decision.confidence}%): {ai_decision.reasoning}")
+                    return None
+
+            except Exception as e:
+                logger.error(f"AI entry analysis failed: {e}")
+                # Continue without AI if it fails
+
         # Check if there's already an open position
         if self.has_open_position():
             # Check if signal matches existing position - update target if same direction
@@ -826,6 +883,50 @@ class PaperTradingService:
                                 logger.info(f"Exit signal triggered for {position.symbol}: {exit_reason}")
                     except Exception as e:
                         logger.error(f"Error checking exit signal: {e}")
+
+                # 3. AI-POWERED EXIT ANALYSIS
+                if not should_exit:
+                    try:
+                        ai_trader = get_ai_trader()
+                        if ai_trader.is_configured:
+                            position_data = {
+                                "symbol": position.symbol,
+                                "entry_price": position.entry_price,
+                                "current_price": position.current_price,
+                                "pnl": position.pnl,
+                                "pnl_percent": position.pnl_percent,
+                                "max_price": position.max_price,
+                                "stop_loss": position.stop_loss,
+                                "target": position.target,
+                            }
+
+                            signal_data = {
+                                "index": position.index,
+                                "spot_price": position.current_price,
+                                "direction": position.option_type,
+                                "confidence": 0,
+                                "signal_type": "POSITION_CHECK",
+                            }
+
+                            ai_exit = await ai_trader.analyze_exit(
+                                position_data=position_data,
+                                signal_data=signal_data,
+                                indicators=[],  # Will use position data
+                            )
+
+                            logger.info(
+                                f"AI Exit Check ({ai_exit.ai_provider}): "
+                                f"{ai_exit.action} ({ai_exit.confidence}%)"
+                            )
+
+                            # If AI says EXIT with high confidence, exit the position
+                            if ai_exit.action == "EXIT" and ai_exit.confidence >= 70:
+                                should_exit = True
+                                exit_reason = f"AI Exit ({ai_exit.ai_provider}): {ai_exit.reasoning[:50]}..."
+                                logger.info(f"AI recommends EXIT: {ai_exit.reasoning}")
+
+                    except Exception as e:
+                        logger.error(f"AI exit analysis failed: {e}")
 
                 if should_exit:
                     await self.close_position(position, exit_reason)

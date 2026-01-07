@@ -15,6 +15,7 @@ from app.services.data_fetcher import get_data_fetcher
 from app.services.websocket_manager import get_ws_manager
 from app.services.signal_engine import get_signal_engine, TradingStyle
 from app.services.signal_quality import get_quality_analyzer
+from app.services.ai_trader import get_ai_trader
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
 router = APIRouter(prefix="/htmx", tags=["HTMX Partials"])
@@ -1250,3 +1251,18 @@ async def sidebar_expiries_partial(request: Request):
                 },
             },
         )
+
+
+@router.get("/ai-status", response_class=HTMLResponse)
+async def ai_status_partial(request: Request):
+    """Render AI trading status partial."""
+    ai_trader = get_ai_trader()
+
+    return templates.TemplateResponse(
+        "partials/ai_status.html",
+        {
+            "request": request,
+            "ai_configured": ai_trader.is_configured,
+            "ai_provider": ai_trader.provider_name,
+        },
+    )

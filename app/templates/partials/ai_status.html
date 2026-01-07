@@ -1,0 +1,18 @@
+<!-- AI Trading Status Badge -->
+<div class="flex items-center space-x-2 px-3 py-1.5 rounded-lg {% if ai_configured %}bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30{% else %}bg-slate-800/50 border border-slate-700/50{% endif %}">
+    {% if ai_configured %}
+    <div class="flex items-center space-x-1.5">
+        <div class="relative">
+            <div class="w-2 h-2 rounded-full bg-purple-400"></div>
+            <div class="absolute inset-0 w-2 h-2 rounded-full bg-purple-400 animate-ping"></div>
+        </div>
+        <span class="text-xs font-semibold text-purple-300">AI</span>
+        <span class="text-[10px] text-slate-400">{{ ai_provider }}</span>
+    </div>
+    {% else %}
+    <div class="flex items-center space-x-1.5">
+        <div class="w-2 h-2 rounded-full bg-slate-500"></div>
+        <span class="text-xs font-medium text-slate-400">AI Off</span>
+    </div>
+    {% endif %}
+</div>

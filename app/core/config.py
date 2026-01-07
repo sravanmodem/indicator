@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     kite_api_key: str = Field(default="", description="Zerodha Kite API Key")
     kite_api_secret: str = Field(default="", description="Zerodha Kite API Secret")
 
+    # AI API Keys (Claude or OpenAI - use whichever is configured)
+    anthropic_api_key: str = Field(default="", description="Anthropic Claude API Key")
+    claude_model: str = Field(default="claude-sonnet-4-20250514", description="Claude model to use")
+    openai_api_key: str = Field(default="", description="OpenAI ChatGPT API Key")
+    openai_model: str = Field(default="gpt-4o", description="OpenAI model to use")
+
     # Application
     app_secret_key: str = Field(
         default="change-this-secret-key-in-production",
