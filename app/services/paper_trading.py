@@ -140,6 +140,7 @@ class DailyStats:
     daily_loss_percent: float
     is_trading_halted: bool = False
     halt_reason: str = ""
+    last_exit_time: datetime | None = None  # For cooldown period after exit
 
 
 @dataclass
@@ -607,6 +608,15 @@ class PaperTradingService:
             logger.warning("Trading halted due to daily loss limit")
             return None
 
+        # Check cooldown period (10 minutes after last exit)
+        COOLDOWN_MINUTES = 10
+        if self.daily_stats.last_exit_time:
+            time_since_exit = (datetime.now() - self.daily_stats.last_exit_time).total_seconds() / 60
+            if time_since_exit < COOLDOWN_MINUTES:
+                remaining = COOLDOWN_MINUTES - time_since_exit
+                logger.info(f"Cooldown active: {remaining:.1f} min remaining after last exit")
+                return None
+
         # Check signal direction
         if signal.direction not in ["CE", "PE"]:
             logger.info("No clear signal direction")
@@ -759,26 +769,29 @@ class PaperTradingService:
                 exit_reason = ""
 
                 # TRAILING STOP LOSS LOGIC
-                # Trail every 5 points - SL stays 5 below the highest price
-                # Example: Entry ₹50, price hits ₹56 → SL = ₹51 (max - 5)
-                #          Price hits ₹70 → SL = ₹65 (max - 5)
-                TRAIL_DISTANCE = 5  # Trail 5 points below high
+                # Activation: When price moves 5 points above entry, set SL 2 points below current
+                # Example: Entry ₹50, price hits ₹55 → SL = ₹53
+                # Then trail every 5 points: price ₹60 → SL ₹58, price ₹65 → SL ₹63
+                ACTIVATION_PROFIT = 5  # Activate trailing after 5 points profit
+                TRAIL_BUFFER = 2  # Keep SL 2 points below high
 
-                # Calculate new trailing SL based on max price reached
-                new_trailing_sl = position.max_price - TRAIL_DISTANCE
+                profit_from_entry = position.max_price - position.entry_price
 
-                # Only update SL if:
-                # 1. New trailing SL is higher than current SL (price moved up)
-                # 2. New trailing SL is above entry (we're in profit)
-                if new_trailing_sl > position.stop_loss and new_trailing_sl > position.entry_price:
-                    old_sl = position.stop_loss
-                    position.stop_loss = new_trailing_sl
-                    logger.info(
-                        f"Trailing SL updated: {position.symbol} | "
-                        f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
-                    )
+                # Only activate trailing SL after price moves 5 points above entry
+                if profit_from_entry >= ACTIVATION_PROFIT:
+                    # Calculate trailing SL: 2 points below max price
+                    new_trailing_sl = position.max_price - TRAIL_BUFFER
 
-                # Check if trailing stop loss is hit
+                    # Only update SL if new SL is higher than current SL
+                    if new_trailing_sl > position.stop_loss:
+                        old_sl = position.stop_loss
+                        position.stop_loss = new_trailing_sl
+                        logger.info(
+                            f"Trailing SL updated: {position.symbol} | "
+                            f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
+                        )
+
+                # Check if stop loss is hit
                 if current_premium <= position.stop_loss and position.stop_loss > 0:
                     should_exit = True
                     if position.stop_loss > position.entry_price:
@@ -959,11 +972,14 @@ class PaperTradingService:
         # Update daily stats
         self.daily_stats.realized_pnl += position.pnl
         self.daily_stats.current_capital += position.quantity * position.exit_price
+        self.daily_stats.last_exit_time = now  # Set cooldown timer
 
         if position.pnl > 0:
             self.daily_stats.winning_trades += 1
         else:
             self.daily_stats.losing_trades += 1
+
+        logger.info(f"Position closed. Cooldown started - next order allowed after 10 minutes")
 
         # Add order
         self.orders.append(order)
