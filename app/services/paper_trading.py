@@ -5,7 +5,7 @@ Automatic trading based on signals with capital management
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, time
 from enum import Enum
 from typing import Any
 import json
@@ -171,6 +171,9 @@ class PaperTradingService:
     MAX_CAPITAL_USE = 1.0  # 100%
     MAX_DAILY_LOSS_PERCENT = 0.20  # 20%
     MAX_LOTS_PER_ORDER = 25
+
+    # Daily profit target - 80% of capital (₹4L for ₹5L, ₹2L for ₹2.5L)
+    DAILY_PROFIT_TARGET_PERCENT = 0.80  # 80% of starting capital
 
     # Lot sizes
     LOT_SIZES = {
@@ -468,7 +471,7 @@ class PaperTradingService:
 
     def check_daily_loss_limit(self) -> bool:
         """
-        Check if daily loss limit has been reached.
+        Check if daily loss limit or profit target has been reached.
 
         Returns:
             True if trading should be halted
@@ -476,6 +479,17 @@ class PaperTradingService:
         if self.daily_stats.is_trading_halted:
             return True
 
+        # Check daily profit target (80% of capital)
+        # ₹5L capital → Stop at ₹4L profit
+        # ₹2.5L capital → Stop at ₹2L profit
+        profit_target = self.daily_stats.starting_capital * self.DAILY_PROFIT_TARGET_PERCENT
+        if self.daily_stats.total_pnl >= profit_target:
+            self.daily_stats.is_trading_halted = True
+            self.daily_stats.halt_reason = f"Daily profit target reached: ₹{self.daily_stats.total_pnl:,.0f} (Target: ₹{profit_target:,.0f})"
+            logger.info(self.daily_stats.halt_reason)
+            return True
+
+        # Check daily loss limit
         daily_loss_percent = abs(self.daily_stats.total_pnl) / self.daily_stats.starting_capital
 
         if self.daily_stats.total_pnl < 0 and daily_loss_percent >= self.MAX_DAILY_LOSS_PERCENT:
@@ -769,39 +783,44 @@ class PaperTradingService:
                 exit_reason = ""
 
                 # TRAILING STOP LOSS LOGIC
+                # Only active between 9:30 AM - 10:00 AM
                 # Phase 1: Entry ₹50 → Price ₹53 (+3pts) → SL at ₹52 (1pt buffer)
                 # Phase 2: Price ₹60 (+10pts) → SL at ₹55 (5pt buffer, lock 5pt profit)
                 # Phase 3: Trail every 5pts: Price ₹65 → SL ₹60, Price ₹70 → SL ₹65
+                # After 10:00 AM: Only 10% SL, no trailing
 
-                PHASE1_ACTIVATION = 3   # Activate after 3 points profit
-                PHASE1_BUFFER = 1       # Keep SL 1 point below current
-                PHASE2_ACTIVATION = 10  # At 10 points profit, set SL at +5
-                TRAIL_INTERVAL = 5      # Trail every 5 points after phase 2
+                current_time = datetime.now().time()
+                trailing_start = time(9, 30)
+                trailing_end = time(10, 0)
+                is_trailing_window = trailing_start <= current_time <= trailing_end
 
-                profit_from_entry = position.max_price - position.entry_price
-                new_trailing_sl = position.stop_loss  # Default: keep current SL
+                if is_trailing_window:
+                    # Trailing SL active during 9:30-10:00 AM
+                    PHASE1_ACTIVATION = 3   # Activate after 3 points profit
+                    PHASE1_BUFFER = 1       # Keep SL 1 point below current
+                    PHASE2_ACTIVATION = 10  # At 10 points profit, set SL at +5
+                    TRAIL_INTERVAL = 5      # Trail every 5 points after phase 2
 
-                if profit_from_entry >= PHASE2_ACTIVATION:
-                    # Phase 2+: At 10+ points profit, SL = entry + floor((profit-5)/5)*5
-                    # Entry 50, Max 60 → SL 55 (lock 5 profit)
-                    # Entry 50, Max 65 → SL 60 (lock 10 profit)
-                    # Entry 50, Max 70 → SL 65 (lock 15 profit)
-                    locked_profit = ((profit_from_entry - 5) // TRAIL_INTERVAL) * TRAIL_INTERVAL
-                    new_trailing_sl = position.entry_price + locked_profit
-                elif profit_from_entry >= PHASE1_ACTIVATION:
-                    # Phase 1: 3-9 points profit → SL 1 point below max
-                    # Entry 50, Max 53 → SL 52
-                    # Entry 50, Max 58 → SL 57
-                    new_trailing_sl = position.max_price - PHASE1_BUFFER
+                    profit_from_entry = position.max_price - position.entry_price
+                    new_trailing_sl = position.stop_loss  # Default: keep current SL
 
-                # Only update SL if new SL is higher than current SL
-                if new_trailing_sl > position.stop_loss:
-                    old_sl = position.stop_loss
-                    position.stop_loss = new_trailing_sl
-                    logger.info(
-                        f"Trailing SL updated: {position.symbol} | "
-                        f"Max: ₹{position.max_price:.1f} → SL: ₹{old_sl:.1f} → ₹{new_trailing_sl:.1f}"
-                    )
+                    if profit_from_entry >= PHASE2_ACTIVATION:
+                        # Phase 2+: At 10+ points profit, SL = entry + floor((profit-5)/5)*5
+                        locked_profit = ((profit_from_entry - 5) // TRAIL_INTERVAL) * TRAIL_INTERVAL
+                        new_trailing_sl = position.entry_price + locked_profit
+                    elif profit_from_entry >= PHASE1_ACTIVATION:
+                        # Phase 1: 3-9 points profit → SL 1 point below max
+                        new_trailing_sl = position.max_price - PHASE1_BUFFER
+
+                    # Only update SL if new SL is higher than current SL
+                    if new_trailing_sl > position.stop_loss:
+                        old_sl = position.stop_loss
+                        position.stop_loss = new_trailing_sl
+                        logger.info(
+                            f"Trailing SL updated (9:30-10AM): {position.symbol} | "
+                            f"Max: ₹{position.max_price:.1f} -> SL: ₹{old_sl:.1f} -> ₹{new_trailing_sl:.1f}"
+                        )
+                # After 10:00 AM - only 10% SL applies (set at entry, no trailing)
 
                 # Check if stop loss is hit
                 if current_premium <= position.stop_loss and position.stop_loss > 0:
