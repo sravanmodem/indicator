@@ -408,11 +408,8 @@ class DataFetcher:
         Returns:
             DataFrame with OHLCV data
         """
-        # Check API time restriction
-        allowed, reason = is_api_allowed()
-        if not allowed:
-            logger.info(f"API blocked (historical_data): {reason}")
-            return pd.DataFrame()
+        # Allow historical data fetches anytime (including after market hours)
+        # Historical data is past data and doesn't affect live trading
 
         try:
             to_date = to_date or datetime.now()
