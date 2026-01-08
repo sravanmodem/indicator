@@ -29,6 +29,10 @@ _signal_cache: Dict[str, Dict[str, Any]] = {}
 # Key: "{index}" (e.g., "NIFTY"), Value: {"indicators": dict, "price": float, "timestamp": datetime}
 _indicator_cache: Dict[str, Dict[str, Any]] = {}
 
+# Cache for market header cards (OHLC data)
+# Stores last known OHLC and quote data for indices
+_market_data_cache: Dict[str, Dict[str, Any]] = {}
+
 
 def require_auth():
     """Check if user is authenticated."""
@@ -382,12 +386,7 @@ async def market_header_cards_partial(request: Request):
     try:
         require_auth()
         fetcher = get_data_fetcher()
-
-        # Fetch OHLC data for all indices
-        ohlc_data = await fetcher.fetch_ohlc(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
-
-        # Also fetch quotes for change percentage
-        quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+        api_allowed, reason = is_api_allowed()
 
         def build_index_data(ohlc: dict, quote: dict) -> dict:
             """Merge OHLC and quote data, calculate percentage change."""
@@ -401,18 +400,41 @@ async def market_header_cards_partial(request: Request):
                 merged["change"] = 0
             return merged
 
-        nifty = build_index_data(
-            ohlc_data.get("NSE:NIFTY 50", {}),
-            quotes.get("NSE:NIFTY 50", {})
-        )
-        banknifty = build_index_data(
-            ohlc_data.get("NSE:NIFTY BANK", {}),
-            quotes.get("NSE:NIFTY BANK", {})
-        )
-        sensex = build_index_data(
-            ohlc_data.get("BSE:SENSEX", {}),
-            quotes.get("BSE:SENSEX", {})
-        )
+        if api_allowed:
+            # Market hours - fetch live data and cache it
+            ohlc_data = await fetcher.fetch_ohlc(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+            quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+
+            nifty = build_index_data(
+                ohlc_data.get("NSE:NIFTY 50", {}),
+                quotes.get("NSE:NIFTY 50", {})
+            )
+            banknifty = build_index_data(
+                ohlc_data.get("NSE:NIFTY BANK", {}),
+                quotes.get("NSE:NIFTY BANK", {})
+            )
+            sensex = build_index_data(
+                ohlc_data.get("BSE:SENSEX", {}),
+                quotes.get("BSE:SENSEX", {})
+            )
+
+            # Cache the data for after-hours display
+            _market_data_cache["nifty"] = nifty
+            _market_data_cache["banknifty"] = banknifty
+            _market_data_cache["sensex"] = sensex
+            _market_data_cache["timestamp"] = datetime.now()
+
+            logger.info("Market data cached for after-hours display")
+        else:
+            # Market closed - use cached data
+            nifty = _market_data_cache.get("nifty", {})
+            banknifty = _market_data_cache.get("banknifty", {})
+            sensex = _market_data_cache.get("sensex", {})
+
+            if nifty or banknifty or sensex:
+                logger.info(f"Showing cached market data: {reason}")
+            else:
+                logger.warning(f"No cached market data available: {reason}")
 
         return templates.TemplateResponse(
             "partials/market_header_cards.html",
@@ -421,6 +443,7 @@ async def market_header_cards_partial(request: Request):
                 "nifty": nifty,
                 "banknifty": banknifty,
                 "sensex": sensex,
+                "cached": not api_allowed,
             },
         )
 
