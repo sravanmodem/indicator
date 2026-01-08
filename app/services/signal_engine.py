@@ -170,6 +170,22 @@ class SignalEngine:
             logger.warning("Insufficient data for analysis")
             return None
 
+        # ========================================
+        # SIGNAL GENERATION TIME RESTRICTION
+        # Only generate signals between 9:30 AM and 2:00 PM
+        # ========================================
+        now = datetime.now()
+        signal_start_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
+        signal_end_time = now.replace(hour=14, minute=0, second=0, microsecond=0)
+
+        if now < signal_start_time:
+            logger.info(f"Signal generation blocked: Before 9:30 AM (current: {now.strftime('%H:%M')})")
+            return None
+
+        if now >= signal_end_time:
+            logger.info(f"Signal generation blocked: After 2:00 PM (current: {now.strftime('%H:%M')})")
+            return None
+
         indicators: list[IndicatorSignal] = []
         supporting = []
         warnings = []
@@ -487,45 +503,88 @@ class SignalEngine:
                 trading_style=self.trading_style,
             )
 
-        # Calculate PREMIUM-BASED targets using Delta
-        # Entry = Option LTP, Target/SL = % of premium based on Delta
+        # Calculate PREMIUM-BASED targets using DYNAMIC Stop Loss
+        # SL is calculated based on market conditions and signal strength
         if recommended_option and recommended_option.ltp:
             entry_premium = recommended_option.ltp
             delta = abs(recommended_option.delta or 0.5)  # Default to 0.5 if no delta
 
-            # Determine target/SL percentages based on Delta level
-            if delta >= 0.6:
-                # High Delta (0.6-0.9): 40% profit, 20% SL
-                target_pct = PREMIUM_TARGETS["high_delta"]["target"]
-                sl_pct = PREMIUM_TARGETS["high_delta"]["sl"]
-            elif delta >= 0.4:
-                # Medium Delta (0.4-0.6): 50% profit, 25% SL
-                target_pct = PREMIUM_TARGETS["medium_delta"]["target"]
-                sl_pct = PREMIUM_TARGETS["medium_delta"]["sl"]
+            # ========================================
+            # DYNAMIC STOP LOSS CALCULATION
+            # Based on: ATR (volatility), Confidence, Delta, ADX (trend)
+            # ========================================
+
+            # Base SL percentage (starting point)
+            base_sl_pct = 0.15  # 15% base
+
+            # 1. ATR Factor: Higher volatility = wider SL
+            # ATR as % of entry premium
+            atr_pct = (atr_value / entry_premium) if entry_premium > 0 else 0.02
+            # Scale: 0-5% ATR = tight SL, 5-10% = moderate, 10%+ = wide
+            if atr_pct < 0.05:
+                atr_factor = 0.8  # Low volatility - tighter SL
+            elif atr_pct < 0.10:
+                atr_factor = 1.0  # Normal volatility
             else:
-                # Low Delta (0.2-0.4): 60% profit, 30% SL
-                target_pct = PREMIUM_TARGETS["low_delta"]["target"]
-                sl_pct = PREMIUM_TARGETS["low_delta"]["sl"]
+                atr_factor = 1.3  # High volatility - wider SL
+
+            # 2. Confidence Factor: Higher confidence = tighter SL
+            # 80%+ confidence = tight, 60-80% = normal, <60% = wide
+            if confidence >= 80:
+                confidence_factor = 0.8  # High confidence - tighter SL
+            elif confidence >= 60:
+                confidence_factor = 1.0  # Normal confidence
+            else:
+                confidence_factor = 1.2  # Low confidence - wider SL
+
+            # 3. Delta Factor: Higher delta = tighter SL (more directional)
+            # Delta 0.6+ = tight, 0.4-0.6 = normal, <0.4 = wide
+            if delta >= 0.6:
+                delta_factor = 0.85  # High delta - tighter SL
+            elif delta >= 0.4:
+                delta_factor = 1.0  # Normal delta
+            else:
+                delta_factor = 1.15  # Low delta - wider SL
+
+            # 4. ADX Factor: Strong trend = tighter SL (trend continuation)
+            adx_val = indicators.get("adx", {}).get("adx", 20)
+            if adx_val >= 30:
+                adx_factor = 0.85  # Strong trend - tighter SL
+            elif adx_val >= 20:
+                adx_factor = 1.0  # Normal trend
+            else:
+                adx_factor = 1.2  # Weak trend - wider SL
+
+            # Calculate final dynamic SL percentage
+            sl_pct = base_sl_pct * atr_factor * confidence_factor * delta_factor * adx_factor
+
+            # Clamp SL between 8% (minimum) and 30% (maximum)
+            sl_pct = max(0.08, min(0.30, sl_pct))
+
+            # Target: Let profits run (100% target as ceiling, but no forced exit)
+            target_pct = PREMIUM_TARGETS["high_delta"]["target"]  # 100%
 
             # Calculate premium-based levels
-            # Target = Entry × (1 + target_pct), e.g., ₹50 × 1.50 = ₹75
-            # SL = Entry × (1 - sl_pct), e.g., ₹50 × 0.75 = ₹37.50
+            # Target = Entry × (1 + target_pct), e.g., ₹50 × 2.00 = ₹100
+            # SL = Entry × (1 - sl_pct), e.g., ₹50 × 0.85 = ₹42.50 (15% SL)
             target_1 = entry_premium * (1 + target_pct)
             target_2 = entry_premium * (1 + target_pct * 1.5)  # 1.5x the target %
             stop_loss = entry_premium * (1 - sl_pct)
 
             # Risk/Reward based on premium
-            risk = entry_premium - stop_loss  # e.g., ₹50 - ₹37.50 = ₹12.50
-            reward = target_1 - entry_premium  # e.g., ₹75 - ₹50 = ₹25
+            risk = entry_premium - stop_loss  # e.g., ₹50 - ₹42.50 = ₹7.50
+            reward = target_1 - entry_premium  # e.g., ₹100 - ₹50 = ₹50
             risk_reward = reward / risk if risk > 0 else 0
 
             # Use premium as entry price (not spot price)
             entry_price = entry_premium
 
             logger.info(
-                f"Premium-based targets: Entry=₹{entry_premium:.1f}, "
-                f"Delta={delta:.2f}, Target%={target_pct*100:.0f}%, SL%={sl_pct*100:.0f}% | "
-                f"TGT=₹{target_1:.1f}, SL=₹{stop_loss:.1f}, R:R=1:{risk_reward:.1f}"
+                f"DYNAMIC SL: Entry=₹{entry_premium:.1f}, Delta={delta:.2f}, "
+                f"ATR%={atr_pct*100:.1f}%, Conf={confidence:.0f}%, ADX={adx_val:.0f} | "
+                f"Factors: ATR={atr_factor:.2f}, Conf={confidence_factor:.2f}, "
+                f"Delta={delta_factor:.2f}, ADX={adx_factor:.2f} | "
+                f"Final SL%={sl_pct*100:.1f}% -> SL=₹{stop_loss:.1f}, R:R=1:{risk_reward:.1f}"
             )
         else:
             # Fallback to ATR-based spot levels if no option found

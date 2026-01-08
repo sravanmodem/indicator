@@ -4,7 +4,7 @@ Retrieves OHLCV data and option chain from Zerodha
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, date
 from typing import Any
 
 import pandas as pd
@@ -19,6 +19,64 @@ from app.core.config import (
     get_settings,
 )
 from app.services.zerodha_auth import get_auth_service
+
+
+# ========================================
+# API CALL TIME RESTRICTIONS
+# No Kite API calls before 9:14 AM or after 3:30 PM
+# ========================================
+API_START_TIME = time(9, 14)   # 9:14 AM - 1 min before market open
+API_END_TIME = time(15, 30)    # 3:30 PM - market close
+
+# Known market holidays for 2024-2026 (NSE)
+INDIAN_MARKET_HOLIDAYS = {
+    date(2024, 1, 26), date(2024, 3, 8), date(2024, 3, 25), date(2024, 3, 29),
+    date(2024, 4, 11), date(2024, 4, 14), date(2024, 4, 17), date(2024, 4, 21),
+    date(2024, 5, 1), date(2024, 5, 23), date(2024, 6, 17), date(2024, 7, 17),
+    date(2024, 8, 15), date(2024, 9, 16), date(2024, 10, 2), date(2024, 10, 12),
+    date(2024, 11, 1), date(2024, 11, 15), date(2024, 12, 25),
+    date(2025, 1, 26), date(2025, 2, 26), date(2025, 3, 14), date(2025, 3, 31),
+    date(2025, 4, 10), date(2025, 4, 14), date(2025, 4, 18), date(2025, 5, 1),
+    date(2025, 8, 15), date(2025, 8, 27), date(2025, 10, 2), date(2025, 10, 21),
+    date(2025, 11, 5), date(2025, 12, 25),
+    date(2026, 1, 26), date(2026, 2, 17), date(2026, 3, 3), date(2026, 3, 20),
+    date(2026, 4, 3), date(2026, 4, 14), date(2026, 5, 1), date(2026, 5, 12),
+    date(2026, 6, 5), date(2026, 7, 6), date(2026, 8, 15), date(2026, 8, 17),
+    date(2026, 9, 4), date(2026, 10, 2), date(2026, 10, 20), date(2026, 11, 9),
+    date(2026, 11, 24), date(2026, 12, 25),
+}
+
+
+def is_api_allowed() -> tuple[bool, str]:
+    """
+    Check if API calls are allowed based on time restrictions.
+
+    Returns:
+        (is_allowed, reason)
+    """
+    now = datetime.now()
+    current_time = now.time()
+    current_date = now.date()
+    weekday = now.weekday()  # 0=Monday, 6=Sunday
+
+    # Weekend check (Saturday=5, Sunday=6)
+    if weekday >= 5:
+        day_name = "Saturday" if weekday == 5 else "Sunday"
+        return False, f"Weekend: {day_name} - Market closed"
+
+    # Holiday check
+    if current_date in INDIAN_MARKET_HOLIDAYS:
+        return False, f"Holiday: {current_date.strftime('%d %b %Y')}"
+
+    # Before market hours
+    if current_time < API_START_TIME:
+        return False, f"Pre-market: API calls start at {API_START_TIME.strftime('%I:%M %p')}"
+
+    # After market hours
+    if current_time > API_END_TIME:
+        return False, f"Post-market: API calls end at {API_END_TIME.strftime('%I:%M %p')}"
+
+    return True, "OK"
 
 
 class DataFetcher:
@@ -60,6 +118,12 @@ class DataFetcher:
             and (now - self._instruments_last_updated).seconds < 3600
         ):
             return self._instruments_cache[cache_key]
+
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked: {reason}")
+            return self._instruments_cache.get(cache_key, pd.DataFrame())
 
         try:
             instruments = await asyncio.to_thread(self.kite.instruments, exchange)
@@ -341,6 +405,12 @@ class DataFetcher:
         Returns:
             DataFrame with OHLCV data
         """
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked (historical_data): {reason}")
+            return pd.DataFrame()
+
         try:
             to_date = to_date or datetime.now()
             from_date = from_date or (to_date - timedelta(days=days))
@@ -388,6 +458,12 @@ class DataFetcher:
         Returns:
             Quote data dictionary
         """
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked (quote): {reason}")
+            return {}
+
         try:
             return await asyncio.to_thread(self.kite.quote, instruments)
         except Exception as e:
@@ -396,6 +472,12 @@ class DataFetcher:
 
     async def fetch_ohlc(self, instruments: list[str]) -> dict[str, Any]:
         """Fetch OHLC for instruments."""
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked (ohlc): {reason}")
+            return {}
+
         try:
             return await asyncio.to_thread(self.kite.ohlc, instruments)
         except Exception as e:
@@ -404,6 +486,12 @@ class DataFetcher:
 
     async def fetch_ltp(self, instruments: list[str]) -> dict[str, Any]:
         """Fetch Last Traded Price."""
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked (ltp): {reason}")
+            return {}
+
         try:
             return await asyncio.to_thread(self.kite.ltp, instruments)
         except Exception as e:
@@ -437,6 +525,12 @@ class DataFetcher:
         ):
             logger.debug(f"Using cached option chain for {index}")
             return self._option_chain_cache[cache_key]
+
+        # Check API time restriction
+        allowed, reason = is_api_allowed()
+        if not allowed:
+            logger.info(f"API blocked (option_chain): {reason}")
+            return self._option_chain_cache.get(cache_key, {"error": reason})
 
         try:
             # Get current spot price

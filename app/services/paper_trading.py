@@ -645,147 +645,11 @@ class PaperTradingService:
                 logger.warning("TRADE BLOCKED: Position already open with different direction. Skipping new order.")
             return None
 
-        logger.info("All pre-checks passed. Proceeding to AI analysis...")
+        logger.info("All pre-checks passed. Executing trade directly (NO AI)...")
 
-        # AI Entry Decision - Send signal to Claude for BUY/SKIP decision
-        try:
-            from app.services.ai_trading_service import get_ai_trading_service, SignalContext
-            from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
-
-            ai_service = get_ai_trading_service()
-
-            if ai_service.is_enabled:
-                # Build context for AI entry analysis
-                tokens = {
-                    "NIFTY": NIFTY_INDEX_TOKEN,
-                    "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
-                    "SENSEX": SENSEX_INDEX_TOKEN,
-                }
-                token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
-
-                # Fetch 15 minutes of 1-min OHLCV data (short-term momentum)
-                df_1min = await self.data_fetcher.fetch_historical_data(
-                    instrument_token=token,
-                    timeframe="minute",
-                    days=1,
-                )
-                ohlcv_1min = []
-                if not df_1min.empty:
-                    for idx, row in df_1min.tail(15).iterrows():
-                        ohlcv_1min.append({
-                            "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
-                            "open": float(row.get("open", 0)),
-                            "high": float(row.get("high", 0)),
-                            "low": float(row.get("low", 0)),
-                            "close": float(row.get("close", 0)),
-                            "volume": int(row.get("volume", 0)),
-                        })
-
-                # Fetch 1 hour of 10-min OHLCV data (longer-term trend)
-                df_10min = await self.data_fetcher.fetch_historical_data(
-                    instrument_token=token,
-                    timeframe="10minute",
-                    days=1,
-                )
-                ohlcv_10min = []
-                if not df_10min.empty:
-                    for idx, row in df_10min.tail(6).iterrows():
-                        ohlcv_10min.append({
-                            "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
-                            "open": float(row.get("open", 0)),
-                            "high": float(row.get("high", 0)),
-                            "low": float(row.get("low", 0)),
-                            "close": float(row.get("close", 0)),
-                            "volume": int(row.get("volume", 0)),
-                        })
-
-                # Legacy field for compatibility
-                ohlcv_15min = ohlcv_1min
-
-                # Extract indicator data from signal
-                indicators_data = {}
-                for ind in signal.indicators:
-                    if ind.name.lower() == "supertrend":
-                        indicators_data["supertrend"] = {"direction": 1 if ind.signal == "ce" else -1, "value": ind.value if isinstance(ind.value, (int, float)) else 0}
-                    elif ind.name.lower() == "rsi":
-                        indicators_data["rsi"] = ind.value if isinstance(ind.value, (int, float)) else 50
-                    elif ind.name.lower() == "macd":
-                        indicators_data["macd"] = ind.value if isinstance(ind.value, dict) else {}
-                    elif ind.name.lower() == "ema":
-                        indicators_data["ema"] = ind.value if isinstance(ind.value, dict) else {}
-                    elif ind.name.lower() == "adx":
-                        indicators_data["adx"] = {"adx": ind.value} if isinstance(ind.value, (int, float)) else ind.value if isinstance(ind.value, dict) else {}
-                    elif ind.name.lower() == "vwap":
-                        indicators_data["vwap"] = ind.value if isinstance(ind.value, (int, float)) else 0
-                    elif ind.name.lower() == "bollinger" or ind.name.lower() == "bollinger bands":
-                        indicators_data["bollinger"] = ind.value if isinstance(ind.value, dict) else {}
-                    elif ind.name.lower() == "stochastic":
-                        indicators_data["stochastic"] = ind.value if isinstance(ind.value, dict) else {}
-                    elif ind.name.lower() == "atr":
-                        indicators_data["atr"] = ind.value if isinstance(ind.value, (int, float)) else 0
-
-                # Get Greeks from recommended option
-                delta = opt.delta if hasattr(opt, 'delta') and opt.delta else 0.5
-                gamma = opt.gamma if hasattr(opt, 'gamma') and opt.gamma else 0
-                theta = opt.theta if hasattr(opt, 'theta') and opt.theta else 0
-                vega = opt.vega if hasattr(opt, 'vega') and opt.vega else 0
-
-                # Get additional indicator data
-                bollinger = indicators_data.get("bollinger", {})
-                stochastic = indicators_data.get("stochastic", {})
-                atr = indicators_data.get("atr", 0)
-                iv = opt.iv if hasattr(opt, 'iv') and opt.iv else 0
-
-                # Build AI context with both timeframes
-                ai_context = SignalContext(
-                    signal_type=signal.direction,
-                    confidence=signal.confidence,
-                    entry_price=opt.ltp,
-                    stop_loss=signal.stop_loss,
-                    target=signal.target_1,
-                    index=trading_index.index,
-                    ohlcv_1min=ohlcv_1min,  # 15 minutes of 1-min data
-                    ohlcv_10min=ohlcv_10min,  # 1 hour of 10-min data
-                    ohlcv_data=ohlcv_15min,  # Legacy field
-                    supertrend=indicators_data.get("supertrend", {"direction": 1}),
-                    rsi=indicators_data.get("rsi", 50),
-                    macd=indicators_data.get("macd", {}),
-                    ema=indicators_data.get("ema", {}),
-                    adx=indicators_data.get("adx", {}),
-                    vwap=indicators_data.get("vwap", 0),
-                    bollinger=bollinger,
-                    stochastic=stochastic,
-                    atr=atr,
-                    delta=delta,
-                    gamma=gamma,
-                    theta=theta,
-                    vega=vega,
-                    iv=iv,
-                    hours_to_expiry=trading_index.days_to_expiry * 24,
-                    is_expiry_day=trading_index.is_expiry_day,
-                    atm_premium=opt.ltp,
-                )
-
-                # Get AI decision
-                ai_decision = await ai_service.analyze_entry_signal(ai_context)
-
-                logger.info(f"AI Decision: {ai_decision.action} | Confidence: {ai_decision.confidence:.0f}%")
-                if ai_decision.action == "SKIP":
-                    logger.warning(f"TRADE BLOCKED by AI: {ai_decision.reasoning}")
-                    return None
-
-                # AI approved - check if it adjusted targets
-                if ai_decision.adjusted_target:
-                    signal.target_1 = ai_decision.adjusted_target
-                    logger.info(f"AI adjusted target to: {ai_decision.adjusted_target}")
-                if ai_decision.adjusted_stop_loss:
-                    signal.stop_loss = ai_decision.adjusted_stop_loss
-                    logger.info(f"AI adjusted SL to: {ai_decision.adjusted_stop_loss}")
-
-                logger.info(f"AI APPROVED entry: {ai_decision.reasoning} (Confidence: {ai_decision.confidence:.0f}%)")
-
-        except Exception as ai_err:
-            logger.warning(f"AI entry analysis failed, proceeding with signal: {ai_err}")
+        # NO AI - Execute trade directly based on signal
+        # SL and Target are FIXED from signal generation - never modified
+        logger.info(f"Signal SL: {signal.stop_loss:.2f} | Target: {signal.target_1:.2f} (LOCKED - no changes)")
 
         # Calculate order size
         lots, quantity, split_orders = self.calculate_order_size(
@@ -905,143 +769,51 @@ class PaperTradingService:
                 should_exit = False
                 exit_reason = ""
 
-                # FIXED STOP LOSS / TARGET (No Trailing - AI decides exit)
-                # SL and Target are LOCKED at signal generation
-                # Exit is controlled by AI analysis, not automatic triggers
+                # ========================================
+                # FIXED SL/TARGET EXIT LOGIC (NO AI)
+                # SL and Target are LOCKED from signal - never modified
+                # ========================================
 
-                # Hard stop: -15% safety limit (immediate exit regardless of AI)
-                hard_stop_percent = -15.0
-                if position.pnl_percent <= hard_stop_percent:
+                # Exit conditions (checked in priority order):
+
+                # 1. FIXED STOP LOSS - Exit if price hits SL
+                if position.stop_loss > 0 and current_premium <= position.stop_loss:
                     should_exit = True
-                    exit_reason = f"Hard Stop Hit: {position.pnl_percent:.1f}% loss (Safety Limit: {hard_stop_percent}%)"
+                    exit_reason = f"STOP LOSS HIT: Rs.{current_premium:.2f} <= SL Rs.{position.stop_loss:.2f} | P&L: {position.pnl_percent:+.1f}%"
+                    logger.warning(f"SL triggered for {position.symbol}: {exit_reason}")
+
+                # 2. 100% PROFIT - Exit immediately at 100% gain
+                if not should_exit and position.pnl_percent >= 100:
+                    should_exit = True
+                    exit_reason = f"MAX PROFIT TARGET: +{position.pnl_percent:.0f}% (100% reached)"
+                    logger.info(f"100% profit exit for {position.symbol}")
+
+                # 3. TRAILING PROFIT LOCK at 20%
+                # When profit reached 20%, lock that as trailing stop
+                if not should_exit and position.entry_price > 0:
+                    max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
+                    PROFIT_LOCK_THRESHOLD = 0.20  # 20%
+
+                    if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
+                        # Price reached 20%+ profit at some point
+                        profit_lock_price = position.entry_price * (1 + PROFIT_LOCK_THRESHOLD)
+                        if current_premium <= profit_lock_price:
+                            should_exit = True
+                            exit_reason = f"TRAILING PROFIT LOCK: Max +{max_profit_pct*100:.0f}% -> Locked +20% | Current: {position.pnl_percent:+.1f}%"
+                            logger.info(f"Trailing profit lock exit for {position.symbol}: {exit_reason}")
+
+                # 4. Hard stop: -15% safety limit
+                if not should_exit and position.pnl_percent <= -15.0:
+                    should_exit = True
+                    exit_reason = f"HARD STOP: {position.pnl_percent:.1f}% loss (Safety Limit: -15%)"
                     logger.warning(f"HARD STOP triggered for {position.symbol}: {exit_reason}")
 
-                # Market close force exit: 3:15 PM
+                # 5. Market close force exit: 3:20 PM
                 now = datetime.now()
-                if now.hour == 15 and now.minute >= 15:
+                if not should_exit and now.hour == 15 and now.minute >= 20:
                     should_exit = True
-                    exit_reason = f"Market Close Exit @ {now.strftime('%H:%M')} | P&L: {position.pnl_percent:+.1f}%"
+                    exit_reason = f"MARKET CLOSE EXIT @ {now.strftime('%H:%M')} | P&L: {position.pnl_percent:+.1f}%"
                     logger.info(f"Market close exit for {position.symbol}")
-
-                # AI-based exit decision (if not hard stopped)
-                if not should_exit:
-                    try:
-                        from app.services.ai_trading_service import get_ai_trading_service, SignalContext
-                        from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
-
-                        tokens = {
-                            "NIFTY": NIFTY_INDEX_TOKEN,
-                            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
-                            "SENSEX": SENSEX_INDEX_TOKEN,
-                        }
-                        token = tokens.get(position.index, NIFTY_INDEX_TOKEN)
-
-                        # Fetch 15 minutes of 1-min OHLCV data for AI analysis
-                        df_1min = await self.data_fetcher.fetch_historical_data(
-                            instrument_token=token,
-                            timeframe="1minute",
-                            days=1,
-                        )
-                        ohlcv_15min = df_1min.tail(15).to_dict('records') if not df_1min.empty else []
-
-                        # Fetch 5-min data for indicator calculation
-                        df_5min = await self.data_fetcher.fetch_historical_data(
-                            instrument_token=token,
-                            timeframe="5minute",
-                            days=3,
-                        )
-
-                        # Get current indicators
-                        indicators_data = {}
-                        if not df_5min.empty:
-                            engine = get_signal_engine(TradingStyle.INTRADAY)
-                            # Calculate indicators from the signal engine
-                            try:
-                                from app.indicators.trend import calculate_supertrend, calculate_ema
-                                from app.indicators.momentum import calculate_rsi, calculate_macd
-                                from app.indicators.volatility import calculate_adx
-
-                                st = calculate_supertrend(df_5min)
-                                ema9 = calculate_ema(df_5min, 9)
-                                ema21 = calculate_ema(df_5min, 21)
-                                ema50 = calculate_ema(df_5min, 50)
-                                rsi = calculate_rsi(df_5min)
-                                macd_data = calculate_macd(df_5min)
-                                adx = calculate_adx(df_5min)
-
-                                indicators_data = {
-                                    "supertrend": {"direction": int(st["direction"].iloc[-1]) if "direction" in st.columns else 1, "value": float(st["supertrend"].iloc[-1]) if "supertrend" in st.columns else 0},
-                                    "rsi": float(rsi.iloc[-1]) if not rsi.empty else 50,
-                                    "macd": {"macd": float(macd_data["macd"].iloc[-1]) if "macd" in macd_data.columns else 0, "signal": float(macd_data["signal"].iloc[-1]) if "signal" in macd_data.columns else 0, "histogram": float(macd_data["histogram"].iloc[-1]) if "histogram" in macd_data.columns else 0},
-                                    "ema": {"fast": float(ema9.iloc[-1]) if not ema9.empty else 0, "slow": float(ema21.iloc[-1]) if not ema21.empty else 0, "trend": float(ema50.iloc[-1]) if not ema50.empty else 0},
-                                    "adx": {"adx": float(adx["adx"].iloc[-1]) if "adx" in adx.columns else 0},
-                                }
-                            except Exception as ind_err:
-                                logger.warning(f"Error calculating indicators for AI: {ind_err}")
-                                indicators_data = {"supertrend": {"direction": 1}, "rsi": 50, "macd": {}, "ema": {}, "adx": {}}
-
-                        # Get expiry info
-                        expiry_info = await self.get_next_expiry_async(position.index)
-                        hours_to_expiry = expiry_info.days_to_expiry * 24 if expiry_info else 168
-
-                        # Calculate position duration
-                        duration_minutes = int((datetime.now() - position.entry_time).total_seconds() / 60)
-
-                        # Build AI context for exit decision
-                        ai_context = SignalContext(
-                            signal_type=position.option_type,
-                            confidence=0,  # Not relevant for exit
-                            entry_price=position.entry_price,
-                            stop_loss=position.stop_loss,
-                            target=position.target,
-                            index=position.index,
-                            ohlcv_data=ohlcv_15min,
-                            supertrend=indicators_data.get("supertrend", {}),
-                            rsi=indicators_data.get("rsi", 50),
-                            macd=indicators_data.get("macd", {}),
-                            ema=indicators_data.get("ema", {}),
-                            adx=indicators_data.get("adx", {}),
-                            vwap=0,  # Will be calculated if needed
-                            delta=0.5,  # Default
-                            gamma=0,
-                            theta=0,
-                            vega=0,
-                            hours_to_expiry=hours_to_expiry,
-                            is_expiry_day=expiry_info.is_expiry_day if expiry_info else False,
-                            atm_premium=position.current_price,
-                            current_price=position.current_price,
-                            pnl_percent=position.pnl_percent,
-                            position_duration_minutes=duration_minutes,
-                            max_price_reached=position.max_price,
-                            min_price_reached=position.min_price,
-                        )
-
-                        # Get AI exit decision
-                        ai_service = get_ai_trading_service()
-                        ai_decision = await ai_service.analyze_exit_signal(ai_context)
-
-                        if ai_decision.action == "EXIT":
-                            should_exit = True
-                            exit_reason = f"AI Exit: {ai_decision.reasoning} (Confidence: {ai_decision.confidence:.0f}%)"
-                            logger.info(f"AI EXIT signal for {position.symbol}: {exit_reason}")
-                        else:
-                            logger.debug(f"AI HOLD for {position.symbol}: {ai_decision.reasoning}")
-
-                    except Exception as e:
-                        logger.error(f"Error in AI exit analysis: {e}")
-                        # Fallback: Check basic exit conditions without AI
-                        engine = get_signal_engine(TradingStyle.INTRADAY)
-                        if not df_5min.empty:
-                            exit_signal = engine.check_exit_signal(
-                                df=df_5min,
-                                position_type=position.option_type,
-                                entry_price=position.entry_price,
-                                current_ltp=position.current_price,
-                            )
-                            if exit_signal and exit_signal.get("should_exit"):
-                                should_exit = True
-                                reasons = exit_signal.get("reasons", [])
-                                exit_reason = f"Fallback Exit: {', '.join(reasons[:2])} | P&L: {position.pnl_percent:+.1f}%"
 
                 if should_exit:
                     await self.close_position(position, exit_reason)
