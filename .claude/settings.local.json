@@ -25,7 +25,8 @@
       "Bash(dir:*)",
       "Bash(powershell -Command:*)",
       "Bash(git fetch:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(wc:*)"
     ]
   }
 }

@@ -7,6 +7,54 @@
 {% block content %}
 <div class="space-y-6 animate-fade-in">
 
+    <!-- Trading Mode Panel - Paper/Live Toggle with AI -->
+    <div id="trading-mode-panel"
+         hx-get="/admin/htmx/trading-mode-panel"
+         hx-trigger="load, every 30s"
+         hx-swap="innerHTML">
+        <!-- Loading placeholder -->
+        <div class="card p-4 mb-6 bg-gradient-to-r from-surface-800 to-surface-700 border-2 border-slate-600 animate-pulse">
+            <div class="flex items-center gap-4">
+                <div class="w-14 h-14 rounded-xl bg-slate-700"></div>
+                <div>
+                    <div class="h-6 w-32 bg-slate-700 rounded mb-2"></div>
+                    <div class="h-4 w-48 bg-slate-700 rounded"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Getting Started Banner (shows when no users) -->
+    {% if stats.total_users == 0 %}
+    <div class="card p-6 bg-gradient-to-r from-primary-500/20 to-purple-500/20 border-primary-500/30">
+        <div class="flex items-start gap-4">
+            <div class="p-3 rounded-xl bg-primary-500/20">
+                <svg class="w-8 h-8 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div class="flex-1">
+                <h2 class="text-xl font-bold text-white mb-2">Welcome to Admin Dashboard!</h2>
+                <p class="text-slate-300 mb-4">Get started by adding your first trading user. Users can connect their Zerodha accounts and copy your trading signals automatically.</p>
+                <div class="flex items-center gap-3">
+                    <a href="/admin/users/new" class="px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium flex items-center gap-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                        </svg>
+                        Add First User
+                    </a>
+                    <a href="/admin/signals" class="px-4 py-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-white font-medium flex items-center gap-2 transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        Create Signal
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Top Stats Cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <!-- Total Users -->

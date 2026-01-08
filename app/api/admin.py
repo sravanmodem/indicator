@@ -3,18 +3,24 @@ Admin Dashboard API Routes
 Enterprise-grade admin controls for multi-user trading platform
 """
 
+from datetime import datetime, time
 from fastapi import APIRouter, Request, Form, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from typing import Optional, List
 from pydantic import BaseModel
+from loguru import logger
 
 from app.models.user_trading import (
     get_user_trading_service,
     UserRole, UserStatus, TradingMode, CopyTradingMode
 )
 from app.services.user_auth import get_user_auth_service
+from app.services.signal_engine import get_signal_engine, TradingStyle
+from app.services.data_fetcher import get_data_fetcher
+from app.services.paper_trading import get_paper_trading_service
+from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -48,6 +54,46 @@ async def admin_dashboard(request: Request):
             "users": users,
             "recent_signals": recent_signals,
             "admin_user": user
+        }
+    )
+
+
+@router.get("/live-trading", response_class=HTMLResponse)
+async def live_trading_page(request: Request):
+    """Live trading console page."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+    from app.services.ai_trading_service import get_ai_trading_service
+
+    live_service = get_live_trading_service()
+    ai_service = get_ai_trading_service()
+
+    # Get margin and positions if authenticated
+    margin = None
+    positions = []
+    orders = []
+    total_pnl = 0
+
+    if live_service.is_authenticated:
+        margin = await live_service.get_available_margin()
+        positions = await live_service.get_positions()
+        orders = await live_service.get_orders()
+        total_pnl = sum(p.pnl for p in positions)
+
+    return templates.TemplateResponse(
+        "admin/live_trading.html",
+        {
+            "request": request,
+            "admin_user": admin,
+            "is_live_mode": live_service.is_live_mode,
+            "zerodha_authenticated": live_service.is_authenticated,
+            "ai_enabled": ai_service.is_enabled,
+            "ai_model": ai_service.model_name,
+            "margin": margin,
+            "positions": positions,
+            "orders": orders,
+            "total_pnl": total_pnl,
         }
     )
 
@@ -254,6 +300,7 @@ async def list_signals(request: Request):
 
     signals = service.get_recent_signals(limit=100)
     active_signals = service.get_active_signals()
+    users = service.get_all_users()
 
     # Calculate signal statistics
     total_signals = len(signals)
@@ -266,7 +313,8 @@ async def list_signals(request: Request):
         "total_signals": total_signals,
         "win_rate": win_rate,
         "total_pnl": total_pnl,
-        "avg_pnl": avg_pnl
+        "avg_pnl": avg_pnl,
+        "total_users": len(users)
     }
 
     return templates.TemplateResponse(
@@ -275,6 +323,7 @@ async def list_signals(request: Request):
             "request": request,
             "signals": signals,
             "active_signals": active_signals,
+            "users": users,
             "stats": stats,
             "admin_user": admin
         }
@@ -526,3 +575,570 @@ async def get_active_signals_api(request: Request):
 
     signals = service.get_active_signals()
     return {"signals": [s.to_dict() for s in signals]}
+
+
+# ==================== HTMX Endpoints for Live Signal Generation ====================
+
+@router.get("/htmx/live-signal", response_class=HTMLResponse)
+async def htmx_admin_live_signal(request: Request):
+    """HTMX partial for live auto-generated signal panel (like paper trading)."""
+    try:
+        admin = require_admin(request)
+        fetcher = get_data_fetcher()
+        paper = get_paper_trading_service()
+
+        # Get trading index (nearest expiry)
+        trading_index = paper.get_trading_index()
+
+        # Get token for the index
+        tokens = {
+            "NIFTY": NIFTY_INDEX_TOKEN,
+            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+            "SENSEX": SENSEX_INDEX_TOKEN,
+        }
+        token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+        # Fetch historical data
+        df = await fetcher.fetch_historical_data(
+            instrument_token=token,
+            timeframe="5minute",
+            days=3,
+        )
+
+        if df.empty:
+            return templates.TemplateResponse(
+                "partials/admin_live_signal.html",
+                {"request": request, "error": "Market closed - No data available"},
+            )
+
+        # Get option chain
+        chain_data = await fetcher.get_option_chain(index=trading_index.index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+        # Generate signal
+        engine = get_signal_engine(TradingStyle.INTRADAY)
+        signal = engine.analyze(df=df, option_chain=option_chain)
+
+        # Get spot price
+        spot_price = chain_data.get("spot_price", 0) if chain_data else 0
+
+        # Get eligible users count
+        service = get_user_trading_service()
+        users = service.get_all_users()
+        eligible_users = [u for u in users if u.status.value == "active" and u.copy_trading_mode.value in ["auto", "manual"]]
+        auto_execute_users = [u for u in eligible_users if u.copy_trading_mode.value == "auto"]
+
+        return templates.TemplateResponse(
+            "partials/admin_live_signal.html",
+            {
+                "request": request,
+                "signal": signal,
+                "trading_index": trading_index,
+                "spot_price": spot_price,
+                "chain_data": chain_data if chain_data and "error" not in chain_data else None,
+                "eligible_count": len(eligible_users),
+                "auto_execute_count": len(auto_execute_users),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Admin live signal error: {e}")
+        return templates.TemplateResponse(
+            "partials/admin_live_signal.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/trading-index", response_class=HTMLResponse)
+async def htmx_admin_trading_index(request: Request):
+    """HTMX partial for trading index info."""
+    try:
+        admin = require_admin(request)
+        paper = get_paper_trading_service()
+        fetcher = get_data_fetcher()
+
+        # Refresh expiry cache
+        await paper.refresh_expiry_cache()
+        trading_index = paper.get_trading_index()
+
+        # Get all expiries
+        expiries = []
+        for index in ["NIFTY", "SENSEX", "BANKNIFTY"]:
+            exp = paper.get_next_expiry(index)
+            expiries.append(exp)
+
+        # Get spot prices
+        spot_prices = {}
+        for index, token in [("NIFTY", NIFTY_INDEX_TOKEN), ("BANKNIFTY", BANKNIFTY_INDEX_TOKEN), ("SENSEX", SENSEX_INDEX_TOKEN)]:
+            try:
+                chain = await fetcher.get_option_chain(index=index)
+                spot_prices[index] = chain.get("spot_price", 0) if chain else 0
+            except:
+                spot_prices[index] = 0
+
+        return templates.TemplateResponse(
+            "partials/admin_trading_index.html",
+            {
+                "request": request,
+                "trading_index": trading_index,
+                "expiries": expiries,
+                "spot_prices": spot_prices,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Admin trading index error: {e}")
+        return templates.TemplateResponse(
+            "partials/admin_trading_index.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/active-signals", response_class=HTMLResponse)
+async def htmx_admin_active_signals(request: Request):
+    """HTMX partial for active signals table."""
+    try:
+        admin = require_admin(request)
+        service = get_user_trading_service()
+
+        active_signals = service.get_active_signals()
+
+        return templates.TemplateResponse(
+            "partials/admin_active_signals.html",
+            {
+                "request": request,
+                "active_signals": active_signals,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Admin active signals error: {e}")
+        return templates.TemplateResponse(
+            "partials/admin_active_signals.html",
+            {"request": request, "error": str(e), "active_signals": []},
+        )
+
+
+@router.post("/signals/broadcast")
+async def broadcast_signal(request: Request):
+    """Broadcast current signal to eligible users."""
+    admin = require_admin(request)
+    service = get_user_trading_service()
+    fetcher = get_data_fetcher()
+    paper = get_paper_trading_service()
+
+    try:
+        # Get trading index
+        trading_index = paper.get_trading_index()
+
+        # Get token
+        tokens = {
+            "NIFTY": NIFTY_INDEX_TOKEN,
+            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+            "SENSEX": SENSEX_INDEX_TOKEN,
+        }
+        token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+        # Fetch data and generate signal
+        df = await fetcher.fetch_historical_data(
+            instrument_token=token,
+            timeframe="5minute",
+            days=3,
+        )
+
+        if df.empty:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Market closed - No data available"}
+            )
+
+        # Get option chain
+        chain_data = await fetcher.get_option_chain(index=trading_index.index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+        # Generate signal
+        engine = get_signal_engine(TradingStyle.INTRADAY)
+        signal = engine.analyze(df=df, option_chain=option_chain)
+
+        if not signal or not signal.recommended_option:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "No valid signal to broadcast"}
+            )
+
+        # Create admin signal
+        admin_signal = service.create_admin_signal(
+            index=trading_index.index,
+            signal_type=signal.direction,
+            strike=signal.recommended_option.strike,
+            symbol=signal.recommended_option.trading_symbol,
+            entry_price=signal.recommended_option.ltp,
+            stop_loss=signal.stop_loss if signal.stop_loss else signal.recommended_option.ltp * 0.9,
+            target=signal.target_1 if signal.target_1 else signal.recommended_option.ltp * 1.2,
+            confidence=signal.confidence,
+            quality_score=signal.confidence  # Use confidence as quality score
+        )
+
+        # Get eligible users
+        users = service.get_all_users()
+        eligible_users = [u for u in users if u.status.value == "active"]
+        auto_execute_users = [u for u in eligible_users if u.copy_trading_mode.value == "auto"]
+
+        # Execute trades for auto-execute users
+        executed_count = 0
+        for user in auto_execute_users:
+            try:
+                # Create trade for user
+                trade = service.execute_user_trade(
+                    user_id=user.user_id,
+                    signal_id=admin_signal.signal_id,
+                    index=trading_index.index,
+                    symbol=signal.recommended_option.trading_symbol,
+                    signal_type=signal.direction,
+                    strike=signal.recommended_option.strike,
+                    entry_price=signal.recommended_option.ltp,
+                    quantity=trading_index.lot_size * user.restrictions.max_lots_per_trade,
+                    stop_loss=signal.stop_loss if signal.stop_loss else signal.recommended_option.ltp * 0.9,
+                    target=signal.target_1 if signal.target_1 else signal.recommended_option.ltp * 1.2,
+                )
+                if trade:
+                    executed_count += 1
+            except Exception as e:
+                logger.error(f"Failed to execute trade for user {user.user_id}: {e}")
+
+        return {
+            "success": True,
+            "signal_id": admin_signal.signal_id,
+            "signal": {
+                "index": trading_index.index,
+                "direction": signal.direction,
+                "strike": signal.recommended_option.strike,
+                "symbol": signal.recommended_option.trading_symbol,
+                "entry_price": signal.recommended_option.ltp,
+                "confidence": signal.confidence,
+            },
+            "broadcast": {
+                "eligible_users": len(eligible_users),
+                "auto_executed": executed_count,
+                "manual_notify": len(eligible_users) - len(auto_execute_users),
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Broadcast signal error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
+
+
+@router.get("/htmx/broadcast-stats", response_class=HTMLResponse)
+async def htmx_broadcast_stats(request: Request):
+    """HTMX partial for broadcast statistics."""
+    try:
+        admin = require_admin(request)
+        service = get_user_trading_service()
+
+        users = service.get_all_users()
+        active_signals = service.get_active_signals()
+
+        # Calculate stats
+        eligible_users = [u for u in users if u.status.value == "active"]
+        auto_mode = len([u for u in eligible_users if u.copy_trading_mode.value == "auto"])
+        manual_mode = len([u for u in eligible_users if u.copy_trading_mode.value == "manual"])
+
+        # Today's broadcast stats
+        today = datetime.now().date()
+        today_signals = [s for s in service.get_recent_signals(limit=100)
+                       if hasattr(s, 'created_at') and s.created_at.date() == today]
+
+        return templates.TemplateResponse(
+            "partials/admin_broadcast_stats.html",
+            {
+                "request": request,
+                "eligible_users": len(eligible_users),
+                "auto_mode": auto_mode,
+                "manual_mode": manual_mode,
+                "active_signals": len(active_signals),
+                "today_broadcasts": len(today_signals),
+            },
+        )
+    except Exception as e:
+        logger.error(f"Broadcast stats error: {e}")
+        return templates.TemplateResponse(
+            "partials/admin_broadcast_stats.html",
+            {"request": request, "error": str(e)},
+        )
+
+
+# ==================== Trading Mode & AI Control ====================
+
+@router.get("/trading-mode/status")
+async def get_trading_mode_status(request: Request):
+    """Get current trading mode status (Paper/Live) and AI status."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+    from app.services.ai_trading_service import get_ai_trading_service
+
+    live_service = get_live_trading_service()
+    ai_service = get_ai_trading_service()
+
+    # Get margin data if in live mode
+    margin_data = {}
+    if live_service.is_live_mode:
+        margin = await live_service.get_available_margin()
+        margin_data = {
+            "available_cash": margin.available_cash,
+            "available_margin": margin.available_margin,
+            "used_margin": margin.used_margin,
+            "total_margin": margin.total_margin,
+        }
+
+    # Get live positions if any
+    live_positions = []
+    if live_service.is_live_mode:
+        positions = await live_service.get_positions()
+        live_positions = [
+            {
+                "symbol": p.tradingsymbol,
+                "quantity": p.quantity,
+                "avg_price": p.average_price,
+                "ltp": p.last_price,
+                "pnl": p.pnl,
+                "pnl_percent": p.pnl_percent,
+            }
+            for p in positions
+        ]
+
+    return {
+        "trading_mode": "live" if live_service.is_live_mode else "paper",
+        "zerodha_authenticated": live_service.is_authenticated,
+        "ai_enabled": ai_service.is_enabled,
+        "ai_model": ai_service.model_name,
+        "margin": margin_data,
+        "live_positions": live_positions,
+        "live_positions_count": len(live_positions),
+    }
+
+
+@router.post("/trading-mode/toggle")
+async def toggle_trading_mode(request: Request, mode: str = Form(...)):
+    """Toggle between paper and live trading."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+
+    live_service = get_live_trading_service()
+
+    if mode == "live":
+        if not live_service.is_authenticated:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Zerodha not authenticated. Please login first."}
+            )
+
+        # Enable live mode
+        success = live_service.enable_live_mode(True)
+        if success:
+            logger.warning(f"LIVE TRADING ENABLED by admin: {admin.get('username', 'unknown')}")
+            return {
+                "success": True,
+                "mode": "live",
+                "message": "LIVE TRADING ENABLED - Real money at risk!"
+            }
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Failed to enable live mode"}
+            )
+    else:
+        # Disable live mode (paper trading)
+        live_service.enable_live_mode(False)
+        logger.info(f"Paper trading mode enabled by admin: {admin.get('username', 'unknown')}")
+        return {
+            "success": True,
+            "mode": "paper",
+            "message": "Paper trading mode active - Safe practice mode"
+        }
+
+
+@router.post("/ai/toggle")
+async def toggle_ai_trading(request: Request, enabled: str = Form(...)):
+    """Toggle AI trading decisions on/off."""
+    admin = require_admin(request)
+
+    from app.services.ai_trading_service import get_ai_trading_service
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    ai_service = get_ai_trading_service()
+
+    is_enabled = enabled.lower() in ("true", "1", "on", "yes")
+
+    if is_enabled and not settings.anthropic_api_key:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "ANTHROPIC_API_KEY not configured in .env"}
+        )
+
+    # Initialize or update AI service
+    ai_service.initialize(
+        api_key=settings.anthropic_api_key,
+        model=settings.ai_model,
+        enabled=is_enabled
+    )
+
+    logger.info(f"AI Trading {'enabled' if is_enabled else 'disabled'} by admin: {admin.get('username', 'unknown')}")
+
+    return {
+        "success": True,
+        "ai_enabled": is_enabled,
+        "ai_model": ai_service.model_name,
+        "message": f"AI Trading {'enabled' if is_enabled else 'disabled'}"
+    }
+
+
+@router.get("/live/margin")
+async def get_live_margin(request: Request):
+    """Get current margin from Zerodha (Live trading)."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+
+    live_service = get_live_trading_service()
+
+    if not live_service.is_authenticated:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Zerodha not authenticated"}
+        )
+
+    margin = await live_service.get_available_margin()
+
+    return {
+        "success": True,
+        "margin": {
+            "available_cash": margin.available_cash,
+            "available_margin": margin.available_margin,
+            "used_margin": margin.used_margin,
+            "total_margin": margin.total_margin,
+            "collateral": margin.collateral,
+        }
+    }
+
+
+@router.get("/live/positions")
+async def get_live_positions(request: Request):
+    """Get current positions from Zerodha (Live trading)."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+
+    live_service = get_live_trading_service()
+
+    if not live_service.is_authenticated:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Zerodha not authenticated"}
+        )
+
+    positions = await live_service.get_positions()
+
+    return {
+        "success": True,
+        "positions": [
+            {
+                "symbol": p.tradingsymbol,
+                "exchange": p.exchange,
+                "quantity": p.quantity,
+                "average_price": p.average_price,
+                "last_price": p.last_price,
+                "pnl": p.pnl,
+                "pnl_percent": p.pnl_percent,
+                "product": p.product,
+            }
+            for p in positions
+        ],
+        "total_positions": len(positions),
+        "total_pnl": sum(p.pnl for p in positions),
+    }
+
+
+@router.get("/live/orders")
+async def get_live_orders(request: Request, only_open: bool = False):
+    """Get today's orders from Zerodha (Live trading)."""
+    admin = require_admin(request)
+
+    from app.services.live_trading_service import get_live_trading_service
+
+    live_service = get_live_trading_service()
+
+    if not live_service.is_authenticated:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Zerodha not authenticated"}
+        )
+
+    orders = await live_service.get_orders(only_open=only_open)
+
+    return {
+        "success": True,
+        "orders": [
+            {
+                "order_id": o.order_id,
+                "symbol": o.tradingsymbol,
+                "exchange": o.exchange,
+                "type": o.transaction_type,
+                "quantity": o.quantity,
+                "price": o.price,
+                "status": o.status.value,
+                "filled_quantity": o.filled_quantity,
+                "average_price": o.average_price,
+                "timestamp": o.order_timestamp.isoformat() if o.order_timestamp else None,
+            }
+            for o in orders
+        ],
+        "total_orders": len(orders),
+    }
+
+
+@router.get("/htmx/trading-mode-panel", response_class=HTMLResponse)
+async def htmx_trading_mode_panel(request: Request):
+    """HTMX partial for trading mode panel in admin dashboard."""
+    try:
+        admin = require_admin(request)
+
+        from app.services.live_trading_service import get_live_trading_service
+        from app.services.ai_trading_service import get_ai_trading_service
+
+        live_service = get_live_trading_service()
+        ai_service = get_ai_trading_service()
+
+        # Get margin data if in live mode
+        margin = None
+        live_positions = []
+        if live_service.is_live_mode:
+            margin = await live_service.get_available_margin()
+            live_positions = await live_service.get_positions()
+
+        # Calculate total P&L from live positions
+        total_live_pnl = sum(p.pnl for p in live_positions) if live_positions else 0
+
+        return templates.TemplateResponse(
+            "partials/trading_mode_panel.html",
+            {
+                "request": request,
+                "is_live_mode": live_service.is_live_mode,
+                "zerodha_authenticated": live_service.is_authenticated,
+                "ai_enabled": ai_service.is_enabled,
+                "ai_model": ai_service.model_name,
+                "margin": margin,
+                "live_positions": live_positions,
+                "live_positions_count": len(live_positions),
+                "total_live_pnl": total_live_pnl,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Trading mode panel error: {e}")
+        return templates.TemplateResponse(
+            "partials/trading_mode_panel.html",
+            {"request": request, "error": str(e)},
+        )

@@ -2,114 +2,144 @@
 
 {% block title %}Signal Management{% endblock %}
 {% block page_title %}Signal Management{% endblock %}
-{% block page_subtitle %}Create and manage trading signals for all users{% endblock %}
+{% block page_subtitle %}Auto-generate and broadcast trading signals to users{% endblock %}
 
 {% block content %}
-<div class="space-y-6 animate-fade-in">
+<div class="space-y-6 animate-fade-in" x-data="signalManager()">
 
-    <!-- Create Signal Section -->
-    <div class="card p-6">
-        <div class="flex items-center justify-between mb-6">
-            <h2 class="text-lg font-bold text-white flex items-center gap-2">
-                <svg class="w-5 h-5 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                </svg>
-                Create New Signal
-            </h2>
-            <span class="px-3 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400" id="marketStatus">
-                Market Open
-            </span>
+    <!-- Header Stats -->
+    <div id="broadcast-stats"
+         hx-get="/admin/htmx/broadcast-stats"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML">
+        <div class="grid grid-cols-5 gap-3">
+            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
+            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
+            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
+            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
+            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
         </div>
-
-        <form action="/admin/signals/create" method="POST" class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Index -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Index</label>
-                    <select name="index" required class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white focus:outline-none focus:border-primary-500">
-                        <option value="NIFTY">NIFTY</option>
-                        <option value="BANKNIFTY">BANKNIFTY</option>
-                        <option value="SENSEX">SENSEX</option>
-                    </select>
-                </div>
-
-                <!-- Signal Type -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Signal Type</label>
-                    <select name="signal_type" required class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white focus:outline-none focus:border-primary-500">
-                        <option value="CE">CE (Call)</option>
-                        <option value="PE">PE (Put)</option>
-                    </select>
-                </div>
-
-                <!-- Strike Price -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Strike Price</label>
-                    <input type="number" name="strike_price" required step="50" placeholder="24500"
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500">
-                </div>
-
-                <!-- Entry Price -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Entry Price</label>
-                    <input type="number" name="entry_price" required step="0.05" placeholder="150.00"
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500">
-                </div>
-
-                <!-- Target Price -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Target Price</label>
-                    <input type="number" name="target_price" required step="0.05" placeholder="180.00"
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500">
-                </div>
-
-                <!-- Stop Loss -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Stop Loss</label>
-                    <input type="number" name="stop_loss" required step="0.05" placeholder="135.00"
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500">
-                </div>
-
-                <!-- Quantity -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Quantity (Lots)</label>
-                    <input type="number" name="quantity" required min="1" value="1"
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500">
-                </div>
-
-                <!-- Expiry -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Expiry</label>
-                    <input type="date" name="expiry" required
-                           class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white focus:outline-none focus:border-primary-500">
-                </div>
-            </div>
-
-            <!-- Notes -->
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Signal Notes (Optional)</label>
-                <textarea name="notes" rows="2" placeholder="Add any notes about this signal..."
-                          class="w-full px-4 py-3 rounded-lg bg-surface-800 border border-surface-700 text-white placeholder-slate-500 focus:outline-none focus:border-primary-500 resize-none"></textarea>
-            </div>
-
-            <div class="flex items-center justify-between pt-4 border-t border-surface-700">
-                <div class="flex items-center gap-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="auto_execute" checked class="w-4 h-4 rounded border-surface-600 bg-surface-800 text-primary-500 focus:ring-primary-500">
-                        <span class="text-sm text-slate-300">Auto-execute for eligible users</span>
-                    </label>
-                </div>
-                <button type="submit" class="px-6 py-3 rounded-lg bg-gradient-to-r from-primary-600 to-purple-600 hover:from-primary-500 hover:to-purple-500 text-white font-bold flex items-center gap-2 transition-all shadow-lg">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                    Broadcast Signal
-                </button>
-            </div>
-        </form>
     </div>
 
-    <!-- Active Signals -->
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+        <!-- Left Column: Trading Index + Live Signal -->
+        <div class="space-y-4">
+            <!-- Trading Index Panel -->
+            <div id="trading-index-panel"
+                 hx-get="/admin/htmx/trading-index"
+                 hx-trigger="load, every 60s"
+                 hx-swap="innerHTML">
+                <div class="glass rounded-xl p-4">
+                    <div class="h-32 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+
+            <!-- Live Signal Panel (Auto-refreshes like paper trading) -->
+            <div id="live-signal-panel"
+                 hx-get="/admin/htmx/live-signal"
+                 hx-trigger="load, every 3s"
+                 hx-swap="innerHTML">
+                <div class="glass rounded-xl p-4">
+                    <div class="h-64 bg-surface-700 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Eligible Users List -->
+        <div class="card">
+            <div class="p-4 border-b border-surface-700 flex items-center justify-between">
+                <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    Eligible Users
+                </h2>
+                <a href="/admin/users/new" class="px-3 py-1.5 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 text-xs font-bold transition-all">
+                    + Add User
+                </a>
+            </div>
+
+            <div class="overflow-y-auto max-h-[500px]">
+                {% if stats.total_users > 0 %}
+                <table class="w-full">
+                    <thead class="sticky top-0 bg-surface-900">
+                        <tr class="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider border-b border-surface-700">
+                            <th class="p-3">User</th>
+                            <th class="p-3">Mode</th>
+                            <th class="p-3">Status</th>
+                            <th class="p-3 text-right">Capital</th>
+                            <th class="p-3 text-center">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr class="border-b border-surface-700/30 hover:bg-surface-800/50">
+                            <td class="p-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-500 to-purple-500 flex items-center justify-center text-white text-xs font-bold">
+                                        {{ user.username[0]|upper }}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium text-white text-sm">{{ user.username }}</p>
+                                        <p class="text-xs text-slate-500">{{ user.email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="p-3">
+                                <span class="px-2 py-1 rounded text-xs font-bold
+                                    {% if user.copy_trading_mode.value == 'auto' %}bg-green-500/20 text-green-400
+                                    {% elif user.copy_trading_mode.value == 'manual' %}bg-amber-500/20 text-amber-400
+                                    {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                                    {{ user.copy_trading_mode.value|upper }}
+                                </span>
+                            </td>
+                            <td class="p-3">
+                                <span class="px-2 py-1 rounded text-xs font-bold
+                                    {% if user.status.value == 'active' %}bg-green-500/20 text-green-400
+                                    {% elif user.status.value == 'suspended' %}bg-red-500/20 text-red-400
+                                    {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                                    {{ user.status.value }}
+                                </span>
+                            </td>
+                            <td class="p-3 text-right">
+                                <p class="font-mono text-sm text-white">Rs{{ "{:,.0f}".format(user.capital) }}</p>
+                            </td>
+                            <td class="p-3 text-center">
+                                <a href="/admin/users/{{ user.user_id }}"
+                                   class="p-2 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-400 hover:text-white transition-all inline-block">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-8 text-center">
+                    <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-surface-700 flex items-center justify-center">
+                        <svg class="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-400 mb-1">No Users Yet</h3>
+                    <p class="text-sm text-slate-500 mb-4">Add users to start broadcasting signals</p>
+                    <a href="/admin/users/new" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 font-bold text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Add First User
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Signals Section -->
     <div class="card">
         <div class="p-4 border-b border-surface-700 flex items-center justify-between">
             <h2 class="text-lg font-bold text-white flex items-center gap-2">
@@ -119,7 +149,10 @@
             <span class="text-xs text-slate-500">Auto-refreshes every 5 seconds</span>
         </div>
 
-        <div class="overflow-x-auto" hx-get="/htmx/admin/active-signals" hx-trigger="load, every 5s" hx-swap="innerHTML">
+        <div id="active-signals-table"
+             hx-get="/admin/htmx/active-signals"
+             hx-trigger="load, every 5s"
+             hx-swap="innerHTML">
             <div class="p-8 text-center">
                 <div class="animate-spin w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full mx-auto"></div>
                 <p class="text-slate-500 mt-2">Loading active signals...</p>
@@ -143,7 +176,6 @@
                     <option value="profit">Profit</option>
                     <option value="loss">Loss</option>
                 </select>
-                <input type="date" id="filterDate" class="px-3 py-2 rounded-lg bg-surface-800 border border-surface-700 text-white text-sm focus:outline-none focus:border-primary-500">
             </div>
         </div>
 
@@ -167,7 +199,11 @@
                     {% for signal in signals %}
                     <tr class="border-b border-slate-700/30 hover:bg-surface-800/50">
                         <td class="p-4 font-mono text-xs text-slate-400">{{ signal.signal_id[:8] }}</td>
-                        <td class="p-4 text-slate-300">{{ signal.created_at }}</td>
+                        <td class="p-4 text-slate-300 text-sm">
+                            {% if signal.created_at %}
+                            {{ signal.created_at.strftime('%H:%M:%S') }}
+                            {% else %}--{% endif %}
+                        </td>
                         <td class="p-4">
                             <span class="px-2 py-1 rounded text-xs font-bold
                                 {% if signal.index == 'NIFTY' %}bg-blue-500/20 text-blue-400
@@ -181,17 +217,17 @@
                                 {{ signal.signal_type }}
                             </span>
                         </td>
-                        <td class="p-4 font-mono text-white">{{ signal.strike_price }}</td>
-                        <td class="p-4 text-right font-mono text-white">₹{{ "%.2f"|format(signal.entry_price) }}</td>
+                        <td class="p-4 font-mono text-white">{{ signal.strike }}</td>
+                        <td class="p-4 text-right font-mono text-white">Rs{{ "%.2f"|format(signal.entry_price) }}</td>
                         <td class="p-4 text-right font-mono text-white">
-                            {% if signal.exit_price %}₹{{ "%.2f"|format(signal.exit_price) }}{% else %}-{% endif %}
+                            {% if signal.exit_price %}Rs{{ "%.2f"|format(signal.exit_price) }}{% else %}-{% endif %}
                         </td>
                         <td class="p-4 text-right font-mono {% if signal.pnl and signal.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                            {% if signal.pnl %}{% if signal.pnl >= 0 %}+{% endif %}₹{{ "%.0f"|format(signal.pnl) }}{% else %}-{% endif %}
+                            {% if signal.pnl %}{% if signal.pnl >= 0 %}+{% endif %}Rs{{ "%.0f"|format(signal.pnl) }}{% else %}-{% endif %}
                         </td>
                         <td class="p-4 text-center">
                             <span class="px-2 py-1 rounded text-xs font-bold bg-surface-700 text-slate-300">
-                                {{ signal.execution_count }} / {{ signal.eligible_users }}
+                                {{ signal.execution_count or 0 }}
                             </span>
                         </td>
                         <td class="p-4">
@@ -206,7 +242,7 @@
                     {% else %}
                     <tr>
                         <td colspan="10" class="p-8 text-center text-slate-500">
-                            No signals found. Create your first signal above.
+                            No signals found. Broadcast your first signal from the live panel above.
                         </td>
                     </tr>
                     {% endfor %}
@@ -264,7 +300,7 @@
                 <div>
                     <p class="text-xs text-slate-500 uppercase tracking-wider">Total P&L</p>
                     <p class="text-xl font-bold {% if stats.total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                        {% if stats.total_pnl >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.total_pnl) }}
+                        {% if stats.total_pnl >= 0 %}+{% endif %}Rs{{ "{:,.0f}".format(stats.total_pnl) }}
                     </p>
                 </div>
             </div>
@@ -279,7 +315,7 @@
                 </div>
                 <div>
                     <p class="text-xs text-slate-500 uppercase tracking-wider">Avg P&L/Signal</p>
-                    <p class="text-xl font-bold text-white">₹{{ "{:,.0f}".format(stats.avg_pnl) }}</p>
+                    <p class="text-xl font-bold text-white">Rs{{ "{:,.0f}".format(stats.avg_pnl) }}</p>
                 </div>
             </div>
         </div>
@@ -287,34 +323,35 @@
 </div>
 
 <script>
-// Set default expiry to next Thursday
-const today = new Date();
-const day = today.getDay();
-const daysUntilThursday = (4 - day + 7) % 7 || 7;
-const nextThursday = new Date(today);
-nextThursday.setDate(today.getDate() + daysUntilThursday);
-document.querySelector('input[name="expiry"]').valueAsDate = nextThursday;
+function signalManager() {
+    return {
+        init() {
+            // Handle broadcast result display
+            document.body.addEventListener('htmx:afterSwap', (event) => {
+                if (event.detail.target.id === 'broadcast-result') {
+                    // Show toast notification
+                    const result = event.detail.target.innerHTML;
+                    if (result.includes('success')) {
+                        this.showToast('Signal broadcasted successfully!', 'success');
+                    }
+                }
+            });
+        },
 
-// Market status
-function updateMarketStatus() {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours * 60 + minutes;
-    const marketOpen = 9 * 60 + 15;  // 9:15 AM
-    const marketClose = 15 * 60 + 30; // 3:30 PM
-    const isWeekday = now.getDay() > 0 && now.getDay() < 6;
+        showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in ${
+                type === 'success' ? 'bg-green-500' :
+                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+            } text-white font-bold`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
 
-    const statusEl = document.getElementById('marketStatus');
-    if (isWeekday && currentTime >= marketOpen && currentTime <= marketClose) {
-        statusEl.textContent = 'Market Open';
-        statusEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-green-500/20 text-green-400';
-    } else {
-        statusEl.textContent = 'Market Closed';
-        statusEl.className = 'px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400';
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
     }
 }
-updateMarketStatus();
-setInterval(updateMarketStatus, 60000);
 </script>
 {% endblock %}

@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     max_positions: int = Field(default=5)
     risk_per_trade: float = Field(default=0.01)  # 1% of capital
 
+    # AI Trading Configuration (Claude API)
+    anthropic_api_key: str = Field(default="", description="Anthropic API Key for Claude AI")
+    ai_model: str = Field(default="claude-3-haiku-20240307", description="Claude model to use")
+    ai_enabled: bool = Field(default=False, description="Enable AI-powered trading decisions")
+
+    # Trading Mode
+    trading_mode: Literal["paper", "live"] = Field(default="paper", description="Paper or Live trading mode")
+
     # Paths
     @property
     def base_dir(self) -> Path:
