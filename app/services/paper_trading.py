@@ -168,7 +168,7 @@ class PaperTradingService:
     # Configuration
     CAPITAL = 500000  # ₹5,00,000
     MAX_CAPITAL_USE = 1.0  # 100%
-    MAX_DAILY_LOSS_PERCENT = 0.20  # 20%
+    MAX_DAILY_LOSS_PERCENT = 1.0  # 100% (No daily loss limit - disabled)
     MAX_LOTS_PER_ORDER = 25
 
     # Lot sizes
@@ -597,32 +597,42 @@ class PaperTradingService:
             PaperOrder if executed, None otherwise
         """
         # Check trading hours first
+        # Check trading hours (can be bypassed for testing)
+        from app.core.config import get_settings
+        settings = get_settings()
+        bypass_hours = getattr(settings, 'bypass_market_hours', False)
+
         is_trading, reason = self.is_trading_hours(trading_index)
-        if not is_trading:
+        logger.info(f"Paper trading hours check: allowed={is_trading}, reason={reason}, bypass={bypass_hours}")
+
+        if not is_trading and not bypass_hours:
             logger.info(f"Outside trading hours: {reason}")
             return None
+        elif not is_trading and bypass_hours:
+            logger.warning(f"Trading hours check would fail ({reason}), but bypassing for testing")
 
         # Check if trading is halted
         if self.check_daily_loss_limit():
-            logger.warning("Trading halted due to daily loss limit")
+            logger.warning("TRADE BLOCKED: Trading halted due to daily loss limit")
             return None
 
         # Check signal direction
         if signal.direction not in ["CE", "PE"]:
-            logger.info("No clear signal direction")
+            logger.warning(f"TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
             return None
 
         # Check confidence threshold (at least 40%)
         if signal.confidence < 40:
-            logger.info(f"Signal confidence too low: {signal.confidence}%")
+            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 40%+)")
             return None
 
         # Get recommended option
         if not signal.recommended_option:
-            logger.warning("No recommended option in signal")
+            logger.warning("TRADE BLOCKED: No recommended option in signal")
             return None
 
         opt = signal.recommended_option
+        logger.info(f"Signal option: {opt.strike} {signal.direction} @ Rs.{opt.ltp:.2f}")
 
         # Check if there's already an open position
         if self.has_open_position():
@@ -630,10 +640,12 @@ class PaperTradingService:
             # Once signal generates SL/Target, they are LOCKED
             existing_position = self.find_similar_position(signal.direction)
             if existing_position:
-                logger.info(f"Position already open: {existing_position.symbol} - SL/Target LOCKED (no updates)")
+                logger.warning(f"TRADE BLOCKED: Position already open: {existing_position.symbol} - SL/Target LOCKED (no updates)")
             else:
-                logger.info("Position already open with different direction. Skipping new order.")
+                logger.warning("TRADE BLOCKED: Position already open with different direction. Skipping new order.")
             return None
+
+        logger.info("All pre-checks passed. Proceeding to AI analysis...")
 
         # AI Entry Decision - Send signal to Claude for BUY/SKIP decision
         try:
@@ -651,13 +663,44 @@ class PaperTradingService:
                 }
                 token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
 
-                # Fetch 15 minutes of 1-min OHLCV data
+                # Fetch 15 minutes of 1-min OHLCV data (short-term momentum)
                 df_1min = await self.data_fetcher.fetch_historical_data(
                     instrument_token=token,
-                    timeframe="1minute",
+                    timeframe="minute",
                     days=1,
                 )
-                ohlcv_15min = df_1min.tail(15).to_dict('records') if not df_1min.empty else []
+                ohlcv_1min = []
+                if not df_1min.empty:
+                    for idx, row in df_1min.tail(15).iterrows():
+                        ohlcv_1min.append({
+                            "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
+                            "open": float(row.get("open", 0)),
+                            "high": float(row.get("high", 0)),
+                            "low": float(row.get("low", 0)),
+                            "close": float(row.get("close", 0)),
+                            "volume": int(row.get("volume", 0)),
+                        })
+
+                # Fetch 1 hour of 10-min OHLCV data (longer-term trend)
+                df_10min = await self.data_fetcher.fetch_historical_data(
+                    instrument_token=token,
+                    timeframe="10minute",
+                    days=1,
+                )
+                ohlcv_10min = []
+                if not df_10min.empty:
+                    for idx, row in df_10min.tail(6).iterrows():
+                        ohlcv_10min.append({
+                            "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
+                            "open": float(row.get("open", 0)),
+                            "high": float(row.get("high", 0)),
+                            "low": float(row.get("low", 0)),
+                            "close": float(row.get("close", 0)),
+                            "volume": int(row.get("volume", 0)),
+                        })
+
+                # Legacy field for compatibility
+                ohlcv_15min = ohlcv_1min
 
                 # Extract indicator data from signal
                 indicators_data = {}
@@ -674,6 +717,12 @@ class PaperTradingService:
                         indicators_data["adx"] = {"adx": ind.value} if isinstance(ind.value, (int, float)) else ind.value if isinstance(ind.value, dict) else {}
                     elif ind.name.lower() == "vwap":
                         indicators_data["vwap"] = ind.value if isinstance(ind.value, (int, float)) else 0
+                    elif ind.name.lower() == "bollinger" or ind.name.lower() == "bollinger bands":
+                        indicators_data["bollinger"] = ind.value if isinstance(ind.value, dict) else {}
+                    elif ind.name.lower() == "stochastic":
+                        indicators_data["stochastic"] = ind.value if isinstance(ind.value, dict) else {}
+                    elif ind.name.lower() == "atr":
+                        indicators_data["atr"] = ind.value if isinstance(ind.value, (int, float)) else 0
 
                 # Get Greeks from recommended option
                 delta = opt.delta if hasattr(opt, 'delta') and opt.delta else 0.5
@@ -681,7 +730,13 @@ class PaperTradingService:
                 theta = opt.theta if hasattr(opt, 'theta') and opt.theta else 0
                 vega = opt.vega if hasattr(opt, 'vega') and opt.vega else 0
 
-                # Build AI context
+                # Get additional indicator data
+                bollinger = indicators_data.get("bollinger", {})
+                stochastic = indicators_data.get("stochastic", {})
+                atr = indicators_data.get("atr", 0)
+                iv = opt.iv if hasattr(opt, 'iv') and opt.iv else 0
+
+                # Build AI context with both timeframes
                 ai_context = SignalContext(
                     signal_type=signal.direction,
                     confidence=signal.confidence,
@@ -689,17 +744,23 @@ class PaperTradingService:
                     stop_loss=signal.stop_loss,
                     target=signal.target_1,
                     index=trading_index.index,
-                    ohlcv_data=ohlcv_15min,
+                    ohlcv_1min=ohlcv_1min,  # 15 minutes of 1-min data
+                    ohlcv_10min=ohlcv_10min,  # 1 hour of 10-min data
+                    ohlcv_data=ohlcv_15min,  # Legacy field
                     supertrend=indicators_data.get("supertrend", {"direction": 1}),
                     rsi=indicators_data.get("rsi", 50),
                     macd=indicators_data.get("macd", {}),
                     ema=indicators_data.get("ema", {}),
                     adx=indicators_data.get("adx", {}),
                     vwap=indicators_data.get("vwap", 0),
+                    bollinger=bollinger,
+                    stochastic=stochastic,
+                    atr=atr,
                     delta=delta,
                     gamma=gamma,
                     theta=theta,
                     vega=vega,
+                    iv=iv,
                     hours_to_expiry=trading_index.days_to_expiry * 24,
                     is_expiry_day=trading_index.is_expiry_day,
                     atm_premium=opt.ltp,
@@ -708,8 +769,9 @@ class PaperTradingService:
                 # Get AI decision
                 ai_decision = await ai_service.analyze_entry_signal(ai_context)
 
+                logger.info(f"AI Decision: {ai_decision.action} | Confidence: {ai_decision.confidence:.0f}%")
                 if ai_decision.action == "SKIP":
-                    logger.info(f"AI SKIPPED signal: {ai_decision.reasoning} (Confidence: {ai_decision.confidence:.0f}%)")
+                    logger.warning(f"TRADE BLOCKED by AI: {ai_decision.reasoning}")
                     return None
 
                 # AI approved - check if it adjusted targets

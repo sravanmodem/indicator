@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     # Trading Mode
     trading_mode: Literal["paper", "live"] = Field(default="paper", description="Paper or Live trading mode")
 
+    # Testing/Debug Options
+    bypass_market_hours: bool = Field(default=False, description="Bypass market hours check for testing")
+
     # Paths
     @property
     def base_dir(self) -> Path:
@@ -147,8 +150,8 @@ SIGNAL_THRESHOLDS = {
 
 # Option selection filters
 OPTION_FILTERS = {
-    "premium_min": 45,      # Minimum option premium (LTP)
-    "premium_max": 55,      # Maximum option premium (LTP)
+    "premium_min": 40,      # Minimum option premium (LTP)
+    "premium_max": 60,      # Maximum option premium (LTP)
     "min_oi": 10000,        # Minimum open interest
     "min_volume": 100,      # Minimum volume
 }

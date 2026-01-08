@@ -33,6 +33,12 @@ async def lifespan(app: FastAPI):
     auth_service = get_auth_service()
     if await auth_service.restore_session():
         logger.info("Session restored from stored tokens")
+
+        # Start auto-trader if authenticated
+        from app.services.auto_trader import get_auto_trader
+        auto_trader = get_auto_trader()
+        await auto_trader.start()
+        logger.info("Auto-Trader started - AI will auto-execute trades during market hours")
     else:
         logger.info("No valid stored session, login required")
 
@@ -40,6 +46,12 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down...")
+
+    # Stop auto-trader
+    from app.services.auto_trader import get_auto_trader
+    auto_trader = get_auto_trader()
+    await auto_trader.stop()
+
     from app.services.websocket_manager import get_ws_manager
     ws = get_ws_manager()
     await ws.disconnect()

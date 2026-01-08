@@ -1142,3 +1142,143 @@ async def htmx_trading_mode_panel(request: Request):
             "partials/trading_mode_panel.html",
             {"request": request, "error": str(e)},
         )
+
+
+@router.get("/htmx/live-margin", response_class=HTMLResponse)
+async def htmx_live_margin(request: Request):
+    """HTMX partial for live margin display."""
+    try:
+        admin = require_admin(request)
+
+        from app.services.live_trading_service import get_live_trading_service
+
+        live_service = get_live_trading_service()
+
+        margin = None
+        if live_service.is_authenticated:
+            margin = await live_service.get_available_margin()
+
+        return templates.TemplateResponse(
+            "partials/live_margin.html",
+            {"request": request, "margin": margin},
+        )
+    except Exception as e:
+        logger.error(f"Live margin HTMX error: {e}")
+        return templates.TemplateResponse(
+            "partials/live_margin.html",
+            {"request": request, "margin": None, "error": str(e)},
+        )
+
+
+@router.get("/htmx/live-positions", response_class=HTMLResponse)
+async def htmx_live_positions(request: Request):
+    """HTMX partial for live positions table."""
+    try:
+        admin = require_admin(request)
+
+        from app.services.live_trading_service import get_live_trading_service
+
+        live_service = get_live_trading_service()
+
+        positions = []
+        total_pnl = 0
+        if live_service.is_authenticated:
+            positions = await live_service.get_positions()
+            total_pnl = sum(p.pnl for p in positions)
+
+        return templates.TemplateResponse(
+            "partials/live_positions.html",
+            {"request": request, "positions": positions, "total_pnl": total_pnl},
+        )
+    except Exception as e:
+        logger.error(f"Live positions HTMX error: {e}")
+        return templates.TemplateResponse(
+            "partials/live_positions.html",
+            {"request": request, "positions": [], "total_pnl": 0, "error": str(e)},
+        )
+
+
+@router.get("/htmx/live-orders", response_class=HTMLResponse)
+async def htmx_live_orders(request: Request, only_open: bool = False):
+    """HTMX partial for live orders table."""
+    try:
+        admin = require_admin(request)
+
+        from app.services.live_trading_service import get_live_trading_service
+
+        live_service = get_live_trading_service()
+
+        orders = []
+        if live_service.is_authenticated:
+            orders = await live_service.get_orders(only_open=only_open)
+
+        return templates.TemplateResponse(
+            "partials/live_orders.html",
+            {"request": request, "orders": orders},
+        )
+    except Exception as e:
+        logger.error(f"Live orders HTMX error: {e}")
+        return templates.TemplateResponse(
+            "partials/live_orders.html",
+            {"request": request, "orders": [], "error": str(e)},
+        )
+
+
+@router.get("/htmx/live-signal", response_class=HTMLResponse)
+async def htmx_live_signal(request: Request):
+    """HTMX partial for current live signal display."""
+    try:
+        admin = require_admin(request)
+
+        from app.services.paper_trading import get_paper_trading_service
+        from app.services.signal_engine import get_signal_engine, TradingStyle
+        from app.services.data_fetcher import get_data_fetcher
+        from app.services.ai_trading_service import get_ai_trading_service
+        from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+
+        paper = get_paper_trading_service()
+        fetcher = get_data_fetcher()
+        ai_service = get_ai_trading_service()
+
+        # Check if market is open
+        is_market_open, market_reason = ai_service.is_trading_hours()
+
+        trading_index = paper.get_trading_index()
+        tokens = {
+            "NIFTY": NIFTY_INDEX_TOKEN,
+            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+            "SENSEX": SENSEX_INDEX_TOKEN,
+        }
+        token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+        signal = None
+        if is_market_open:
+            # Fetch data and generate signal
+            df = await fetcher.fetch_historical_data(
+                instrument_token=token,
+                timeframe="5minute",
+                days=3,
+            )
+            if not df.empty:
+                chain_data = await fetcher.get_option_chain(index=trading_index.index)
+                option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+                engine = get_signal_engine(TradingStyle.INTRADAY)
+                signal = engine.analyze(df=df, option_chain=option_chain)
+
+        return templates.TemplateResponse(
+            "partials/live_signal.html",
+            {
+                "request": request,
+                "signal": signal,
+                "trading_index": trading_index,
+                "is_market_open": is_market_open,
+                "market_reason": market_reason,
+                "ai_enabled": ai_service.is_enabled,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Live signal HTMX error: {e}")
+        return templates.TemplateResponse(
+            "partials/live_signal.html",
+            {"request": request, "signal": None, "error": str(e)},
+        )

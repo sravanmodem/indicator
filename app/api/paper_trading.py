@@ -18,19 +18,68 @@ from app.services.signal_engine import get_signal_engine, TradingStyle
 from app.services.data_fetcher import get_data_fetcher
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
-# Trading time restrictions
-TRADING_START_TIME = time(13, 0)  # Start trading at 1:00 PM
-TRADING_END_TIME = time(14, 0)    # Stop trading at 2:00 PM (square off time)
+# Trading time restrictions - Full market hours
+MARKET_OPEN_TIME = time(9, 15)   # 9:15 AM market open
+MARKET_CLOSE_TIME = time(15, 30)  # 3:30 PM market close
+SQUARE_OFF_TIME = time(15, 15)    # 3:15 PM - force square off before close
+
+# Known market holidays for 2024-2026 (NSE)
+from datetime import date as date_type
+INDIAN_MARKET_HOLIDAYS = {
+    date_type(2024, 1, 26), date_type(2024, 3, 8), date_type(2024, 3, 25),
+    date_type(2024, 3, 29), date_type(2024, 4, 11), date_type(2024, 4, 14),
+    date_type(2024, 4, 17), date_type(2024, 4, 21), date_type(2024, 5, 1),
+    date_type(2024, 5, 23), date_type(2024, 6, 17), date_type(2024, 7, 17),
+    date_type(2024, 8, 15), date_type(2024, 9, 16), date_type(2024, 10, 2),
+    date_type(2024, 10, 12), date_type(2024, 11, 1), date_type(2024, 11, 15),
+    date_type(2024, 12, 25),
+    date_type(2025, 1, 26), date_type(2025, 2, 26), date_type(2025, 3, 14),
+    date_type(2025, 3, 31), date_type(2025, 4, 10), date_type(2025, 4, 14),
+    date_type(2025, 4, 18), date_type(2025, 5, 1), date_type(2025, 8, 15),
+    date_type(2025, 8, 27), date_type(2025, 10, 2), date_type(2025, 10, 21),
+    date_type(2025, 11, 5), date_type(2025, 12, 25),
+    # 2026 holidays (tentative - NSE)
+    date_type(2026, 1, 26), date_type(2026, 2, 17), date_type(2026, 3, 3),
+    date_type(2026, 3, 20), date_type(2026, 4, 3), date_type(2026, 4, 14),
+    date_type(2026, 5, 1), date_type(2026, 5, 12), date_type(2026, 6, 5),
+    date_type(2026, 7, 6), date_type(2026, 8, 15), date_type(2026, 8, 17),
+    date_type(2026, 9, 4), date_type(2026, 10, 2), date_type(2026, 10, 20),
+    date_type(2026, 11, 9), date_type(2026, 11, 24), date_type(2026, 12, 25),
+}
 
 
 def is_trading_allowed() -> tuple[bool, str]:
-    """Check if trading is allowed based on current time."""
-    now = datetime.now().time()
+    """
+    Check if trading is allowed based on:
+    - Weekday (Mon-Fri)
+    - Market hours (9:15 AM - 3:30 PM IST)
+    - Not a market holiday
+    """
+    now = datetime.now()
+    current_time = now.time()
+    current_date = now.date()
+    weekday = now.weekday()  # 0=Monday, 6=Sunday
 
-    if now < TRADING_START_TIME:
-        return False, f"Trading starts at {TRADING_START_TIME.strftime('%I:%M %p')}"
-    if now >= TRADING_END_TIME:
-        return False, f"Trading ended at {TRADING_END_TIME.strftime('%I:%M %p')}"
+    # Check weekend (Saturday=5, Sunday=6)
+    if weekday >= 5:
+        day_name = "Saturday" if weekday == 5 else "Sunday"
+        return False, f"Market closed: {day_name} - Weekend"
+
+    # Check holidays
+    if current_date in INDIAN_MARKET_HOLIDAYS:
+        return False, f"Market closed: Holiday on {current_date.strftime('%d %b %Y')}"
+
+    # Check pre-market
+    if current_time < MARKET_OPEN_TIME:
+        return False, f"Pre-market: Opens at {MARKET_OPEN_TIME.strftime('%I:%M %p')}"
+
+    # Check post-market
+    if current_time >= MARKET_CLOSE_TIME:
+        return False, f"Post-market: Closed at {MARKET_CLOSE_TIME.strftime('%I:%M %p')}"
+
+    # Check square-off time (no new trades after 3:15 PM)
+    if current_time >= SQUARE_OFF_TIME:
+        return False, f"Square-off period: No new trades after {SQUARE_OFF_TIME.strftime('%I:%M %p')}"
 
     return True, "Trading allowed"
 
@@ -123,12 +172,22 @@ async def execute_signal_trade():
     require_auth()
 
     # Check trading time restrictions
+    # Set BYPASS_MARKET_HOURS=true in .env to skip this check for testing
+    from app.core.config import get_settings
+    settings = get_settings()
+    bypass_hours = getattr(settings, 'bypass_market_hours', False)
+
     allowed, reason = is_trading_allowed()
-    if not allowed:
+    logger.info(f"Trading allowed check: {allowed}, reason: {reason}, bypass: {bypass_hours}")
+
+    if not allowed and not bypass_hours:
+        logger.warning(f"Trade rejected - Market check failed: {reason}")
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": reason},
         )
+    elif not allowed and bypass_hours:
+        logger.warning(f"Market check would fail ({reason}), but bypassing for testing")
 
     paper = get_paper_trading_service()
     fetcher = get_data_fetcher()
@@ -152,6 +211,7 @@ async def execute_signal_trade():
     )
 
     if df.empty:
+        logger.warning("Trade rejected - No historical data available (market may be closed)")
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": "Market closed - No data available"},
@@ -160,21 +220,26 @@ async def execute_signal_trade():
     # Get option chain
     chain_data = await fetcher.get_option_chain(index=trading_index.index)
     option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+    logger.info(f"Option chain fetched: {len(option_chain) if option_chain else 0} strikes")
 
     # Generate signal
     engine = get_signal_engine(TradingStyle.INTRADAY)
     signal = engine.analyze(df=df, option_chain=option_chain)
 
     if not signal:
+        logger.warning("Trade rejected - No signal generated from indicators")
         return JSONResponse(
             status_code=400,
             content={"success": False, "error": "No signal generated"},
         )
 
+    logger.info(f"Signal generated: {signal.direction} | Confidence: {signal.confidence:.0f}%")
+
     # Execute trade
     order = await paper.execute_signal_trade(signal, trading_index)
 
     if order:
+        logger.info(f"Order executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
         return {
             "success": True,
             "order": {
@@ -191,11 +256,13 @@ async def execute_signal_trade():
             },
         }
     else:
+        halt_reason = paper.daily_stats.halt_reason if paper.daily_stats.is_trading_halted else "Trade not executed (AI may have skipped or other condition)"
+        logger.warning(f"Trade rejected - {halt_reason}")
         return JSONResponse(
             status_code=400,
             content={
                 "success": False,
-                "error": paper.daily_stats.halt_reason if paper.daily_stats.is_trading_halted else "Trade not executed",
+                "error": halt_reason,
             },
         )
 

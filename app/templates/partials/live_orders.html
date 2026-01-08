@@ -9,44 +9,48 @@
                 <th class="px-4 py-3 text-center">Type</th>
                 <th class="px-4 py-3 text-right">Qty</th>
                 <th class="px-4 py-3 text-right">Price</th>
-                <th class="px-4 py-3 text-right">Filled</th>
                 <th class="px-4 py-3 text-center">Status</th>
-                <th class="px-4 py-3 text-center">Action</th>
+                <th class="px-4 py-3 text-right">Filled</th>
+                <th class="px-4 py-3 text-right">Action</th>
             </tr>
         </thead>
         <tbody class="text-white">
             {% for order in orders %}
             <tr class="border-b border-slate-700/50 hover:bg-surface-700/30">
                 <td class="px-4 py-3 text-slate-400 text-xs">
-                    {{ order.order_timestamp.strftime('%H:%M:%S') if order.order_timestamp else '--' }}
+                    {{ order.order_timestamp.strftime('%H:%M:%S') if order.order_timestamp else '-' }}
                 </td>
-                <td class="px-4 py-3 font-medium">{{ order.tradingsymbol }}</td>
+                <td class="px-4 py-3 font-medium">
+                    <span class="{% if order.transaction_type == 'BUY' %}text-green-400{% else %}text-red-400{% endif %}">
+                        {{ order.tradingsymbol }}
+                    </span>
+                </td>
                 <td class="px-4 py-3 text-center">
-                    <span class="px-2 py-1 text-xs rounded font-medium
-                        {% if order.transaction_type == 'BUY' %}bg-green-500/20 text-green-400
-                        {% else %}bg-red-500/20 text-red-400{% endif %}">
+                    <span class="px-2 py-0.5 rounded text-xs font-medium
+                        {% if order.transaction_type == 'BUY' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
                         {{ order.transaction_type }}
                     </span>
                 </td>
                 <td class="px-4 py-3 text-right">{{ order.quantity }}</td>
                 <td class="px-4 py-3 text-right">{{ "{:.2f}".format(order.price) }}</td>
-                <td class="px-4 py-3 text-right">
-                    {{ order.filled_quantity }}/{{ order.quantity }}
-                    {% if order.average_price > 0 %}
-                    <span class="text-xs text-slate-400">@ {{ "{:.2f}".format(order.average_price) }}</span>
-                    {% endif %}
-                </td>
                 <td class="px-4 py-3 text-center">
-                    <span class="px-2 py-1 text-xs rounded
-                        {% if order.status.value == 'COMPLETE' %}bg-green-500/20 text-green-400
-                        {% elif order.status.value == 'REJECTED' %}bg-red-500/20 text-red-400
-                        {% elif order.status.value == 'CANCELLED' %}bg-slate-500/20 text-slate-400
-                        {% else %}bg-amber-500/20 text-amber-400{% endif %}">
-                        {{ order.status.value }}
+                    {% set status_class = {
+                        'COMPLETE': 'bg-green-500/20 text-green-400',
+                        'REJECTED': 'bg-red-500/20 text-red-400',
+                        'CANCELLED': 'bg-slate-500/20 text-slate-400',
+                        'OPEN': 'bg-yellow-500/20 text-yellow-400',
+                        'PENDING': 'bg-blue-500/20 text-blue-400',
+                        'TRIGGER_PENDING': 'bg-purple-500/20 text-purple-400'
+                    }.get(order.status.value if hasattr(order.status, 'value') else order.status, 'bg-slate-500/20 text-slate-400') %}
+                    <span class="px-2 py-0.5 rounded text-xs font-medium {{ status_class }}">
+                        {{ order.status.value if hasattr(order.status, 'value') else order.status }}
                     </span>
                 </td>
-                <td class="px-4 py-3 text-center">
-                    {% if order.status.value in ['PENDING', 'OPEN', 'TRIGGER PENDING'] %}
+                <td class="px-4 py-3 text-right">
+                    {{ order.filled_quantity }}/{{ order.quantity }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {% if order.status.value in ['OPEN', 'PENDING', 'TRIGGER_PENDING'] if hasattr(order.status, 'value') else order.status in ['OPEN', 'PENDING', 'TRIGGER_PENDING'] %}
                     <button onclick="cancelOrder('{{ order.order_id }}')"
                             class="px-2 py-1 text-xs rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors">
                         Cancel
@@ -60,19 +64,12 @@
         </tbody>
     </table>
 </div>
-<div class="mt-3 text-xs text-slate-500 flex justify-between items-center">
-    <span>Total Orders: {{ orders|length }}</span>
-    <span>
-        Completed: {{ orders|selectattr('status.value', 'equalto', 'COMPLETE')|list|length }} |
-        Pending: {{ orders|selectattr('status.value', 'in', ['PENDING', 'OPEN'])|list|length }}
-    </span>
-</div>
 {% else %}
 <div class="text-center py-8 text-slate-400">
     <svg class="w-12 h-12 mx-auto mb-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
     </svg>
     <p>No orders today</p>
-    <p class="text-xs text-slate-500 mt-1">Orders will appear when you place trades</p>
+    <p class="text-xs text-slate-500 mt-1">Orders will appear here when you trade</p>
 </div>
 {% endif %}

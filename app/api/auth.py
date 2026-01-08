@@ -42,6 +42,14 @@ async def auth_callback(
 
     if result["success"]:
         logger.info(f"User authenticated: {result['user_name']}")
+
+        # Start auto-trader on successful login
+        from app.services.auto_trader import get_auto_trader
+        auto_trader = get_auto_trader()
+        if not auto_trader.is_running:
+            await auto_trader.start()
+            logger.info("Auto-Trader started after login")
+
         return RedirectResponse(url="/dashboard")
     else:
         logger.error(f"Authentication failed: {result.get('error')}")
@@ -97,6 +105,14 @@ async def zerodha_callback(
 
     if result["success"]:
         logger.info(f"User authenticated: {result['user_name']}")
+
+        # Start auto-trader on successful login
+        from app.services.auto_trader import get_auto_trader
+        auto_trader = get_auto_trader()
+        if not auto_trader.is_running:
+            await auto_trader.start()
+            logger.info("Auto-Trader started after login")
+
         return RedirectResponse(url="/dashboard")
     else:
         logger.error(f"Authentication failed: {result.get('error')}")

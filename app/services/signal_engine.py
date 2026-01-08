@@ -638,7 +638,7 @@ class SignalEngine:
                     "ask": ask,
                 })
 
-            # If no options in 45-50 range, expand search slightly
+            # If no options in primary range (40-60), expand search to wider range
             if not candidates:
                 logger.warning(f"No options in {premium_min}-{premium_max} range, expanding search...")
                 for opt in option_chain:
@@ -652,8 +652,8 @@ class SignalEngine:
                     bid = opt_data.get("bid", 0)
                     ask = opt_data.get("ask", 0)
 
-                    # Expanded range: 40-60
-                    if ltp < 40 or ltp > 60:
+                    # Expanded range: 35-80 (wider fallback)
+                    if ltp < 35 or ltp > 80:
                         continue
 
                     if oi < min_oi:
