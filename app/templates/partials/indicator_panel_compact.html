@@ -11,7 +11,19 @@
     </div>
 </div>
 {% elif indicators %}
-<div class="glass rounded-2xl h-[80px] flex items-center px-3 bg-gradient-to-br from-surface-800/90 to-surface-900/90 border border-slate-700/50 shadow-lg">
+<div class="glass rounded-2xl h-[80px] flex items-center px-3 bg-gradient-to-br from-surface-800/90 to-surface-900/90 border border-slate-700/50 shadow-lg relative">
+    {% if old_data or cached %}
+    <div class="absolute top-1 left-3 flex items-center gap-1">
+        {% if old_data %}
+        <span class="px-1.5 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[8px] font-bold tracking-wide">OLD DATA</span>
+        {% else %}
+        <span class="px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[8px] font-bold tracking-wide">CACHED</span>
+        {% endif %}
+        {% if cache_time %}
+        <span class="text-[8px] text-slate-400">{{ cache_time.strftime('%H:%M') }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
     <div class="flex items-center w-full gap-2">
         <!-- SuperTrend -->
         <div class="flex-1 h-[60px] rounded-xl border backdrop-blur flex flex-col items-center justify-center {% if indicators.supertrend.direction.iloc[-1] == 1 %}bg-gradient-to-b from-green-500/20 to-green-500/5 border-green-500/40{% else %}bg-gradient-to-b from-red-500/20 to-red-500/5 border-red-500/40{% endif %}">

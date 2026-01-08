@@ -50,12 +50,17 @@
         <!-- Info -->
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-                {% if cached %}
+                {% if old_data %}
+                <span class="px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 text-[9px] font-bold tracking-wide">OLD DATA</span>
+                {% elif cached %}
                 <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-bold tracking-wide">CACHED</span>
                 {% else %}
                 <span class="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[9px] font-bold tracking-wide">LIVE</span>
                 {% endif %}
                 <span class="px-2 py-0.5 rounded-full {% if style == 'scalping' %}bg-amber-500/20 text-amber-400{% elif style == 'intraday' %}bg-blue-500/20 text-blue-400{% else %}bg-purple-500/20 text-purple-400{% endif %} text-[9px] font-bold">{{ style | upper }}</span>
+                {% if cache_time %}
+                <span class="text-[8px] text-slate-400 ml-auto">{{ cache_time.strftime('%H:%M') }}</span>
+                {% endif %}
             </div>
             <div class="flex items-center gap-3">
                 <span class="{% if signal.direction == 'CE' %}text-green-400{% elif signal.direction == 'PE' %}text-red-400{% else %}text-slate-400{% endif %} font-black text-2xl">{{ signal.confidence }}%</span>
