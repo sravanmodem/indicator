@@ -4,6 +4,7 @@ Server-side rendered partials for real-time UI updates
 """
 
 from datetime import datetime
+from typing import Dict, Any
 
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import HTMLResponse
@@ -11,14 +12,22 @@ from fastapi.templating import Jinja2Templates
 from loguru import logger
 
 from app.services.zerodha_auth import get_auth_service
-from app.services.data_fetcher import get_data_fetcher
+from app.services.data_fetcher import get_data_fetcher, is_api_allowed
 from app.services.websocket_manager import get_ws_manager
-from app.services.signal_engine import get_signal_engine, TradingStyle
+from app.services.signal_engine import get_signal_engine, TradingStyle, TradeSignal
 from app.services.signal_quality import get_quality_analyzer
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
 router = APIRouter(prefix="/htmx", tags=["HTMX Partials"])
 templates = Jinja2Templates(directory="app/templates")
+
+# Cache to store last signals for display after market hours
+# Key: "{index}_{style}" (e.g., "NIFTY_intraday"), Value: {"signal": TradeSignal, "timestamp": datetime}
+_signal_cache: Dict[str, Dict[str, Any]] = {}
+
+# Cache to store last indicators for display after market hours
+# Key: "{index}" (e.g., "NIFTY"), Value: {"indicators": dict, "price": float, "timestamp": datetime}
+_indicator_cache: Dict[str, Dict[str, Any]] = {}
 
 
 def require_auth():
@@ -1017,9 +1026,38 @@ async def signal_card_compact_partial(
     """Render compact signal card for dashboard."""
     index = index.upper()
     style = style.lower()
+    cache_key = f"{index}_{style}"
 
     try:
         require_auth()
+
+        # Check if API calls are allowed (market hours)
+        api_allowed, reason = is_api_allowed()
+
+        if not api_allowed:
+            # Outside market hours - show cached signal if available
+            cached = _signal_cache.get(cache_key)
+            if cached and cached.get("signal"):
+                logger.info(f"Showing cached signal for {cache_key}: {reason}")
+                return templates.TemplateResponse(
+                    "partials/signal_card_compact.html",
+                    {
+                        "request": request,
+                        "signal": cached["signal"],
+                        "index": index,
+                        "style": style,
+                        "cached": True,
+                        "cache_time": cached.get("timestamp"),
+                    },
+                )
+            else:
+                # No cached signal - show market closed message
+                return templates.TemplateResponse(
+                    "partials/signal_card_compact.html",
+                    {"request": request, "error": reason, "index": index},
+                )
+
+        # Market hours - fetch live data
         fetcher = get_data_fetcher()
 
         if index == "NIFTY":
@@ -1036,9 +1074,23 @@ async def signal_card_compact_partial(
         )
 
         if df.empty:
+            # Try to show cached signal if data fetch failed
+            cached = _signal_cache.get(cache_key)
+            if cached and cached.get("signal"):
+                return templates.TemplateResponse(
+                    "partials/signal_card_compact.html",
+                    {
+                        "request": request,
+                        "signal": cached["signal"],
+                        "index": index,
+                        "style": style,
+                        "cached": True,
+                        "cache_time": cached.get("timestamp"),
+                    },
+                )
             return templates.TemplateResponse(
                 "partials/signal_card_compact.html",
-                {"request": request, "error": "Market closed", "index": index},
+                {"request": request, "error": "No data available", "index": index},
             )
 
         chain_data = await fetcher.get_option_chain(index=index)
@@ -1051,6 +1103,13 @@ async def signal_card_compact_partial(
         }
         engine = get_signal_engine(style_map.get(style, TradingStyle.INTRADAY))
         signal = engine.analyze(df=df, option_chain=option_chain)
+
+        # Cache the signal for after-hours display
+        if signal:
+            _signal_cache[cache_key] = {
+                "signal": signal,
+                "timestamp": datetime.now(),
+            }
 
         return templates.TemplateResponse(
             "partials/signal_card_compact.html",
@@ -1069,6 +1128,20 @@ async def signal_card_compact_partial(
         )
     except Exception as e:
         logger.error(f"Signal card compact error: {e}")
+        # Try cached signal on error
+        cached = _signal_cache.get(cache_key)
+        if cached and cached.get("signal"):
+            return templates.TemplateResponse(
+                "partials/signal_card_compact.html",
+                {
+                    "request": request,
+                    "signal": cached["signal"],
+                    "index": index,
+                    "style": style,
+                    "cached": True,
+                    "cache_time": cached.get("timestamp"),
+                },
+            )
         return templates.TemplateResponse(
             "partials/signal_card_compact.html",
             {"request": request, "error": f"Error: {str(e)[:30]}", "index": index},
@@ -1085,6 +1158,33 @@ async def indicator_panel_compact_partial(
 
     try:
         require_auth()
+
+        # Check if API calls are allowed (market hours)
+        api_allowed, reason = is_api_allowed()
+
+        if not api_allowed:
+            # Outside market hours - show cached indicators if available
+            cached = _indicator_cache.get(index)
+            if cached and cached.get("indicators"):
+                logger.info(f"Showing cached indicators for {index}: {reason}")
+                return templates.TemplateResponse(
+                    "partials/indicator_panel_compact.html",
+                    {
+                        "request": request,
+                        "indicators": cached["indicators"],
+                        "index": index,
+                        "price": cached.get("price", 0),
+                        "cached": True,
+                        "cache_time": cached.get("timestamp"),
+                    },
+                )
+            else:
+                return templates.TemplateResponse(
+                    "partials/indicator_panel_compact.html",
+                    {"request": request, "error": reason, "index": index},
+                )
+
+        # Market hours - fetch live data
         fetcher = get_data_fetcher()
 
         if index == "NIFTY":
@@ -1101,9 +1201,23 @@ async def indicator_panel_compact_partial(
         )
 
         if df.empty:
+            # Try cached data on empty response
+            cached = _indicator_cache.get(index)
+            if cached and cached.get("indicators"):
+                return templates.TemplateResponse(
+                    "partials/indicator_panel_compact.html",
+                    {
+                        "request": request,
+                        "indicators": cached["indicators"],
+                        "index": index,
+                        "price": cached.get("price", 0),
+                        "cached": True,
+                        "cache_time": cached.get("timestamp"),
+                    },
+                )
             return templates.TemplateResponse(
                 "partials/indicator_panel_compact.html",
-                {"request": request, "error": "Market closed", "index": index},
+                {"request": request, "error": "No data available", "index": index},
             )
 
         from app.indicators.trend import calculate_supertrend, calculate_ema, calculate_adx
@@ -1119,18 +1233,41 @@ async def indicator_panel_compact_partial(
             "atr": calculate_atr(df),
         }
 
+        price = df["Close"].iloc[-1]
+
+        # Cache indicators for after-hours display
+        _indicator_cache[index] = {
+            "indicators": indicators,
+            "price": price,
+            "timestamp": datetime.now(),
+        }
+
         return templates.TemplateResponse(
             "partials/indicator_panel_compact.html",
             {
                 "request": request,
                 "indicators": indicators,
                 "index": index,
-                "price": df["Close"].iloc[-1],
+                "price": price,
             },
         )
 
     except Exception as e:
         logger.error(f"Indicator panel compact error: {e}")
+        # Try cached data on error
+        cached = _indicator_cache.get(index)
+        if cached and cached.get("indicators"):
+            return templates.TemplateResponse(
+                "partials/indicator_panel_compact.html",
+                {
+                    "request": request,
+                    "indicators": cached["indicators"],
+                    "index": index,
+                    "price": cached.get("price", 0),
+                    "cached": True,
+                    "cache_time": cached.get("timestamp"),
+                },
+            )
         return templates.TemplateResponse(
             "partials/indicator_panel_compact.html",
             {"request": request, "error": f"Error: {str(e)[:30]}", "index": index},

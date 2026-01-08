@@ -41,12 +41,20 @@
             <div class="w-14 h-14 rounded-xl {% if signal.direction == 'CE' %}bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg shadow-green-500/30{% elif signal.direction == 'PE' %}bg-gradient-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/30{% else %}bg-gradient-to-br from-slate-500 to-slate-600{% endif %} flex items-center justify-center">
                 <span class="text-2xl font-black text-white drop-shadow-lg">{{ signal.direction }}</span>
             </div>
+            {% if cached %}
+            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-surface-800" title="Cached data"></div>
+            {% else %}
             <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-green-400 animate-pulse border-2 border-surface-800"></div>
+            {% endif %}
         </div>
         <!-- Info -->
         <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
+                {% if cached %}
+                <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[9px] font-bold tracking-wide">CACHED</span>
+                {% else %}
                 <span class="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-[9px] font-bold tracking-wide">LIVE</span>
+                {% endif %}
                 <span class="px-2 py-0.5 rounded-full {% if style == 'scalping' %}bg-amber-500/20 text-amber-400{% elif style == 'intraday' %}bg-blue-500/20 text-blue-400{% else %}bg-purple-500/20 text-purple-400{% endif %} text-[9px] font-bold">{{ style | upper }}</span>
             </div>
             <div class="flex items-center gap-3">
@@ -56,19 +64,19 @@
                 </div>
             </div>
         </div>
-        <!-- Trade Levels -->
+        <!-- Trade Levels (Index Values) -->
         <div class="flex items-center gap-2">
             <div class="text-center px-3 py-2 bg-surface-900/80 rounded-xl border border-slate-700/50 backdrop-blur">
-                <p class="text-[8px] text-slate-500 uppercase tracking-wide">Entry</p>
-                <p class="text-white font-mono font-bold">{{ "%.0f"|format(signal.entry_price) }}</p>
+                <p class="text-[8px] text-slate-500 uppercase tracking-wide">Spot</p>
+                <p class="text-white font-mono font-bold">{{ "{:,.0f}".format(signal.index_spot) }}</p>
             </div>
             <div class="text-center px-3 py-2 bg-red-500/10 rounded-xl border border-red-500/30">
                 <p class="text-[8px] text-red-400 uppercase tracking-wide">SL</p>
-                <p class="text-red-400 font-mono font-bold">{{ "%.0f"|format(signal.stop_loss) }}</p>
+                <p class="text-red-400 font-mono font-bold">{{ "{:,.0f}".format(signal.index_sl) }}</p>
             </div>
             <div class="text-center px-3 py-2 bg-green-500/10 rounded-xl border border-green-500/30">
                 <p class="text-[8px] text-green-400 uppercase tracking-wide">Target</p>
-                <p class="text-green-400 font-mono font-bold">{{ "%.0f"|format(signal.target_1) }}</p>
+                <p class="text-green-400 font-mono font-bold">{{ "{:,.0f}".format(signal.index_target) }}</p>
             </div>
         </div>
     </div>

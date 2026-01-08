@@ -116,9 +116,9 @@ class TradeSignal:
     signal_type: SignalType
     direction: str  # CE or PE
     confidence: float  # 0-100
-    entry_price: float
-    stop_loss: float
-    target_1: float
+    entry_price: float  # Option premium entry
+    stop_loss: float  # Option premium SL
+    target_1: float  # Option premium target
     target_2: float | None
     indicators: list[IndicatorSignal]
     supporting_factors: list[str]
@@ -126,6 +126,10 @@ class TradeSignal:
     risk_reward: float
     trading_style: TradingStyle
     recommended_option: RecommendedOption | None = None
+    # Index spot levels for display
+    index_spot: float = 0.0  # Current index spot price (e.g., NIFTY 24500)
+    index_sl: float = 0.0  # Index level for SL
+    index_target: float = 0.0  # Index level for target
 
 
 class SignalEngine:
@@ -608,6 +612,30 @@ class SignalEngine:
             reward = abs(target_1 - current_price)
             risk_reward = reward / risk if risk > 0 else 0
 
+        # Calculate INDEX levels for display (not option premium)
+        # Use delta to convert premium changes to index level changes
+        index_spot_val = spot_price or current_price
+        index_sl_val = index_spot_val
+        index_target_val = index_spot_val
+
+        if recommended_option and recommended_option.delta:
+            delta = abs(recommended_option.delta)
+            if delta > 0:
+                # Premium change / delta = Index change
+                premium_risk = entry_price - stop_loss  # How much premium can drop
+                premium_reward = target_1 - entry_price  # How much premium can gain
+                index_risk = premium_risk / delta  # Convert to index points
+                index_reward = premium_reward / delta
+
+                if direction == "CE":
+                    # CE: Index down = Premium down, Index up = Premium up
+                    index_sl_val = index_spot_val - index_risk
+                    index_target_val = index_spot_val + index_reward
+                elif direction == "PE":
+                    # PE: Index up = Premium down, Index down = Premium up
+                    index_sl_val = index_spot_val + index_risk
+                    index_target_val = index_spot_val - index_reward
+
         return TradeSignal(
             timestamp=datetime.now(),
             instrument="NIFTY",
@@ -624,6 +652,9 @@ class SignalEngine:
             risk_reward=round(risk_reward, 2),
             trading_style=self.trading_style,
             recommended_option=recommended_option,
+            index_spot=round(index_spot_val, 2),
+            index_sl=round(index_sl_val, 2),
+            index_target=round(index_target_val, 2),
         )
 
     def _find_best_option(
