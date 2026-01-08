@@ -87,6 +87,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         "/static",
         "/health",
         "/zerodha/callback",
+        "/htmx/market-status",
     }
 
     async def dispatch(self, request, call_next):
