@@ -400,33 +400,32 @@ async def market_header_cards_partial(request: Request):
                 merged["change"] = 0
             return merged
 
-        if api_allowed:
-            # Market hours - fetch live data and cache it
-            ohlc_data = await fetcher.fetch_ohlc(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
-            quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+        # Always try to fetch fresh data, fallback to cache if fails
+        ohlc_data = await fetcher.fetch_ohlc(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
+        quotes = await fetcher.fetch_quote(["NSE:NIFTY 50", "NSE:NIFTY BANK", "BSE:SENSEX"])
 
-            nifty = build_index_data(
-                ohlc_data.get("NSE:NIFTY 50", {}),
-                quotes.get("NSE:NIFTY 50", {})
-            )
-            banknifty = build_index_data(
-                ohlc_data.get("NSE:NIFTY BANK", {}),
-                quotes.get("NSE:NIFTY BANK", {})
-            )
-            sensex = build_index_data(
-                ohlc_data.get("BSE:SENSEX", {}),
-                quotes.get("BSE:SENSEX", {})
-            )
+        nifty = build_index_data(
+            ohlc_data.get("NSE:NIFTY 50", {}),
+            quotes.get("NSE:NIFTY 50", {})
+        )
+        banknifty = build_index_data(
+            ohlc_data.get("NSE:NIFTY BANK", {}),
+            quotes.get("NSE:NIFTY BANK", {})
+        )
+        sensex = build_index_data(
+            ohlc_data.get("BSE:SENSEX", {}),
+            quotes.get("BSE:SENSEX", {})
+        )
 
-            # Cache the data for after-hours display
-            _market_data_cache["nifty"] = nifty
-            _market_data_cache["banknifty"] = banknifty
-            _market_data_cache["sensex"] = sensex
+        # If we got data, cache it
+        if nifty or banknifty or sensex:
+            _market_data_cache["nifty"] = nifty if nifty else _market_data_cache.get("nifty", {})
+            _market_data_cache["banknifty"] = banknifty if banknifty else _market_data_cache.get("banknifty", {})
+            _market_data_cache["sensex"] = sensex if sensex else _market_data_cache.get("sensex", {})
             _market_data_cache["timestamp"] = datetime.now()
-
-            logger.info("Market data cached for after-hours display")
+            logger.info("Market data updated")
         else:
-            # Market closed - use cached data
+            # No fresh data - use cached data
             nifty = _market_data_cache.get("nifty", {})
             banknifty = _market_data_cache.get("banknifty", {})
             sensex = _market_data_cache.get("sensex", {})

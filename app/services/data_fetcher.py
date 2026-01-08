@@ -451,6 +451,7 @@ class DataFetcher:
     async def fetch_quote(self, instruments: list[str]) -> dict[str, Any]:
         """
         Fetch current quote for instruments.
+        Allowed anytime - returns last known prices (live during market, EOD after hours).
 
         Args:
             instruments: List of instrument identifiers (e.g., ["NSE:NIFTY 50"])
@@ -458,12 +459,6 @@ class DataFetcher:
         Returns:
             Quote data dictionary
         """
-        # Check API time restriction
-        allowed, reason = is_api_allowed()
-        if not allowed:
-            logger.info(f"API blocked (quote): {reason}")
-            return {}
-
         try:
             return await asyncio.to_thread(self.kite.quote, instruments)
         except Exception as e:
@@ -471,13 +466,10 @@ class DataFetcher:
             return {}
 
     async def fetch_ohlc(self, instruments: list[str]) -> dict[str, Any]:
-        """Fetch OHLC for instruments."""
-        # Check API time restriction
-        allowed, reason = is_api_allowed()
-        if not allowed:
-            logger.info(f"API blocked (ohlc): {reason}")
-            return {}
-
+        """
+        Fetch OHLC for instruments.
+        Allowed anytime - returns live data during market, last candle after hours.
+        """
         try:
             return await asyncio.to_thread(self.kite.ohlc, instruments)
         except Exception as e:
