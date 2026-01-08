@@ -419,7 +419,7 @@
                 <!-- Market Overview OHLC Cards - Full Width -->
                 <div id="market-status" class="flex-1 flex items-center justify-center h-full"
                      hx-get="/htmx/market-header-cards"
-                     hx-trigger="load, every 5s"
+                     hx-trigger="load"
                      hx-swap="innerHTML">
                     <div class="flex items-center justify-center gap-4 h-full w-full">
                         <div class="h-9 flex-1 max-w-xs bg-slate-800/50 rounded-lg animate-pulse"></div>
@@ -431,7 +431,7 @@
                 <!-- Right Section - WS Status -->
                 <div id="ws-status" class="flex-shrink-0 ml-3"
                      hx-get="/htmx/ws-status"
-                     hx-trigger="load, every 10s"
+                     hx-trigger="load"
                      hx-swap="innerHTML">
                 </div>
             </div>
@@ -553,38 +553,8 @@
         `;
         document.head.appendChild(style);
 
-        // Control market header cards polling based on market hours
-        async function checkAndUpdateMarketHeaderPolling() {
-            try {
-                const response = await fetch('/htmx/market-status');
-                const data = await response.json();
-                const marketElement = document.getElementById('market-status');
-
-                if (!marketElement) return;
-
-                if (!data.is_open) {
-                    // Market closed - stop polling
-                    htmx.config.refreshOnHistoryMiss = false;
-                    if (marketElement.getAttribute('hx-trigger')) {
-                        // Remove the "every 5s" trigger, keep only "load"
-                        marketElement.setAttribute('hx-trigger', 'load');
-                    }
-                } else {
-                    // Market open - ensure polling is active
-                    if (!marketElement.getAttribute('hx-trigger')?.includes('every 5s')) {
-                        marketElement.setAttribute('hx-trigger', 'load, every 5s');
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking market status:', error);
-            }
-        }
-
-        // Check market status on page load and every minute
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAndUpdateMarketHeaderPolling();
-            setInterval(checkAndUpdateMarketHeaderPolling, 60000);
-        });
+        // Polling is now only on page load (hx-trigger="load")
+        // No automatic refresh after market hours
     </script>
 
     {% block scripts %}{% endblock %}
