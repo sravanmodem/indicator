@@ -1282,9 +1282,44 @@ async def indicator_panel_compact_partial(
                 )
 
                 if not df.empty:
-                    from app.services.signal_engine import get_signal_engine
-                    engine = get_signal_engine()
-                    indicators = engine.calculate_indicators(df)
+                    from app.indicators.trend import (
+                        calculate_supertrend,
+                        calculate_ema,
+                        calculate_adx,
+                        calculate_vwap,
+                    )
+                    from app.indicators.momentum import (
+                        calculate_rsi,
+                        calculate_macd,
+                    )
+                    from app.indicators.volatility import calculate_atr
+                    from app.core.config import INDICATOR_PARAMS
+
+                    params = INDICATOR_PARAMS
+
+                    # Calculate indicators
+                    indicators = {
+                        "supertrend": calculate_supertrend(
+                            df,
+                            period=params["supertrend"]["period"],
+                            multiplier=params["supertrend"]["multiplier"],
+                        ),
+                        "ema": calculate_ema(
+                            df,
+                            fast_period=params["ema_fast"],
+                            slow_period=params["ema_slow"],
+                            trend_period=params["ema_trend"],
+                        ),
+                        "adx": calculate_adx(df, period=params["adx_period"]),
+                        "rsi": calculate_rsi(df, period=params["rsi_period"]),
+                        "macd": calculate_macd(
+                            df,
+                            fast_period=params["macd_fast"],
+                            slow_period=params["macd_slow"],
+                            signal_period=params["macd_signal"],
+                        ),
+                        "atr": calculate_atr(df, period=params["atr_period"]),
+                    }
 
                     # Cache the indicators for future after-hours requests
                     _indicator_cache[index] = {
