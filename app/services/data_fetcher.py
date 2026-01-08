@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, time, date
 from typing import Any
 
 import pandas as pd
+import pytz
 from kiteconnect import KiteConnect
 from loguru import logger
 
@@ -50,11 +51,13 @@ INDIAN_MARKET_HOLIDAYS = {
 def is_api_allowed() -> tuple[bool, str]:
     """
     Check if API calls are allowed based on time restrictions.
+    Uses IST (Indian Standard Time) timezone.
 
     Returns:
         (is_allowed, reason)
     """
-    now = datetime.now()
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
     current_time = now.time()
     current_date = now.date()
     weekday = now.weekday()  # 0=Monday, 6=Sunday

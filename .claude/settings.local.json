@@ -26,7 +26,8 @@
       "Bash(powershell -Command:*)",
       "Bash(git fetch:*)",
       "Bash(git stash:*)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(git pull:*)"
     ]
   }
 }

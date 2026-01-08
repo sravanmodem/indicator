@@ -54,6 +54,13 @@ async def auth_status_partial(request: Request):
     )
 
 
+@router.get("/market-status")
+async def market_status():
+    """Check if market is currently open. Returns JSON boolean."""
+    allowed, reason = is_api_allowed()
+    return {"is_open": allowed, "reason": reason}
+
+
 @router.get("/signal-card/{index}", response_class=HTMLResponse)
 async def signal_card_partial(
     request: Request,

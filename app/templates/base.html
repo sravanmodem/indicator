@@ -552,6 +552,39 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Control market header cards polling based on market hours
+        async function checkAndUpdateMarketHeaderPolling() {
+            try {
+                const response = await fetch('/htmx/market-status');
+                const data = await response.json();
+                const marketElement = document.getElementById('market-status');
+
+                if (!marketElement) return;
+
+                if (!data.is_open) {
+                    // Market closed - stop polling
+                    htmx.config.refreshOnHistoryMiss = false;
+                    if (marketElement.getAttribute('hx-trigger')) {
+                        // Remove the "every 5s" trigger, keep only "load"
+                        marketElement.setAttribute('hx-trigger', 'load');
+                    }
+                } else {
+                    // Market open - ensure polling is active
+                    if (!marketElement.getAttribute('hx-trigger')?.includes('every 5s')) {
+                        marketElement.setAttribute('hx-trigger', 'load, every 5s');
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking market status:', error);
+            }
+        }
+
+        // Check market status on page load and every minute
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAndUpdateMarketHeaderPolling();
+            setInterval(checkAndUpdateMarketHeaderPolling, 60000);
+        });
     </script>
 
     {% block scripts %}{% endblock %}

@@ -297,9 +297,50 @@ function refreshAll() {
     loadIndexData('sensex', window.currentStyle);
 }
 
-// Auto-refresh every 3 seconds (HTMX handles initial load via hx-trigger="load")
+// Auto-refresh every 3 seconds during market hours only
+let refreshInterval = null;
+let lastMarketStatus = true;
+
+async function checkMarketStatus() {
+    try {
+        const response = await fetch('/htmx/market-status');
+        const data = await response.json();
+        return data.is_open;
+    } catch (error) {
+        console.error('Error checking market status:', error);
+        return lastMarketStatus; // Keep last known status if check fails
+    }
+}
+
+async function startRefreshLoop() {
+    // Check market status
+    const isOpen = await checkMarketStatus();
+    lastMarketStatus = isOpen;
+
+    if (!isOpen) {
+        // Market is closed, stop polling
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+        console.log('Market closed - auto-refresh stopped');
+        return;
+    }
+
+    // Market is open, start polling if not already running
+    if (!refreshInterval) {
+        console.log('Market open - auto-refresh started');
+        refreshAll(); // Immediate refresh
+        refreshInterval = setInterval(refreshAll, 3000);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-    setInterval(refreshAll, 3000);
+    // Initial check and start refresh loop
+    startRefreshLoop();
+
+    // Check market status every minute to handle market close
+    setInterval(startRefreshLoop, 60000);
 });
 </script>
 {% endblock %}
