@@ -556,6 +556,8 @@
         document.head.appendChild(style);
 
         // Dynamic polling control based on market hours
+        let pollingControlInterval = null;
+
         async function updatePollingTriggers() {
             try {
                 const response = await fetch('/htmx/market-status');
@@ -577,6 +579,9 @@
                         htmx.process(wsStatusEl);
                     }
                     console.log('Market open - polling enabled');
+
+                    // During market hours, check every 5 minutes if market closed
+                    pollingControlInterval = setInterval(updatePollingTriggers, 300000);
                 } else {
                     // Market is CLOSED - disable polling, keep only load
                     if (marketStatusEl) {
@@ -585,17 +590,22 @@
                     if (wsStatusEl) {
                         wsStatusEl.setAttribute('hx-trigger', 'load');
                     }
-                    console.log('Market closed - polling disabled');
+                    console.log('Market closed - polling disabled, stopping status checks');
+
+                    // Stop checking market status after hours
+                    if (pollingControlInterval) {
+                        clearInterval(pollingControlInterval);
+                        pollingControlInterval = null;
+                    }
                 }
             } catch (error) {
                 console.error('Error updating polling triggers:', error);
             }
         }
 
-        // Check market status on page load and every minute
+        // Check market status ONCE on page load
         document.addEventListener('DOMContentLoaded', () => {
             updatePollingTriggers();
-            setInterval(updatePollingTriggers, 60000); // Check every minute
         });
     </script>
 
