@@ -171,9 +171,10 @@ class PaperTradingService:
     MAX_CAPITAL_USE = 1.0  # 100%
     MAX_DAILY_LOSS_PERCENT = 0.20  # 20%
     MAX_LOTS_PER_ORDER = 25
+    MAX_TRADES_PER_DAY = 2  # Maximum 1-2 trades per day
 
-    # Daily profit target - 80% of capital (₹4L for ₹5L, ₹2L for ₹2.5L)
-    DAILY_PROFIT_TARGET_PERCENT = 0.80  # 80% of starting capital
+    # Daily profit target - 20% of capital (₹1L for ₹5L, ₹50K for ₹2.5L)
+    DAILY_PROFIT_TARGET_PERCENT = 0.20  # 20% of starting capital
 
     # Lot sizes
     LOT_SIZES = {
@@ -471,8 +472,9 @@ class PaperTradingService:
 
     def check_daily_loss_limit(self) -> bool:
         """
-        Check if daily loss limit or profit target has been reached.
-        Based on TOTAL P&L, not max drawdown.
+        Check if daily loss limit has been reached.
+        NO profit target - let profits run until 3:20 PM or stop loss hit.
+        NO max trades limit - can take multiple trades.
 
         Returns:
             True if trading should be halted
@@ -480,15 +482,9 @@ class PaperTradingService:
         # Calculate current P&L percentage
         daily_pnl_percent = self.daily_stats.total_pnl / self.daily_stats.starting_capital
 
-        # Check daily profit target (80% of capital)
-        # ₹5L capital → Stop at ₹4L profit
-        # ₹2.5L capital → Stop at ₹2L profit
-        if daily_pnl_percent >= self.DAILY_PROFIT_TARGET_PERCENT:
-            if not self.daily_stats.is_trading_halted:
-                self.daily_stats.is_trading_halted = True
-                self.daily_stats.halt_reason = f"Daily profit target reached: {daily_pnl_percent*100:.1f}% (Target: {self.DAILY_PROFIT_TARGET_PERCENT*100}%)"
-                logger.info(self.daily_stats.halt_reason)
-            return True
+        # NO PROFIT TARGET - Let profits run until 3:20 PM square off
+        # NO MAX TRADES LIMIT - Can take multiple trades
+        # Only stop on daily LOSS limit
 
         # Check daily loss limit based on TOTAL P&L (not drawdown)
         if daily_pnl_percent <= -self.MAX_DAILY_LOSS_PERCENT:
@@ -498,7 +494,7 @@ class PaperTradingService:
                 logger.warning(self.daily_stats.halt_reason)
             return True
 
-        # If P&L is back within limits, allow trading again
+        # If within limits, allow trading
         if self.daily_stats.is_trading_halted:
             logger.info(f"Trading resumed: P&L {daily_pnl_percent*100:.1f}% is within limits")
             self.daily_stats.is_trading_halted = False
@@ -506,13 +502,45 @@ class PaperTradingService:
 
         return False
 
+    def check_trailing_profit_exit(self, position: "PaperPosition") -> tuple[bool, str]:
+        """
+        Check if position should exit based on trailing profit lock.
+
+        Logic:
+        - When profit reaches 20%, lock 20% as trailing stop
+        - If price goes up to 30%, 40%, etc. - keep holding
+        - If price falls back to 20% profit level - EXIT and lock profits
+
+        Returns:
+            Tuple of (should_exit, exit_reason)
+        """
+        PROFIT_LOCK_THRESHOLD = 0.20  # 20% profit triggers trailing
+
+        # Calculate max profit reached
+        if position.entry_price > 0:
+            max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
+            current_profit_pct = ((position.current_price - position.entry_price) / position.entry_price)
+
+            # If max profit ever reached 20%+, set trailing stop at 20%
+            if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
+                # Check if current price has fallen back to 20% profit level
+                profit_lock_price = position.entry_price * (1 + PROFIT_LOCK_THRESHOLD)
+
+                if position.current_price <= profit_lock_price:
+                    exit_reason = (
+                        f"Trailing Profit Lock: Max +{max_profit_pct*100:.0f}% → "
+                        f"Locked +{PROFIT_LOCK_THRESHOLD*100:.0f}% profit"
+                    )
+                    logger.info(f"Trailing profit exit: {position.symbol} | {exit_reason}")
+                    return True, exit_reason
+
+        return False, ""
+
     def is_trading_hours(self, trading_index: "ExpiryInfo | None" = None) -> tuple[bool, str]:
         """
         Check if current time is within trading hours.
 
-        Trading Hours:
-        - Normal Day: 9:20 AM to 3:15 PM
-        - Expiry Day: 9:20 AM to 3:15 PM (same, we handle exit separately)
+        Trading Hours: 9:30 AM to 11:00 AM
 
         Args:
             trading_index: ExpiryInfo to check if it's expiry day
@@ -524,22 +552,22 @@ class PaperTradingService:
         current_hour = now.hour
         current_minute = now.minute
 
-        # Market open time: 9:20 AM (5 min after market open)
+        # Market open time: 9:30 AM
         market_open_hour = 9
-        market_open_minute = 20
+        market_open_minute = 30
 
         # Before market open
         if current_hour < market_open_hour or (current_hour == market_open_hour and current_minute < market_open_minute):
-            return False, "Market not yet open (Opens at 9:20 AM)"
+            return False, "Trading starts at 9:30 AM"
 
-        # Trading close time: 3:15 PM (15 min before market close)
-        close_hour = 15
-        close_minute = 15
-        close_time_str = "3:15 PM"
+        # Trading close time: 11:00 AM
+        close_hour = 11
+        close_minute = 0
+        close_time_str = "11:00 AM"
 
         # After trading close time
         if current_hour > close_hour or (current_hour == close_hour and current_minute >= close_minute):
-            return False, f"Trading closed for the day (Closes at {close_time_str})"
+            return False, f"Trading ended at {close_time_str}"
 
         return True, ""
 
@@ -558,8 +586,8 @@ class PaperTradingService:
             "reason": reason,
             "is_expiry_day": is_expiry,
             "open_time": "09:30",
-            "close_time": "13:00" if is_expiry else "14:00",
-            "close_time_display": "1:00 PM" if is_expiry else "2:00 PM",
+            "close_time": "11:00",
+            "close_time_display": "11:00 AM",
         }
 
     def has_open_position(self) -> bool:
@@ -787,6 +815,22 @@ class PaperTradingService:
                 current_premium = position.current_price
                 should_exit = False
                 exit_reason = ""
+
+                # 3:20 PM SQUARE OFF - Force exit all positions
+                square_off_time = time(15, 20)  # 3:20 PM
+                current_time = datetime.now().time()
+                if current_time >= square_off_time:
+                    should_exit = True
+                    exit_reason = f"Square Off at 3:20 PM | P&L: {position.pnl_percent:+.1f}%"
+                    logger.info(f"3:20 PM Square Off: {position.symbol}")
+
+                # TRAILING PROFIT LOCK - Exit at 20% if max was higher
+                # Example: Max +30% → falls to +20% → EXIT with +20% locked
+                if not should_exit:
+                    trailing_exit, trailing_reason = self.check_trailing_profit_exit(position)
+                    if trailing_exit:
+                        should_exit = True
+                        exit_reason = trailing_reason
 
                 # TRAILING STOP LOSS LOGIC
                 # Only active between 9:30 AM - 10:00 AM

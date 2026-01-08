@@ -139,8 +139,8 @@ SIGNAL_THRESHOLDS = {
 
 # Option selection filters
 OPTION_FILTERS = {
-    "premium_min": 45,      # Minimum option premium (LTP)
-    "premium_max": 55,      # Maximum option premium (LTP)
+    "premium_min": 40,      # Minimum option premium (LTP)
+    "premium_max": 60,      # Maximum option premium (LTP)
     "min_oi": 10000,        # Minimum open interest
     "min_volume": 100,      # Minimum volume
 }

@@ -19,8 +19,8 @@ from app.services.data_fetcher import get_data_fetcher
 from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
 # Trading time restrictions
-TRADING_START_TIME = time(13, 0)  # Start trading at 1:00 PM
-TRADING_END_TIME = time(14, 0)    # Stop trading at 2:00 PM (square off time)
+TRADING_START_TIME = time(9, 30)   # Start trading at 9:30 AM
+TRADING_END_TIME = time(11, 0)     # Stop trading at 11:00 AM
 
 
 def is_trading_allowed() -> tuple[bool, str]:
