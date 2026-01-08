@@ -504,9 +504,10 @@ class PaperTradingService:
 
     def check_trailing_profit_exit(self, position: "PaperPosition") -> tuple[bool, str]:
         """
-        Check if position should exit based on trailing profit lock.
+        Check if position should exit based on trailing profit lock or max profit target.
 
         Logic:
+        - If profit reaches 100% - EXIT immediately (take the double)
         - When profit reaches 20%, lock 20% as trailing stop
         - If price goes up to 30%, 40%, etc. - keep holding
         - If price falls back to 20% profit level - EXIT and lock profits
@@ -515,11 +516,18 @@ class PaperTradingService:
             Tuple of (should_exit, exit_reason)
         """
         PROFIT_LOCK_THRESHOLD = 0.20  # 20% profit triggers trailing
+        MAX_PROFIT_TARGET = 1.00  # 100% profit - exit immediately
 
-        # Calculate max profit reached
+        # Calculate current and max profit
         if position.entry_price > 0:
             max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
             current_profit_pct = ((position.current_price - position.entry_price) / position.entry_price)
+
+            # EXIT IMMEDIATELY at 100% profit (doubled your money)
+            if current_profit_pct >= MAX_PROFIT_TARGET:
+                exit_reason = f"🎯 MAX PROFIT TARGET: +{current_profit_pct*100:.0f}% (100% reached - Take profits!)"
+                logger.info(f"100% profit exit: {position.symbol} | {exit_reason}")
+                return True, exit_reason
 
             # If max profit ever reached 20%+, set trailing stop at 20%
             if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
