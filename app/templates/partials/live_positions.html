@@ -1,0 +1,58 @@
+<!-- Live Positions HTMX Partial -->
+{% if positions %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-xs text-slate-400 uppercase bg-surface-900/50">
+            <tr>
+                <th class="px-4 py-3 text-left">Symbol</th>
+                <th class="px-4 py-3 text-right">Qty</th>
+                <th class="px-4 py-3 text-right">Avg Price</th>
+                <th class="px-4 py-3 text-right">LTP</th>
+                <th class="px-4 py-3 text-right">P&L</th>
+                <th class="px-4 py-3 text-right">Action</th>
+            </tr>
+        </thead>
+        <tbody class="text-white">
+            {% for pos in positions %}
+            <tr class="border-b border-slate-700/50 hover:bg-surface-700/30">
+                <td class="px-4 py-3 font-medium">
+                    <span class="{% if 'CE' in pos.tradingsymbol %}text-green-400{% else %}text-red-400{% endif %}">
+                        {{ pos.tradingsymbol }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-right">{{ pos.quantity }}</td>
+                <td class="px-4 py-3 text-right">{{ "{:.2f}".format(pos.average_price) }}</td>
+                <td class="px-4 py-3 text-right">{{ "{:.2f}".format(pos.last_price) }}</td>
+                <td class="px-4 py-3 text-right font-bold {% if pos.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {% if pos.pnl >= 0 %}+{% endif %}{{ "{:.0f}".format(pos.pnl) }}
+                    <span class="text-xs opacity-75">({{ "{:+.1f}".format(pos.pnl_percent) }}%)</span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                    <button onclick="closePosition('{{ pos.tradingsymbol }}', {{ pos.quantity }}, '{{ pos.exchange }}')"
+                            class="px-2 py-1 text-xs rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors">
+                        Exit
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="bg-surface-900/30">
+            <tr>
+                <td colspan="4" class="px-4 py-3 text-right text-slate-400 font-medium">Total P&L:</td>
+                <td class="px-4 py-3 text-right font-bold text-lg {% if total_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                    {% if total_pnl >= 0 %}+{% endif %}{{ "{:,.0f}".format(total_pnl or 0) }}
+                </td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-8 text-slate-400">
+    <svg class="w-12 h-12 mx-auto mb-3 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+    </svg>
+    <p>No open positions</p>
+    <p class="text-xs text-slate-500 mt-1">Positions will appear here when you trade</p>
+</div>
+{% endif %}

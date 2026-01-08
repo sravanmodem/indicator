@@ -1,0 +1,70 @@
+<!-- Admin Trading Index Panel -->
+{% if error %}
+<div class="glass rounded-xl p-4 border border-red-500/30">
+    <p class="text-red-400 text-sm">{{ error }}</p>
+</div>
+{% else %}
+<div class="glass rounded-xl overflow-hidden">
+    <!-- Active Index -->
+    <div class="p-4 bg-gradient-to-r from-primary-600/20 to-purple-600/20 border-b border-surface-700/50">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-xl bg-primary-500/30 flex items-center justify-center">
+                    <span class="text-xl font-black text-primary-400">
+                        {% if trading_index.index == 'NIFTY' %}N{% elif trading_index.index == 'BANKNIFTY' %}BN{% else %}S{% endif %}
+                    </span>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">{{ trading_index.index }}</h3>
+                    <p class="text-sm text-slate-400">Active Trading Index</p>
+                </div>
+            </div>
+
+            <!-- Expiry Badge -->
+            <div class="text-right">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg
+                    {% if trading_index.is_expiry_day %}bg-red-500/20 text-red-400
+                    {% elif trading_index.days_to_expiry <= 2 %}bg-amber-500/20 text-amber-400
+                    {% else %}bg-green-500/20 text-green-400{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span class="font-bold">
+                        {% if trading_index.is_expiry_day %}EXPIRY DAY
+                        {% else %}{{ trading_index.days_to_expiry }}D to Expiry{% endif %}
+                    </span>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">{{ trading_index.expiry_date.strftime('%d %b %Y') }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spot Prices -->
+    <div class="p-4">
+        <div class="grid grid-cols-3 gap-3">
+            {% for exp in expiries %}
+            <div class="p-3 rounded-lg {% if exp.index == trading_index.index %}bg-primary-500/10 border border-primary-500/30{% else %}bg-surface-800/50 border border-surface-700{% endif %}">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold
+                        {% if exp.index == 'NIFTY' %}text-blue-400
+                        {% elif exp.index == 'BANKNIFTY' %}text-purple-400
+                        {% else %}text-green-400{% endif %}">
+                        {{ exp.index }}
+                    </span>
+                    {% if exp.index == trading_index.index %}
+                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary-500/30 text-primary-400">ACTIVE</span>
+                    {% endif %}
+                </div>
+                <p class="text-lg font-black text-white font-mono">
+                    {{ "{:,.0f}".format(spot_prices.get(exp.index, 0)) }}
+                </p>
+                <div class="flex items-center justify-between mt-1">
+                    <span class="text-[10px] text-slate-500">{{ exp.days_to_expiry }}D</span>
+                    <span class="text-[10px] text-slate-500">Lot: {{ exp.lot_size }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

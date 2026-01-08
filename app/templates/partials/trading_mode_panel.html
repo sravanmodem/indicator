@@ -1,0 +1,197 @@
+<!-- Trading Mode Panel - Paper/Live Toggle with AI Control -->
+<div class="card p-4 mb-6 bg-gradient-to-r from-surface-800 to-surface-700 border-2 {% if is_live_mode %}border-red-500{% else %}border-green-500{% endif %}">
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <!-- Mode Indicator -->
+        <div class="flex items-center gap-4">
+            <div class="p-3 rounded-xl {% if is_live_mode %}bg-red-500/20{% else %}bg-green-500/20{% endif %}">
+                <svg class="w-8 h-8 {% if is_live_mode %}text-red-400{% else %}text-green-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-white">Trading Mode</h2>
+                <p class="text-sm {% if is_live_mode %}text-red-400 font-bold{% else %}text-green-400{% endif %}">
+                    {% if is_live_mode %}
+                        LIVE TRADING - Real Money at Risk!
+                    {% else %}
+                        Paper Trading - Safe Practice Mode
+                    {% endif %}
+                </p>
+                {% if not zerodha_authenticated %}
+                <p class="text-xs text-amber-400 mt-1">Zerodha not connected - <a href="/zerodha/login" class="underline">Login</a></p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex items-center gap-6 flex-wrap">
+            <!-- AI Toggle -->
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-slate-400">AI Trading</span>
+                <button onclick="toggleAI()"
+                        class="relative w-14 h-7 rounded-full transition-all duration-300 {% if ai_enabled %}bg-primary-500 shadow-lg shadow-primary-500/30{% else %}bg-slate-600{% endif %}"
+                        id="aiToggle"
+                        title="{% if ai_enabled %}AI Enabled: {{ ai_model }}{% else %}AI Disabled{% endif %}">
+                    <span class="absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform duration-300 {% if ai_enabled %}translate-x-7{% endif %} shadow-md"></span>
+                </button>
+                {% if ai_enabled %}
+                <span class="text-xs text-primary-400">{{ ai_model }}</span>
+                {% endif %}
+            </div>
+
+            <!-- Paper/Live Toggle -->
+            <div class="flex rounded-lg overflow-hidden border border-slate-600">
+                <button onclick="setTradingMode('paper')"
+                        class="px-5 py-2.5 text-sm font-semibold transition-all duration-300 {% if not is_live_mode %}bg-green-500 text-white shadow-lg{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}">
+                    Paper
+                </button>
+                <button onclick="setTradingMode('live')"
+                        class="px-5 py-2.5 text-sm font-semibold transition-all duration-300 {% if is_live_mode %}bg-red-500 text-white shadow-lg{% else %}bg-surface-700 text-slate-400 hover:bg-surface-600{% endif %}"
+                        {% if not zerodha_authenticated %}disabled title="Login to Zerodha first"{% endif %}>
+                    Live
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {% if is_live_mode and margin %}
+    <!-- Live Mode: Margin & Position Info -->
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-surface-900/50 rounded-lg border border-red-500/20">
+        <div>
+            <p class="text-xs text-slate-500 uppercase tracking-wide">Available Margin</p>
+            <p class="text-lg font-bold text-green-400">{{ "{:,.0f}".format(margin.available_margin or 0) }}</p>
+        </div>
+        <div>
+            <p class="text-xs text-slate-500 uppercase tracking-wide">Used Margin</p>
+            <p class="text-lg font-bold text-amber-400">{{ "{:,.0f}".format(margin.used_margin or 0) }}</p>
+        </div>
+        <div>
+            <p class="text-xs text-slate-500 uppercase tracking-wide">Open Positions</p>
+            <p class="text-lg font-bold text-white">{{ live_positions_count or 0 }}</p>
+        </div>
+        <div>
+            <p class="text-xs text-slate-500 uppercase tracking-wide">Live P&L</p>
+            <p class="text-lg font-bold {% if total_live_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                {% if total_live_pnl >= 0 %}+{% endif %}{{ "{:,.0f}".format(total_live_pnl or 0) }}
+            </p>
+        </div>
+    </div>
+
+    {% if live_positions %}
+    <!-- Live Positions Table -->
+    <div class="mt-4 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-xs text-slate-400 uppercase bg-surface-900/30">
+                <tr>
+                    <th class="px-3 py-2 text-left">Symbol</th>
+                    <th class="px-3 py-2 text-right">Qty</th>
+                    <th class="px-3 py-2 text-right">Avg</th>
+                    <th class="px-3 py-2 text-right">LTP</th>
+                    <th class="px-3 py-2 text-right">P&L</th>
+                </tr>
+            </thead>
+            <tbody class="text-white">
+                {% for pos in live_positions %}
+                <tr class="border-b border-slate-700/50">
+                    <td class="px-3 py-2 font-medium">{{ pos.tradingsymbol }}</td>
+                    <td class="px-3 py-2 text-right">{{ pos.quantity }}</td>
+                    <td class="px-3 py-2 text-right">{{ "{:.2f}".format(pos.average_price) }}</td>
+                    <td class="px-3 py-2 text-right">{{ "{:.2f}".format(pos.last_price) }}</td>
+                    <td class="px-3 py-2 text-right font-bold {% if pos.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {% if pos.pnl >= 0 %}+{% endif %}{{ "{:.0f}".format(pos.pnl) }}
+                        <span class="text-xs">({{ "{:+.1f}".format(pos.pnl_percent) }}%)</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if error %}
+    <div class="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+        {{ error }}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function setTradingMode(mode) {
+    if (mode === 'live') {
+        if (!confirm('WARNING: You are about to enable LIVE TRADING with REAL MONEY.\n\nAre you absolutely sure?')) {
+            return;
+        }
+        if (!confirm('FINAL CONFIRMATION:\n\nReal trades will be placed on your Zerodha account.\nThis cannot be undone.\n\nProceed with LIVE TRADING?')) {
+            return;
+        }
+    }
+
+    const formData = new FormData();
+    formData.append('mode', mode);
+
+    try {
+        const response = await fetch('/admin/trading-mode/toggle', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message, mode === 'live' ? 'warning' : 'success');
+            // Refresh the panel
+            htmx.ajax('GET', '/admin/htmx/trading-mode-panel', {target: '#trading-mode-panel', swap: 'innerHTML'});
+        } else {
+            showToast(data.error || 'Failed to change mode', 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    }
+}
+
+async function toggleAI() {
+    const btn = document.getElementById('aiToggle');
+    const isCurrentlyEnabled = btn.classList.contains('bg-primary-500');
+    const newState = !isCurrentlyEnabled;
+
+    const formData = new FormData();
+    formData.append('enabled', newState ? 'true' : 'false');
+
+    try {
+        const response = await fetch('/admin/ai/toggle', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(`AI Trading ${data.ai_enabled ? 'enabled' : 'disabled'} (${data.ai_model})`, 'success');
+            // Refresh the panel
+            htmx.ajax('GET', '/admin/htmx/trading-mode-panel', {target: '#trading-mode-panel', swap: 'innerHTML'});
+        } else {
+            showToast(data.error || 'Failed to toggle AI', 'error');
+        }
+    } catch (e) {
+        showToast('Network error: ' + e.message, 'error');
+    }
+}
+
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-full
+        ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'} text-white`;
+    toast.textContent = message;
+
+    document.body.appendChild(toast);
+
+    // Animate in
+    setTimeout(() => toast.classList.remove('translate-x-full'), 10);
+
+    // Remove after 4 seconds
+    setTimeout(() => {
+        toast.classList.add('translate-x-full');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+</script>

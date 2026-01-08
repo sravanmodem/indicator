@@ -311,7 +311,7 @@
                 <p class="text-xs text-slate-500 uppercase tracking-wider">Max Capital</p>
                 <p class="text-lg font-bold text-white mt-1">₹{{ "{:,.0f}".format(user.restrictions.max_capital) }}</p>
                 <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
-                    <div class="h-full bg-primary-500 rounded-full" style="width: {{ (user.capital / user.restrictions.max_capital * 100)|min(100) }}%"></div>
+                    <div class="h-full bg-primary-500 rounded-full" style="width: {{ [user.capital / user.restrictions.max_capital * 100, 100]|min }}%"></div>
                 </div>
             </div>
 
@@ -324,7 +324,7 @@
                 <p class="text-xs text-slate-500 uppercase tracking-wider">Daily Trades</p>
                 <p class="text-lg font-bold text-white mt-1">{{ stats.today_trades }} / {{ user.restrictions.max_daily_trades }}</p>
                 <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
-                    <div class="h-full bg-amber-500 rounded-full" style="width: {{ (stats.today_trades / user.restrictions.max_daily_trades * 100)|min(100) }}%"></div>
+                    <div class="h-full bg-amber-500 rounded-full" style="width: {{ [stats.today_trades / user.restrictions.max_daily_trades * 100, 100]|min }}%"></div>
                 </div>
             </div>
 
@@ -335,7 +335,7 @@
                 </p>
                 {% if stats.today_pnl < 0 %}
                 <div class="mt-2 h-1.5 rounded-full bg-surface-700 overflow-hidden">
-                    <div class="h-full bg-red-500 rounded-full" style="width: {{ (abs(stats.today_pnl) / user.restrictions.max_daily_loss * 100)|min(100) }}%"></div>
+                    <div class="h-full bg-red-500 rounded-full" style="width: {{ [(stats.today_pnl|abs) / user.restrictions.max_daily_loss * 100, 100]|min }}%"></div>
                 </div>
                 {% endif %}
             </div>
