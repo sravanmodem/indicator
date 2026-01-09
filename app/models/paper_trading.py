@@ -44,6 +44,9 @@ class PaperTradingPosition(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
 
+    # Strategy (for multi-strategy support)
+    strategy = Column(String(50), nullable=True, default="default")  # fixed_20_percent, trailing_stoploss, profit_100_halt
+
     # Signal reference
     signal_id = Column(Integer, nullable=True)
     index_name = Column(String(20), nullable=False)
@@ -81,6 +84,9 @@ class PaperTradingOrder(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     position_id = Column(Integer, nullable=True)
 
+    # Strategy
+    strategy = Column(String(50), nullable=True, default="default")
+
     # Order details
     order_time = Column(DateTime, nullable=False, default=datetime.now)
     symbol = Column(String(100), nullable=False)
@@ -101,6 +107,9 @@ class PaperTradingAccount(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(String(100), nullable=False, default="default")
+
+    # Strategy
+    strategy = Column(String(50), nullable=True, default="default")
 
     # Capital
     initial_capital = Column(Float, nullable=False, default=500000)
