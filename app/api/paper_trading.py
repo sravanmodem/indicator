@@ -120,11 +120,103 @@ async def paper_trading_page(request: Request):
     )
 
 
+@router.get("/strategy/fixed-20", response_class=HTMLResponse)
+async def paper_strategy_fixed_20(request: Request):
+    """Render paper trading page with 20% profit exit strategy."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="fixed_20_percent")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_strategy_fixed_20.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "fixed_20_percent",
+            "strategy_name": "Fixed 20% Profit Exit",
+            "strategy_description": "Exit when profit reaches 20%, no new trades after exit",
+        },
+    )
+
+
+@router.get("/strategy/trailing", response_class=HTMLResponse)
+async def paper_strategy_trailing(request: Request):
+    """Render paper trading page with trailing stop loss strategy."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="trailing_stoploss")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_strategy_trailing.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "trailing_stoploss",
+            "strategy_name": "Trailing Stop Loss",
+            "strategy_description": "Lock 20% profit when reached, trail as profit increases",
+        },
+    )
+
+
+@router.get("/strategy/profit-100", response_class=HTMLResponse)
+async def paper_strategy_profit_100(request: Request):
+    """Render paper trading page with 100% profit halt strategy."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="profit_100_halt")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_strategy_profit_100.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "profit_100_halt",
+            "strategy_name": "100% Profit & Halt",
+            "strategy_description": "Exit at 100% profit, then stop trading for the day",
+        },
+    )
+
+
 @router.get("/stats")
-async def get_stats():
+async def get_stats(strategy: str = "default"):
     """Get paper trading statistics."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
     return paper.get_stats()
 
 
@@ -268,10 +360,12 @@ async def execute_signal_trade():
 
 
 @router.get("/positions")
-async def get_positions():
+async def get_positions(strategy: str = "default"):
     """Get all positions."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     open_positions = paper.get_open_positions()
     closed_positions = paper.get_closed_positions()
@@ -370,10 +464,12 @@ async def close_all_positions():
 
 
 @router.get("/orders")
-async def get_orders():
+async def get_orders(strategy: str = "default"):
     """Get today's orders."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     orders = paper.get_today_orders()
 
@@ -487,11 +583,13 @@ async def get_expiries_from_kite():
 # HTMX Partials
 
 @router.get("/htmx/stats", response_class=HTMLResponse)
-async def htmx_stats(request: Request):
+async def htmx_stats(request: Request, strategy: str = "default"):
     """HTMX partial for stats card."""
     try:
         require_auth()
-        paper = get_paper_trading_service()
+
+        from app.services.paper_trading import PaperTradingService
+        paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
         stats = paper.get_stats()
 
         return templates.TemplateResponse(
@@ -541,11 +639,13 @@ async def htmx_trading_index(request: Request):
 
 
 @router.get("/htmx/positions", response_class=HTMLResponse)
-async def htmx_positions(request: Request):
+async def htmx_positions(request: Request, strategy: str = "default"):
     """HTMX partial for positions table."""
     try:
         require_auth()
-        paper = get_paper_trading_service()
+
+        from app.services.paper_trading import PaperTradingService
+        paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
         # Update positions
         await paper.update_positions()
@@ -570,11 +670,13 @@ async def htmx_positions(request: Request):
 
 
 @router.get("/htmx/orders", response_class=HTMLResponse)
-async def htmx_orders(request: Request):
+async def htmx_orders(request: Request, strategy: str = "default"):
     """HTMX partial for orders table."""
     try:
         require_auth()
-        paper = get_paper_trading_service()
+
+        from app.services.paper_trading import PaperTradingService
+        paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
         orders = paper.get_today_orders()
 
@@ -615,10 +717,12 @@ async def order_history_page(request: Request):
 
 
 @router.get("/order-history/data")
-async def get_order_history(days: int = 30):
+async def get_order_history(days: int = 30, strategy: str = "default"):
     """Get order history as JSON."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     history = paper.get_order_history(days=days)
 
@@ -656,19 +760,23 @@ async def get_order_history(days: int = 30):
 
 
 @router.get("/order-history/summary")
-async def get_order_history_summary():
+async def get_order_history_summary(strategy: str = "default"):
     """Get order history summary statistics."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     return paper.get_order_history_summary()
 
 
 @router.get("/order-history/download")
-async def download_order_history(days: int = 30):
+async def download_order_history(days: int = 30, strategy: str = "default"):
     """Download order history as Excel file."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     history = paper.get_order_history(days=days)
 

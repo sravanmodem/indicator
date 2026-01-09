@@ -300,18 +300,51 @@
             <div class="mb-4">
                 <p class="px-3 mb-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">Trading</p>
 
+                <!-- Page 1: Live Trading -->
+                <a href="/admin/live-trading" class="nav-item {% if '/admin/live-trading' in request.url.path %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span>Live Trading</span>
+                </a>
+
+                <!-- Page 2: Paper Trading (Default) -->
                 <a href="/paper" class="nav-item {% if request.url.path == '/paper' %}active{% endif %}">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
-                    <span>Paper Trading</span>
+                    <span>Paper: Target/SL</span>
                 </a>
 
-                <a href="/paper/order-history" class="nav-item {% if request.url.path == '/paper/order-history' %}active{% endif %}">
+                <!-- Page 3: Paper 20% Exit -->
+                <a href="/paper/strategy/fixed-20" class="nav-item {% if '/paper/strategy/fixed-20' in request.url.path %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                    </svg>
+                    <span>Paper: 20% Exit</span>
+                </a>
+
+                <!-- Page 4: Paper Trailing SL -->
+                <a href="/paper/strategy/trailing" class="nav-item {% if '/paper/strategy/trailing' in request.url.path %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span>Paper: Trailing SL</span>
+                </a>
+
+                <!-- Page 5: Paper 100% Halt -->
+                <a href="/paper/strategy/profit-100" class="nav-item {% if '/paper/strategy/profit-100' in request.url.path %}active{% endif %}">
+                    <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/>
+                    </svg>
+                    <span>Paper: 100% Halt</span>
+                </a>
+
+                <a href="/admin/order-history-all" class="nav-item {% if request.url.path == '/admin/order-history-all' %}active{% endif %}">
                     <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
                     </svg>
-                    <span>Order History</span>
+                    <span>Order History (All)</span>
                 </a>
 
                 <a href="/option-chain" class="nav-item {% if request.url.path == '/option-chain' %}active{% endif %}">

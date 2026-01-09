@@ -94,6 +94,20 @@ async def live_trading_page(request: Request):
     )
 
 
+@router.get("/order-history-all", response_class=HTMLResponse)
+async def order_history_all_page(request: Request):
+    """Unified order history page with all strategies."""
+    admin = require_admin(request)
+
+    return templates.TemplateResponse(
+        "order_history_all.html",
+        {
+            "request": request,
+            "admin_user": admin,
+        }
+    )
+
+
 # ==================== User Management ====================
 
 @router.get("/users", response_class=HTMLResponse)

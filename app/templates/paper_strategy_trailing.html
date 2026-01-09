@@ -1,22 +1,22 @@
 {% extends "base.html" %}
 
-{% block title %}Paper Trading - Options Indicator{% endblock %}
+{% block title %}Paper Trading: Trailing Stop Loss - Options Indicator{% endblock %}
 
 {% block content %}
 <div x-data="paperTrading()" x-init="init()">
     <!-- Ultra-Pro Header -->
-    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-indigo-900/20 to-surface-900/50 border border-indigo-500/20">
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-purple-900/20 to-surface-900/50 border border-purple-500/20">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div class="flex items-center space-x-4">
                 <!-- Logo -->
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Paper Trading</h1>
-                    <p class="text-slate-400 text-sm">Auto-detect nearest expiry | Signal-based execution</p>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">{{ strategy_name }}</h1>
+                    <p class="text-slate-400 text-sm">{{ strategy_description }}</p>
                 </div>
             </div>
 
@@ -178,7 +178,7 @@
                 <span class="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold" x-text="stats.status.open_positions + ' Open'"></span>
             </div>
             <div id="positions-table"
-                 hx-get="/paper/htmx/positions"
+                 hx-get="/paper/htmx/positions?strategy=trailing_stoploss"
                  hx-trigger="load, every 2s"
                  hx-swap="innerHTML">
                 <div class="p-6">
@@ -194,7 +194,7 @@
                 <span class="px-3 py-1 rounded-lg bg-slate-500/20 text-slate-400 text-xs font-bold">{{ stats.trades.total }} Orders</span>
             </div>
             <div id="orders-table"
-                 hx-get="/paper/htmx/orders"
+                 hx-get="/paper/htmx/orders?strategy=trailing_stoploss"
                  hx-trigger="load, every 5s"
                  hx-swap="innerHTML">
                 <div class="p-6">
@@ -206,7 +206,7 @@
 
     <!-- Trading Rules -->
     <div class="mt-6 glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Paper Trading Rules</h3>
+        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Strategy Rules</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div class="bg-surface-800/50 rounded-xl p-4">
                 <p class="text-blue-400 font-bold mb-2">Capital Management</p>
@@ -233,11 +233,11 @@
                 </ul>
             </div>
             <div class="bg-surface-800/50 rounded-xl p-4">
-                <p class="text-purple-400 font-bold mb-2">Exit Rules</p>
+                <p class="text-purple-400 font-bold mb-2">Exit Rules: Trailing SL</p>
                 <ul class="text-slate-300 space-y-1 text-xs">
-                    <li>• Stop Loss based on signal</li>
-                    <li>• Target based on signal</li>
-                    <li>• Auto-exit on SL/Target hit</li>
+                    <li>• Exit at Stop Loss hit</li>
+                    <li>• Exit at Target hit</li>
+                    <li>• <span class="text-purple-400 font-bold">Trailing 20% profit lock</span></li>
                 </ul>
             </div>
         </div>

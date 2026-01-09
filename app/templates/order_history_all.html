@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block title %}Order History - All Strategies{% endblock %}
+
+{% block content %}
+<div x-data="orderHistory()" x-init="init()">
+    <!-- Header -->
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-indigo-900/20 to-surface-900/50 border border-indigo-500/20">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <!-- Logo -->
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                    <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight">Order History</h1>
+                    <p class="text-slate-400 text-sm">Track performance across all trading strategies</p>
+                </div>
+            </div>
+
+            <!-- Time Filter -->
+            <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
+                <button @click="setDays(7)"
+                        :class="filterDays === 7 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    7 Days
+                </button>
+                <button @click="setDays(30)"
+                        :class="filterDays === 30 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    30 Days
+                </button>
+                <button @click="setDays(90)"
+                        :class="filterDays === 90 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
+                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                    90 Days
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Strategy Tabs -->
+    <div class="glass rounded-2xl overflow-hidden mb-6">
+        <div class="flex overflow-x-auto bg-surface-800/50 border-b border-slate-700/50">
+            <!-- Live Trading Tab -->
+            <button @click="activeTab = 'live'"
+                    :class="activeTab === 'live' ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white border-b-2 border-red-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    <span>Live Trading</span>
+                </div>
+            </button>
+
+            <!-- Paper Default Tab -->
+            <button @click="activeTab = 'default'"
+                    :class="activeTab === 'default' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-b-2 border-blue-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Paper: Target/SL</span>
+                </div>
+            </button>
+
+            <!-- Fixed 20% Tab -->
+            <button @click="activeTab = 'fixed_20_percent'"
+                    :class="activeTab === 'fixed_20_percent' ? 'bg-gradient-to-r from-orange-600 to-red-600 text-white border-b-2 border-orange-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Paper: 20% Exit</span>
+                </div>
+            </button>
+
+            <!-- Trailing SL Tab -->
+            <button @click="activeTab = 'trailing_stoploss'"
+                    :class="activeTab === 'trailing_stoploss' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white border-b-2 border-purple-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span>Paper: Trailing SL</span>
+                </div>
+            </button>
+
+            <!-- 100% Halt Tab -->
+            <button @click="activeTab = 'profit_100_halt'"
+                    :class="activeTab === 'profit_100_halt' ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white border-b-2 border-emerald-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>Paper: 100% Halt</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="p-6">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+                <!-- Total Trades -->
+                <div class="glass rounded-xl p-4 border border-slate-700/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Total Trades</p>
+                            <p class="text-xl font-bold text-white" x-text="currentSummary.total_trades || 0"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Win Rate -->
+                <div class="glass rounded-xl p-4 border border-slate-700/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Win Rate</p>
+                            <p class="text-xl font-bold text-green-400" x-text="(currentSummary.win_rate || 0).toFixed(1) + '%'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Avg Max Profit -->
+                <div class="glass rounded-xl p-4 border border-green-500/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Avg Max Profit</p>
+                            <p class="text-xl font-bold text-green-400" x-text="(currentSummary.avg_max_profit_percent || 0).toFixed(1) + '%'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Avg Max Loss -->
+                <div class="glass rounded-xl p-4 border border-red-500/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Avg Max Loss</p>
+                            <p class="text-xl font-bold text-red-400" x-text="(currentSummary.avg_max_loss_percent || 0).toFixed(1) + '%'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Avg Captured Move -->
+                <div class="glass rounded-xl p-4 border border-purple-500/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Captured Move</p>
+                            <p class="text-xl font-bold text-purple-400" x-text="(currentSummary.avg_captured_move || 0).toFixed(1) + '%'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Avg Duration -->
+                <div class="glass rounded-xl p-4 border border-amber-500/30">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500 uppercase">Avg Duration</p>
+                            <p class="text-xl font-bold text-amber-400" x-text="Math.round(currentSummary.avg_duration_minutes || 0) + 'm'"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order History Table -->
+            <div class="glass rounded-xl overflow-hidden">
+                <div class="h-[48px] px-4 border-b border-slate-700/50 flex items-center justify-between bg-gradient-to-r from-surface-800/50 to-surface-900/50">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-white">Trade History</h3>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-slate-500 text-xs" x-text="currentHistory.length + ' trades'"></span>
+                        <button @click="downloadExcel()"
+                           class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-bold transition-all flex items-center space-x-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            <span>Excel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="history-table" class="overflow-x-auto">
+                    <!-- Dynamic content loaded here -->
+                    <div class="p-6 text-center text-slate-400">
+                        <svg class="w-8 h-8 mx-auto mb-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        <p>Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function orderHistory() {
+    return {
+        activeTab: 'default',
+        filterDays: 30,
+        data: {
+            live: { history: [], summary: {} },
+            default: { history: [], summary: {} },
+            fixed_20_percent: { history: [], summary: {} },
+            trailing_stoploss: { history: [], summary: {} },
+            profit_100_halt: { history: [], summary: {} }
+        },
+
+        get currentHistory() {
+            return this.data[this.activeTab]?.history || [];
+        },
+
+        get currentSummary() {
+            return this.data[this.activeTab]?.summary || {};
+        },
+
+        async init() {
+            // Load all strategies on init
+            await this.loadStrategy(this.activeTab);
+        },
+
+        async setDays(days) {
+            this.filterDays = days;
+            await this.loadStrategy(this.activeTab);
+        },
+
+        async loadStrategy(strategy) {
+            this.activeTab = strategy;
+
+            // If data not loaded yet, fetch it
+            if (!this.data[strategy].history || this.data[strategy].history.length === 0) {
+                try {
+                    const endpoint = strategy === 'live'
+                        ? `/admin/live/order-history/data?days=${this.filterDays}`
+                        : `/paper/order-history/data?days=${this.filterDays}&strategy=${strategy}`;
+
+                    const response = await fetch(endpoint);
+                    const data = await response.json();
+
+                    this.data[strategy].history = data.history || [];
+
+                    // Fetch summary
+                    const summaryEndpoint = strategy === 'live'
+                        ? `/admin/live/order-history/summary`
+                        : `/paper/order-history/summary?strategy=${strategy}`;
+
+                    const summaryResponse = await fetch(summaryEndpoint);
+                    this.data[strategy].summary = await summaryResponse.json();
+
+                    // Render table
+                    this.renderTable();
+                } catch (e) {
+                    console.error('Failed to load strategy data:', e);
+                }
+            } else {
+                this.renderTable();
+            }
+        },
+
+        renderTable() {
+            const container = document.getElementById('history-table');
+            const history = this.currentHistory;
+
+            if (history.length === 0) {
+                container.innerHTML = `
+                    <div class="p-12 text-center">
+                        <svg class="w-16 h-16 mx-auto mb-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <p class="text-slate-400 font-medium">No orders yet</p>
+                        <p class="text-slate-500 text-sm mt-1">Start trading to see order history</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let tableHTML = `
+                <table class="w-full">
+                    <thead class="bg-surface-800/50 text-xs uppercase text-slate-400 border-b border-slate-700/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left font-bold">Date/Time</th>
+                            <th class="px-4 py-3 text-left font-bold">Symbol</th>
+                            <th class="px-4 py-3 text-center font-bold">Type</th>
+                            <th class="px-4 py-3 text-right font-bold">Lots</th>
+                            <th class="px-4 py-3 text-right font-bold">Entry</th>
+                            <th class="px-4 py-3 text-right font-bold">Exit</th>
+                            <th class="px-4 py-3 text-right font-bold">P&L</th>
+                            <th class="px-4 py-3 text-right font-bold">P&L %</th>
+                            <th class="px-4 py-3 text-left font-bold">Exit Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm">
+            `;
+
+            history.forEach(trade => {
+                const pnlClass = trade.pnl >= 0 ? 'text-green-400' : 'text-red-400';
+                const typeClass = trade.direction === 'CE' ? 'text-green-400' : 'text-red-400';
+                const date = new Date(trade.timestamp);
+
+                tableHTML += `
+                    <tr class="border-b border-slate-700/30 hover:bg-surface-700/30 transition-colors">
+                        <td class="px-4 py-3 text-slate-300">
+                            <div>${date.toLocaleDateString()}</div>
+                            <div class="text-xs text-slate-500">${date.toLocaleTimeString()}</div>
+                        </td>
+                        <td class="px-4 py-3 text-white font-mono text-xs">${trade.symbol}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-1 rounded text-xs font-bold ${typeClass}">${trade.direction}</span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-300">${trade.lots}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">₹${trade.entry_price.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-right text-slate-300">₹${trade.exit_price.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-right font-bold ${pnlClass}">
+                            ${trade.pnl >= 0 ? '+' : ''}₹${trade.pnl.toFixed(0)}
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold ${pnlClass}">
+                            ${trade.pnl_percent >= 0 ? '+' : ''}${trade.pnl_percent.toFixed(1)}%
+                        </td>
+                        <td class="px-4 py-3 text-slate-400 text-xs">${trade.exit_reason || '-'}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = tableHTML;
+        },
+
+        downloadExcel() {
+            const endpoint = this.activeTab === 'live'
+                ? `/admin/live/order-history/download?days=${this.filterDays}`
+                : `/paper/order-history/download?days=${this.filterDays}&strategy=${this.activeTab}`;
+
+            window.location.href = endpoint;
+        }
+    }
+}
+</script>
+{% endblock %}

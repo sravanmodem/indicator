@@ -178,8 +178,9 @@ class PaperTradingService:
         "SENSEX": 10,
     }
 
-    def __init__(self):
+    def __init__(self, strategy: str = "default"):
         self.settings = get_settings()
+        self.strategy = strategy  # Strategy type: default, fixed_20_percent, trailing_stoploss, profit_100_halt
         self._data_fetcher = None  # Lazy loaded to avoid circular imports
 
         # State
@@ -768,37 +769,73 @@ class PaperTradingService:
                 exit_reason = ""
 
                 # ========================================
-                # FIXED SL/TARGET EXIT LOGIC (NO AI)
+                # STRATEGY-BASED EXIT LOGIC
                 # SL and Target are LOCKED from signal - never modified
                 # ========================================
 
                 # Exit conditions (checked in priority order):
 
-                # 1. FIXED STOP LOSS - Exit if price hits SL
+                # 1. FIXED STOP LOSS - Exit if price hits SL (ALL STRATEGIES)
                 if position.stop_loss > 0 and current_premium <= position.stop_loss:
                     should_exit = True
                     exit_reason = f"STOP LOSS HIT: Rs.{current_premium:.2f} <= SL Rs.{position.stop_loss:.2f} | P&L: {position.pnl_percent:+.1f}%"
                     logger.warning(f"SL triggered for {position.symbol}: {exit_reason}")
 
-                # 2. TARGET HIT - Exit when target price is reached
+                # 2. TARGET HIT - Exit when target price is reached (ALL STRATEGIES)
                 if not should_exit and position.target > 0 and current_premium >= position.target:
                     should_exit = True
                     exit_reason = f"TARGET HIT: Rs.{current_premium:.2f} >= Target Rs.{position.target:.2f} | P&L: {position.pnl_percent:+.1f}%"
                     logger.info(f"Target hit for {position.symbol}: {exit_reason}")
 
-                # 3. 100% PROFIT - Exit immediately at 100% gain (safety ceiling)
-                if not should_exit and position.pnl_percent >= 100:
-                    should_exit = True
-                    exit_reason = f"MAX PROFIT CEILING: +{position.pnl_percent:.0f}% (100% reached)"
-                    logger.info(f"100% profit exit for {position.symbol}")
+                # 3. STRATEGY-SPECIFIC EXIT CONDITIONS
+                if not should_exit:
+                    if self.strategy == "fixed_20_percent":
+                        # Strategy 3: Exit at 20% profit, then halt trading
+                        if position.pnl_percent >= 20.0:
+                            should_exit = True
+                            exit_reason = f"FIXED 20% PROFIT: {position.pnl_percent:+.1f}% reached"
+                            logger.info(f"20% profit exit for {position.symbol}")
+                            # Halt trading for the day after hitting 20%
+                            self.daily_stats.is_trading_halted = True
+                            self.daily_stats.halt_reason = "20% profit target reached - No more trades today"
 
-                # 4. Hard stop: -15% safety limit
-                if not should_exit and position.pnl_percent <= -15.0:
-                    should_exit = True
-                    exit_reason = f"HARD STOP: {position.pnl_percent:.1f}% loss (Safety Limit: -15%)"
-                    logger.warning(f"HARD STOP triggered for {position.symbol}: {exit_reason}")
+                    elif self.strategy == "trailing_stoploss":
+                        # Strategy 4: Trailing stop loss - lock profit at 20%, trail as it increases
+                        if position.entry_price > 0:
+                            max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
+                            PROFIT_LOCK_THRESHOLD = 0.20  # 20%
 
-                # 5. Market close force exit: 3:20 PM
+                            if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
+                                # Price reached 20%+ profit at some point
+                                profit_lock_price = position.entry_price * (1 + PROFIT_LOCK_THRESHOLD)
+                                if current_premium <= profit_lock_price:
+                                    should_exit = True
+                                    exit_reason = f"TRAILING STOP: Max +{max_profit_pct*100:.0f}% -> Locked +20% | Current: {position.pnl_percent:+.1f}%"
+                                    logger.info(f"Trailing stop exit for {position.symbol}: {exit_reason}")
+
+                    elif self.strategy == "profit_100_halt":
+                        # Strategy 5: Exit at 100% profit, then halt trading
+                        if position.pnl_percent >= 100.0:
+                            should_exit = True
+                            exit_reason = f"100% PROFIT HALT: {position.pnl_percent:+.1f}% reached"
+                            logger.info(f"100% profit exit for {position.symbol}")
+                            # Halt trading for the day after hitting 100%
+                            self.daily_stats.is_trading_halted = True
+                            self.daily_stats.halt_reason = "100% profit target reached - No more trades today"
+
+                    else:
+                        # Default strategy (Page 2): 100% profit ceiling + -15% hard stop
+                        if position.pnl_percent >= 100:
+                            should_exit = True
+                            exit_reason = f"MAX PROFIT CEILING: +{position.pnl_percent:.0f}% (100% reached)"
+                            logger.info(f"100% profit exit for {position.symbol}")
+
+                        if not should_exit and position.pnl_percent <= -15.0:
+                            should_exit = True
+                            exit_reason = f"HARD STOP: {position.pnl_percent:.1f}% loss (Safety Limit: -15%)"
+                            logger.warning(f"HARD STOP triggered for {position.symbol}: {exit_reason}")
+
+                # 4. Market close force exit: 3:20 PM (ALL STRATEGIES)
                 now = datetime.now()
                 if not should_exit and now.hour == 15 and now.minute >= 20:
                     should_exit = True
