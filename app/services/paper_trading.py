@@ -218,15 +218,13 @@ class PaperTradingService:
         today = date.today()
 
         if self.daily_stats is None or self.daily_stats.date != today:
-            # Load previous capital or use default
-            previous_capital = self.CAPITAL
-            if self.daily_stats:
-                previous_capital = self.daily_stats.current_capital
+            # Always use base CAPITAL (no compounding of profits)
+            # Profits are tracked separately but not added to trading capital
 
             self.daily_stats = DailyStats(
                 date=today,
-                starting_capital=previous_capital,
-                current_capital=previous_capital,
+                starting_capital=self.CAPITAL,
+                current_capital=self.CAPITAL,
                 total_pnl=0,
                 realized_pnl=0,
                 unrealized_pnl=0,
