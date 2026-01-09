@@ -1,4 +1,4 @@
-<!-- Trading Mode Panel - Paper/Live Toggle with AI Control -->
+<!-- Trading Mode Panel - Paper/Live Toggle -->
 <div class="card p-4 mb-6 bg-gradient-to-r from-surface-800 to-surface-700 border-2 {% if is_live_mode %}border-red-500{% else %}border-green-500{% endif %}">
     <div class="flex items-center justify-between flex-wrap gap-4">
         <!-- Mode Indicator -->
@@ -25,20 +25,6 @@
 
         <!-- Controls -->
         <div class="flex items-center gap-6 flex-wrap">
-            <!-- AI Toggle -->
-            <div class="flex items-center gap-3">
-                <span class="text-sm text-slate-400">AI Trading</span>
-                <button onclick="toggleAI()"
-                        class="relative w-14 h-7 rounded-full transition-all duration-300 {% if ai_enabled %}bg-primary-500 shadow-lg shadow-primary-500/30{% else %}bg-slate-600{% endif %}"
-                        id="aiToggle"
-                        title="{% if ai_enabled %}AI Enabled: {{ ai_model }}{% else %}AI Disabled{% endif %}">
-                    <span class="absolute top-1 left-1 w-5 h-5 rounded-full bg-white transition-transform duration-300 {% if ai_enabled %}translate-x-7{% endif %} shadow-md"></span>
-                </button>
-                {% if ai_enabled %}
-                <span class="text-xs text-primary-400">{{ ai_model }}</span>
-                {% endif %}
-            </div>
-
             <!-- Paper/Live Toggle -->
             <div class="flex rounded-lg overflow-hidden border border-slate-600">
                 <button onclick="setTradingMode('paper')"
@@ -143,33 +129,6 @@ async function setTradingMode(mode) {
             htmx.ajax('GET', '/admin/htmx/trading-mode-panel', {target: '#trading-mode-panel', swap: 'innerHTML'});
         } else {
             showToast(data.error || 'Failed to change mode', 'error');
-        }
-    } catch (e) {
-        showToast('Network error: ' + e.message, 'error');
-    }
-}
-
-async function toggleAI() {
-    const btn = document.getElementById('aiToggle');
-    const isCurrentlyEnabled = btn.classList.contains('bg-primary-500');
-    const newState = !isCurrentlyEnabled;
-
-    const formData = new FormData();
-    formData.append('enabled', newState ? 'true' : 'false');
-
-    try {
-        const response = await fetch('/admin/ai/toggle', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-
-        if (data.success) {
-            showToast(`AI Trading ${data.ai_enabled ? 'enabled' : 'disabled'} (${data.ai_model})`, 'success');
-            // Refresh the panel
-            htmx.ajax('GET', '/admin/htmx/trading-mode-panel', {target: '#trading-mode-panel', swap: 'innerHTML'});
-        } else {
-            showToast(data.error || 'Failed to toggle AI', 'error');
         }
     } catch (e) {
         showToast('Network error: ' + e.message, 'error');

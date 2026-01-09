@@ -256,7 +256,7 @@ async def execute_signal_trade():
             },
         }
     else:
-        halt_reason = paper.daily_stats.halt_reason if paper.daily_stats.is_trading_halted else "Trade not executed (AI may have skipped or other condition)"
+        halt_reason = paper.daily_stats.halt_reason if paper.daily_stats.is_trading_halted else "Trade not executed"
         logger.warning(f"Trade rejected - {halt_reason}")
         return JSONResponse(
             status_code=400,

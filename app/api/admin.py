@@ -64,10 +64,8 @@ async def live_trading_page(request: Request):
     admin = require_admin(request)
 
     from app.services.live_trading_service import get_live_trading_service
-    from app.services.ai_trading_service import get_ai_trading_service
 
     live_service = get_live_trading_service()
-    ai_service = get_ai_trading_service()
 
     # Get margin and positions if authenticated
     margin = None
@@ -88,8 +86,6 @@ async def live_trading_page(request: Request):
             "admin_user": admin,
             "is_live_mode": live_service.is_live_mode,
             "zerodha_authenticated": live_service.is_authenticated,
-            "ai_enabled": ai_service.is_enabled,
-            "ai_model": ai_service.model_name,
             "margin": margin,
             "positions": positions,
             "orders": orders,
@@ -876,10 +872,8 @@ async def get_trading_mode_status(request: Request):
     admin = require_admin(request)
 
     from app.services.live_trading_service import get_live_trading_service
-    from app.services.ai_trading_service import get_ai_trading_service
 
     live_service = get_live_trading_service()
-    ai_service = get_ai_trading_service()
 
     # Get margin data if in live mode
     margin_data = {}
@@ -911,8 +905,6 @@ async def get_trading_mode_status(request: Request):
     return {
         "trading_mode": "live" if live_service.is_live_mode else "paper",
         "zerodha_authenticated": live_service.is_authenticated,
-        "ai_enabled": ai_service.is_enabled,
-        "ai_model": ai_service.model_name,
         "margin": margin_data,
         "live_positions": live_positions,
         "live_positions_count": len(live_positions),
@@ -958,42 +950,6 @@ async def toggle_trading_mode(request: Request, mode: str = Form(...)):
             "mode": "paper",
             "message": "Paper trading mode active - Safe practice mode"
         }
-
-
-@router.post("/ai/toggle")
-async def toggle_ai_trading(request: Request, enabled: str = Form(...)):
-    """Toggle AI trading decisions on/off."""
-    admin = require_admin(request)
-
-    from app.services.ai_trading_service import get_ai_trading_service
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    ai_service = get_ai_trading_service()
-
-    is_enabled = enabled.lower() in ("true", "1", "on", "yes")
-
-    if is_enabled and not settings.anthropic_api_key:
-        return JSONResponse(
-            status_code=400,
-            content={"success": False, "error": "ANTHROPIC_API_KEY not configured in .env"}
-        )
-
-    # Initialize or update AI service
-    ai_service.initialize(
-        api_key=settings.anthropic_api_key,
-        model=settings.ai_model,
-        enabled=is_enabled
-    )
-
-    logger.info(f"AI Trading {'enabled' if is_enabled else 'disabled'} by admin: {admin.get('username', 'unknown')}")
-
-    return {
-        "success": True,
-        "ai_enabled": is_enabled,
-        "ai_model": ai_service.model_name,
-        "message": f"AI Trading {'enabled' if is_enabled else 'disabled'}"
-    }
 
 
 @router.get("/live/margin")
@@ -1128,8 +1084,6 @@ async def htmx_trading_mode_panel(request: Request):
                 "request": request,
                 "is_live_mode": live_service.is_live_mode,
                 "zerodha_authenticated": live_service.is_authenticated,
-                "ai_enabled": ai_service.is_enabled,
-                "ai_model": ai_service.model_name,
                 "margin": margin,
                 "live_positions": live_positions,
                 "live_positions_count": len(live_positions),
@@ -1233,15 +1187,13 @@ async def htmx_live_signal(request: Request):
         from app.services.paper_trading import get_paper_trading_service
         from app.services.signal_engine import get_signal_engine, TradingStyle
         from app.services.data_fetcher import get_data_fetcher
-        from app.services.ai_trading_service import get_ai_trading_service
         from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
 
         paper = get_paper_trading_service()
         fetcher = get_data_fetcher()
-        ai_service = get_ai_trading_service()
 
         # Check if market is open
-        is_market_open, market_reason = ai_service.is_trading_hours()
+        is_market_open, market_reason = paper.is_trading_hours()
 
         trading_index = paper.get_trading_index()
         tokens = {
@@ -1273,7 +1225,6 @@ async def htmx_live_signal(request: Request):
                 "trading_index": trading_index,
                 "is_market_open": is_market_open,
                 "market_reason": market_reason,
-                "ai_enabled": ai_service.is_enabled,
             },
         )
     except Exception as e:

@@ -158,7 +158,6 @@ class AutoTrader:
             from app.services.paper_trading import get_paper_trading_service
             from app.services.signal_engine import get_signal_engine, TradingStyle
             from app.services.data_fetcher import get_data_fetcher
-            from app.services.ai_trading_service import get_ai_trading_service
             from app.services.zerodha_auth import get_auth_service
 
             # Check authentication
@@ -168,7 +167,6 @@ class AutoTrader:
 
             paper = get_paper_trading_service()
             fetcher = get_data_fetcher()
-            ai_service = get_ai_trading_service()
 
             # Skip if auto-trade is disabled
             if not paper.is_auto_trade:

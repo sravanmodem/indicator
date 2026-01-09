@@ -7,7 +7,7 @@
         </svg>
         <span class="font-medium">{{ market_reason }}</span>
     </div>
-    <p class="text-xs text-slate-500 mt-3">AI trading will resume during market hours</p>
+    <p class="text-xs text-slate-500 mt-3">Trading will resume during market hours</p>
 </div>
 {% elif signal %}
 <div class="space-y-4">
@@ -58,22 +58,8 @@
     </div>
     {% endif %}
 
-    <!-- AI Status & Execute Button -->
-    <div class="flex items-center justify-between pt-2">
-        <div class="flex items-center gap-2">
-            {% if ai_enabled %}
-            <span class="flex items-center gap-1 px-2 py-1 rounded bg-primary-500/20 text-primary-400 text-xs">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707"/>
-                </svg>
-                AI Active
-            </span>
-            {% else %}
-            <span class="flex items-center gap-1 px-2 py-1 rounded bg-slate-500/20 text-slate-400 text-xs">
-                AI Off
-            </span>
-            {% endif %}
-        </div>
+    <!-- Execute Button -->
+    <div class="flex items-center justify-end pt-2">
         <button onclick="executeSignal()"
                 class="px-4 py-2 rounded-lg {% if signal.direction == 'CE' %}bg-green-600 hover:bg-green-700{% else %}bg-red-600 hover:bg-red-700{% endif %} text-white font-medium transition-colors">
             Execute Trade

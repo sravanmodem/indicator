@@ -782,25 +782,17 @@ class PaperTradingService:
                     exit_reason = f"STOP LOSS HIT: Rs.{current_premium:.2f} <= SL Rs.{position.stop_loss:.2f} | P&L: {position.pnl_percent:+.1f}%"
                     logger.warning(f"SL triggered for {position.symbol}: {exit_reason}")
 
-                # 2. 100% PROFIT - Exit immediately at 100% gain
+                # 2. TARGET HIT - Exit when target price is reached
+                if not should_exit and position.target > 0 and current_premium >= position.target:
+                    should_exit = True
+                    exit_reason = f"TARGET HIT: Rs.{current_premium:.2f} >= Target Rs.{position.target:.2f} | P&L: {position.pnl_percent:+.1f}%"
+                    logger.info(f"Target hit for {position.symbol}: {exit_reason}")
+
+                # 3. 100% PROFIT - Exit immediately at 100% gain (safety ceiling)
                 if not should_exit and position.pnl_percent >= 100:
                     should_exit = True
-                    exit_reason = f"MAX PROFIT TARGET: +{position.pnl_percent:.0f}% (100% reached)"
+                    exit_reason = f"MAX PROFIT CEILING: +{position.pnl_percent:.0f}% (100% reached)"
                     logger.info(f"100% profit exit for {position.symbol}")
-
-                # 3. TRAILING PROFIT LOCK at 20%
-                # When profit reached 20%, lock that as trailing stop
-                if not should_exit and position.entry_price > 0:
-                    max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
-                    PROFIT_LOCK_THRESHOLD = 0.20  # 20%
-
-                    if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
-                        # Price reached 20%+ profit at some point
-                        profit_lock_price = position.entry_price * (1 + PROFIT_LOCK_THRESHOLD)
-                        if current_premium <= profit_lock_price:
-                            should_exit = True
-                            exit_reason = f"TRAILING PROFIT LOCK: Max +{max_profit_pct*100:.0f}% -> Locked +20% | Current: {position.pnl_percent:+.1f}%"
-                            logger.info(f"Trailing profit lock exit for {position.symbol}: {exit_reason}")
 
                 # 4. Hard stop: -15% safety limit
                 if not should_exit and position.pnl_percent <= -15.0:

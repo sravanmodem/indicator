@@ -551,7 +551,7 @@ class SignalEngine:
                 delta_factor = 1.15  # Low delta - wider SL
 
             # 4. ADX Factor: Strong trend = tighter SL (trend continuation)
-            adx_val = indicators.get("adx", {}).get("adx", 20)
+            adx_val = adx_value
             if adx_val >= 30:
                 adx_factor = 0.85  # Strong trend - tighter SL
             elif adx_val >= 20:
