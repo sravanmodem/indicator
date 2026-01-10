@@ -151,7 +151,7 @@
         <!-- Trading Index -->
         <div id="trading-index"
              hx-get="/paper/htmx/trading-index"
-             hx-trigger="load, every 60s"
+             hx-trigger="load"
              hx-swap="innerHTML">
             <div class="glass rounded-xl p-4">
                 <div class="h-16 bg-surface-700 rounded-lg animate-pulse"></div>
@@ -161,7 +161,7 @@
         <!-- Current Signal -->
         <div id="signal-panel"
              hx-get="/paper/htmx/signal-panel"
-             hx-trigger="load, every 2s"
+             hx-trigger="load"
              hx-swap="innerHTML">
             <div class="glass rounded-xl p-4">
                 <div class="h-16 bg-surface-700 rounded-lg animate-pulse"></div>
@@ -179,7 +179,7 @@
             </div>
             <div id="positions-table"
                  hx-get="/paper/htmx/positions"
-                 hx-trigger="load, every 2s"
+                 hx-trigger="load"
                  hx-swap="innerHTML">
                 <div class="p-6">
                     <div class="h-32 bg-surface-700 rounded-xl animate-pulse"></div>
@@ -195,7 +195,7 @@
             </div>
             <div id="orders-table"
                  hx-get="/paper/htmx/orders"
-                 hx-trigger="load, every 5s"
+                 hx-trigger="load"
                  hx-swap="innerHTML">
                 <div class="p-6">
                     <div class="h-32 bg-surface-700 rounded-xl animate-pulse"></div>
