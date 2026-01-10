@@ -421,20 +421,7 @@
             </a>
         </div>
 
-        <!-- Zerodha Auth Status -->
-        <div class="p-3 border-t border-slate-800/50">
-            <div id="sidebar-auth"
-                 hx-get="/htmx/auth-status"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="flex items-center space-x-3 p-2">
-                    <div class="w-8 h-8 rounded-lg bg-slate-700 animate-pulse"></div>
-                    <div class="flex-1">
-                        <div class="h-3 w-20 bg-slate-700 rounded animate-pulse"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Zerodha Auth Status - Removed HTMX polling -->
     </aside>
 
     <!-- Main Content Wrapper -->
@@ -449,26 +436,8 @@
                     </svg>
                 </button>
 
-                <!-- Market Overview OHLC Cards - Full Width -->
-                <div id="market-status" class="flex-1 flex items-center justify-center h-full"
-                     hx-get="/htmx/market-header-cards"
-                     hx-trigger="load"
-                     hx-swap="innerHTML"
-                     data-poll-trigger="every 5s">
-                    <div class="flex items-center justify-center gap-4 h-full w-full">
-                        <div class="h-9 flex-1 max-w-xs bg-slate-800/50 rounded-lg animate-pulse"></div>
-                        <div class="h-9 flex-1 max-w-xs bg-slate-800/50 rounded-lg animate-pulse"></div>
-                        <div class="h-9 flex-1 max-w-xs bg-slate-800/50 rounded-lg animate-pulse"></div>
-                    </div>
-                </div>
-
-                <!-- Right Section - WS Status -->
-                <div id="ws-status" class="flex-shrink-0 ml-3"
-                     hx-get="/htmx/ws-status"
-                     hx-trigger="load"
-                     hx-swap="innerHTML"
-                     data-poll-trigger="every 10s">
-                </div>
+                <!-- Market Overview - Removed HTMX polling -->
+                <div class="flex-1"></div>
             </div>
         </header>
 
