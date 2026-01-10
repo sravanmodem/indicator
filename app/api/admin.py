@@ -925,10 +925,8 @@ async def htmx_trading_mode_panel(request: Request):
         admin = require_admin(request)
 
         from app.services.live_trading_service import get_live_trading_service
-        from app.services.ai_trading_service import get_ai_trading_service
 
         live_service = get_live_trading_service()
-        ai_service = get_ai_trading_service()
 
         # Get margin data if in live mode
         margin = None
