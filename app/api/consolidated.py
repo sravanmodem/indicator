@@ -67,7 +67,7 @@ class PageDataAggregator:
             ws_manager = get_ws_manager()
             result["websocket_status"] = {
                 "connected": ws_manager.is_connected,
-                "subscribed_count": len(ws_manager.subscribed_tokens)
+                "subscribed_count": len(ws_manager._subscriptions) if hasattr(ws_manager, '_subscriptions') else 0
             }
 
             # 3. Aggregate data for all indices in parallel
@@ -118,7 +118,7 @@ class PageDataAggregator:
 
             # Backend processing: Analyze signals (no external API)
             signal_result = await self.signal_engine.analyze(
-                index_name=index_name,
+                index=index_name,
                 timeframe="5minute",
                 style=style
             )
@@ -195,20 +195,21 @@ class PageDataAggregator:
         overview = {}
         for index_name in indices:
             # Get from WebSocket ticks (no external API call)
-            ticks = ws_manager.get_latest_ticks()
+            ticks = ws_manager._latest_ticks if hasattr(ws_manager, '_latest_ticks') else {}
 
             # Find tick for this index
             index_tick = None
             for token, tick_data in ticks.items():
-                if tick_data.get("symbol", "").startswith(index_name):
+                symbol = tick_data.instrument_token if hasattr(tick_data, 'instrument_token') else None
+                if symbol and str(symbol).startswith(index_name):
                     index_tick = tick_data
                     break
 
-            if index_tick:
+            if index_tick and hasattr(index_tick, 'last_price'):
                 overview[index_name] = {
-                    "ltp": index_tick.get("last_price"),
-                    "change": index_tick.get("change"),
-                    "change_percent": index_tick.get("change_percent"),
+                    "ltp": index_tick.last_price,
+                    "change": index_tick.change if hasattr(index_tick, 'change') else None,
+                    "change_percent": index_tick.change_percent if hasattr(index_tick, 'change_percent') else None,
                 }
             else:
                 overview[index_name] = {"ltp": None, "change": None, "change_percent": None}
