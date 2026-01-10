@@ -273,10 +273,11 @@ class PaperTradingService:
         today = datetime.now().date()
 
         # Fallback weekday mapping if Kite data not available
+        # Use weekly expiries for all indices (prefer weekly first)
         fallback_days = {
             "NIFTY": 3,      # Thursday
             "SENSEX": 4,     # Friday
-            "BANKNIFTY": 2,  # Wednesday
+            "BANKNIFTY": 2,  # Wednesday (weekly)
         }
 
         expiry_day = fallback_days.get(index, 3)
