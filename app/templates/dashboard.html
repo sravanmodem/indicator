@@ -293,6 +293,9 @@ function dashboardData() {
         _fetchInProgress: false,
 
         async init() {
+            // Fetch auth and WS status immediately on page load
+            await this.fetchStatusData();
+
             // Initial data fetch
             await this.fetchData();
 

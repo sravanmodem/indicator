@@ -50,7 +50,8 @@
                     {{ order.filled_quantity }}/{{ order.quantity }}
                 </td>
                 <td class="px-4 py-3 text-right">
-                    {% if order.status.value in ['OPEN', 'PENDING', 'TRIGGER_PENDING'] if hasattr(order.status, 'value') else order.status in ['OPEN', 'PENDING', 'TRIGGER_PENDING'] %}
+                    {% set order_status = order.status.value if hasattr(order.status, 'value') else order.status %}
+                    {% if order_status in ['OPEN', 'PENDING', 'TRIGGER_PENDING'] %}
                     <button onclick="cancelOrder('{{ order.order_id }}')"
                             class="px-2 py-1 text-xs rounded bg-red-500/20 hover:bg-red-500/30 text-red-400 transition-colors">
                         Cancel
