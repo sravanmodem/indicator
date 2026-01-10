@@ -351,16 +351,22 @@ function dashboardData() {
 
         async fetchStatusData() {
             try {
+                console.log('[FRONTEND] Fetching auth and WS status...');
+
                 // Fetch auth status HTML
                 const authResponse = await fetch('/htmx/auth-status');
                 if (authResponse.ok) {
-                    this.$store.sharedData.authStatusHtml = await authResponse.text();
+                    const authHtml = await authResponse.text();
+                    console.log('[FRONTEND] Auth status received, length:', authHtml.length);
+                    this.$store.sharedData.authStatusHtml = authHtml;
                 }
 
                 // Fetch WS status HTML
                 const wsResponse = await fetch('/htmx/ws-status');
                 if (wsResponse.ok) {
-                    this.$store.sharedData.wsStatusHtml = await wsResponse.text();
+                    const wsHtml = await wsResponse.text();
+                    console.log('[FRONTEND] WS status received, length:', wsHtml.length);
+                    this.$store.sharedData.wsStatusHtml = wsHtml;
                 }
             } catch (err) {
                 console.error('[FRONTEND] Error fetching status data:', err);
