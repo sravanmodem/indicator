@@ -4,9 +4,9 @@ Real order execution via Zerodha Kite API
 
 Features:
 - LIMIT orders with 0.5% slippage buffer
-- 100% dynamic position sizing from kite.margins()
+- Dynamic position sizing based on available CAPITAL (not margin)
 - Real position tracking from kite.positions()
-- AI-controlled exits (no GTT orders)
+- Auto-execution when enabled during market hours
 """
 
 import asyncio
@@ -100,9 +100,9 @@ class LiveTradingService:
 
     Features:
     - LIMIT orders with configurable slippage buffer
-    - Dynamic position sizing from available margin (100%)
+    - Dynamic position sizing based on available CAPITAL (cash), not leveraged margin
     - Real-time position and order tracking
-    - AI-controlled exits (Claude decides when to exit)
+    - Auto-execution when enabled during market hours
     """
 
     SLIPPAGE_BUFFER = 0.5  # 0.5% slippage for limit orders
@@ -190,29 +190,31 @@ class LiveTradingService:
         self,
         option_ltp: float,
         index: str,
-        margin_percent: float = 100,  # Use 100% of available margin by default
+        capital_percent: float = 100,  # Use 100% of available capital by default
     ) -> tuple[int, int, float]:
         """
-        Calculate position size based on available margin.
+        Calculate position size based on available CAPITAL (cash only, not including profits).
 
         Args:
             option_ltp: Current option price
             index: NIFTY, BANKNIFTY, or SENSEX
-            margin_percent: Percentage of margin to use (default 100%)
+            capital_percent: Percentage of capital to use (default 100%)
 
         Returns:
             (lots, quantity, capital_used)
         """
         margin = await self.get_available_margin()
 
-        if margin.available_margin <= 0:
-            logger.warning("No available margin for trading")
+        # Use available_cash instead of available_margin
+        # This ensures position sizing is based on actual capital, not leveraged margin
+        if margin.available_cash <= 0:
+            logger.warning("No available capital for trading")
             return 0, 0, 0.0
 
         lot_size = self.LOT_SIZES.get(index, 25)
-        available = margin.available_margin * (margin_percent / 100)
+        available = margin.available_cash * (capital_percent / 100)
 
-        # For options, approximate margin = premium * quantity
+        # For options, cost = premium * quantity
         cost_per_lot = option_ltp * lot_size
 
         if cost_per_lot <= 0:
@@ -225,7 +227,7 @@ class LiveTradingService:
         max_lots = min(max_lots, self.MAX_LOTS_PER_ORDER)
 
         if max_lots <= 0:
-            logger.warning(f"Insufficient margin: available={available:.0f}, cost_per_lot={cost_per_lot:.0f}")
+            logger.warning(f"Insufficient capital: available={available:.0f}, cost_per_lot={cost_per_lot:.0f}")
             return 0, 0, 0.0
 
         quantity = max_lots * lot_size
@@ -234,7 +236,7 @@ class LiveTradingService:
         logger.info(
             f"Position size calculated: {max_lots} lots ({quantity} qty) "
             f"@ Rs.{option_ltp:.2f} = Rs.{capital_used:,.0f} "
-            f"(using {margin_percent}% of Rs.{margin.available_margin:,.0f})"
+            f"(using {capital_percent}% of Rs.{margin.available_cash:,.0f} capital)"
         )
 
         return max_lots, quantity, capital_used
