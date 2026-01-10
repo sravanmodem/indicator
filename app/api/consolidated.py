@@ -116,12 +116,15 @@ class PageDataAggregator:
             # Backend call 2: Option chain (Zerodha API)
             option_chain = await self.data_fetcher.get_option_chain(index_name)
 
+            # Convert historical data to DataFrame
+            import pandas as pd
+            df = pd.DataFrame(historical_data) if historical_data else None
+
             # Backend processing: Analyze signals (no external API)
-            signal_result = await self.signal_engine.analyze(
-                index=index_name,
-                timeframe="5minute",
-                style=style
-            )
+            signal_result = self.signal_engine.analyze(
+                df=df,
+                option_chain=option_chain
+            ) if df is not None else None
 
             # Backend processing: Calculate option chain stats (no external API)
             option_stats = self._calculate_option_stats(option_chain) if option_chain else None
@@ -135,28 +138,36 @@ class PageDataAggregator:
             # Package everything
             return {
                 "signal": {
-                    "action": signal_result.action,
-                    "confidence": signal_result.confidence,
-                    "option_type": signal_result.option_type,
-                    "entry_price": signal_result.entry_price,
-                    "stop_loss": signal_result.stop_loss,
-                    "target": signal_result.target,
-                    "reasoning": signal_result.reasoning,
+                    "action": signal_result.action if signal_result else "WAIT",
+                    "confidence": signal_result.confidence if signal_result else 0,
+                    "option_type": signal_result.option_type if signal_result else "NONE",
+                    "entry_price": signal_result.entry_price if signal_result else None,
+                    "stop_loss": signal_result.stop_loss if signal_result else None,
+                    "target": signal_result.target if signal_result else None,
+                    "reasoning": signal_result.reasoning if signal_result else "No signal available (market closed or insufficient data)",
+                } if signal_result else {
+                    "action": "WAIT",
+                    "confidence": 0,
+                    "option_type": "NONE",
+                    "entry_price": None,
+                    "stop_loss": None,
+                    "target": None,
+                    "reasoning": "No signal available (market closed or insufficient data)"
                 },
                 "indicators": {
-                    "trend": signal_result.indicators.get("trend", {}),
-                    "momentum": signal_result.indicators.get("momentum", {}),
-                    "volatility": signal_result.indicators.get("volatility", {}),
-                    "pivot": signal_result.indicators.get("pivot", {}),
+                    "trend": signal_result.indicators.get("trend", {}) if signal_result and hasattr(signal_result, 'indicators') else {},
+                    "momentum": signal_result.indicators.get("momentum", {}) if signal_result and hasattr(signal_result, 'indicators') else {},
+                    "volatility": signal_result.indicators.get("volatility", {}) if signal_result and hasattr(signal_result, 'indicators') else {},
+                    "pivot": signal_result.indicators.get("pivot", {}) if signal_result and hasattr(signal_result, 'indicators') else {},
                 },
                 "option_chain_summary": option_stats,
                 "recommended_option": recommended_option,
-                "last_price": historical_data[-1]["close"] if historical_data else None,
+                "last_price": historical_data[-1]["close"] if historical_data and len(historical_data) > 0 else None,
                 "historical_summary": {
-                    "open": historical_data[0]["open"] if historical_data else None,
-                    "high": max([c["high"] for c in historical_data]) if historical_data else None,
-                    "low": min([c["low"] for c in historical_data]) if historical_data else None,
-                    "close": historical_data[-1]["close"] if historical_data else None,
+                    "open": historical_data[0]["open"] if historical_data and len(historical_data) > 0 else None,
+                    "high": max([c["high"] for c in historical_data]) if historical_data and len(historical_data) > 0 else None,
+                    "low": min([c["low"] for c in historical_data]) if historical_data and len(historical_data) > 0 else None,
+                    "close": historical_data[-1]["close"] if historical_data and len(historical_data) > 0 else None,
                 } if historical_data else None
             }
 
