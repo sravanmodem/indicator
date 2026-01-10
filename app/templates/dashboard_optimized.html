@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Optimized (Single API Call)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-50">
+    <!--
+    OPTIMIZED DASHBOARD
+    - Single API call to /api/v1/dashboard on page load
+    - Auto-refresh every 10 seconds ONLY during market hours
+    - All external API calls happen on backend only
+    - Zero frontend calls to Zerodha
+    -->
+
+    <div
+        x-data="dashboardData()"
+        x-init="init()"
+        class="container mx-auto p-4"
+    >
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Trading Dashboard</h1>
+                <div class="flex gap-4 items-center">
+                    <!-- Market Status -->
+                    <div x-show="data.market_status">
+                        <span
+                            class="px-3 py-1 rounded-full text-sm font-medium"
+                            :class="data.market_status?.is_open ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                            x-text="data.market_status?.message"
+                        ></span>
+                    </div>
+
+                    <!-- Last Updated -->
+                    <div class="text-sm text-gray-600">
+                        Last updated: <span x-text="lastUpdated"></span>
+                    </div>
+
+                    <!-- Loading Indicator -->
+                    <div x-show="loading" class="flex items-center gap-2">
+                        <svg class="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-600">Refreshing...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Market Overview -->
+        <div class="grid grid-cols-3 gap-4 mb-4">
+            <template x-for="index in ['NIFTY', 'BANKNIFTY', 'SENSEX']" :key="index">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold" x-text="index"></h3>
+                        <span
+                            class="text-sm font-medium"
+                            :class="getChangeColor(index)"
+                            x-text="getChangePercent(index)"
+                        ></span>
+                    </div>
+                    <div class="text-2xl font-bold mt-2" x-text="getLTP(index)"></div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Index Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <template x-for="index in ['NIFTY', 'BANKNIFTY', 'SENSEX']" :key="index">
+                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                    <!-- Index Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
+                        <h2 class="text-xl font-bold text-white" x-text="index"></h2>
+                    </div>
+
+                    <!-- Signal Card -->
+                    <div class="p-4">
+                        <template x-if="data.indices?.[index]?.signal">
+                            <div>
+                                <div class="mb-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-600">Action</span>
+                                        <span
+                                            class="px-3 py-1 rounded-full text-sm font-bold"
+                                            :class="getSignalColor(data.indices[index].signal.action)"
+                                            x-text="data.indices[index].signal.action"
+                                        ></span>
+                                    </div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-600">Option Type</span>
+                                        <span
+                                            class="text-sm font-semibold"
+                                            x-text="data.indices[index].signal.option_type"
+                                        ></span>
+                                    </div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-600">Confidence</span>
+                                        <span class="text-sm font-semibold" x-text="data.indices[index].signal.confidence + '%'"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Price Levels -->
+                                <div class="grid grid-cols-3 gap-2 mb-4">
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-500">Entry</div>
+                                        <div class="text-sm font-semibold" x-text="data.indices[index].signal.entry_price?.toFixed(2)"></div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-500">Target</div>
+                                        <div class="text-sm font-semibold text-green-600" x-text="data.indices[index].signal.target?.toFixed(2)"></div>
+                                    </div>
+                                    <div class="text-center">
+                                        <div class="text-xs text-gray-500">Stop Loss</div>
+                                        <div class="text-sm font-semibold text-red-600" x-text="data.indices[index].signal.stop_loss?.toFixed(2)"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Reasoning -->
+                                <div class="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                                    <span x-text="data.indices[index].signal.reasoning"></span>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="!data.indices?.[index]?.signal">
+                            <div class="text-center text-gray-500 py-4">
+                                <p>Loading signal data...</p>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Indicators -->
+                    <div class="border-t p-4">
+                        <h3 class="text-sm font-semibold mb-2">Key Indicators</h3>
+                        <template x-if="data.indices?.[index]?.indicators">
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <template x-for="(value, key) in getTopIndicators(index)" :key="key">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600" x-text="key"></span>
+                                        <span class="font-semibold" x-text="value"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Option Chain Summary -->
+                    <div class="border-t p-4 bg-gray-50">
+                        <template x-if="data.indices?.[index]?.option_chain_summary">
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-xs text-gray-600">PCR Ratio</span>
+                                    <span class="text-sm font-bold" x-text="data.indices[index].option_chain_summary.pcr"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs text-gray-600">ATM Strike</span>
+                                    <span class="text-sm font-semibold" x-text="data.indices[index].option_chain_summary.atm_strike"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Error Display -->
+        <div x-show="error" class="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <strong>Error:</strong> <span x-text="error"></span>
+        </div>
+    </div>
+
+    <script>
+        function dashboardData() {
+            return {
+                data: {},
+                loading: false,
+                error: null,
+                lastUpdated: '',
+                refreshInterval: null,
+
+                async init() {
+                    // Initial load
+                    await this.fetchData();
+
+                    // Setup auto-refresh (10 seconds during market hours)
+                    this.setupAutoRefresh();
+                },
+
+                async fetchData() {
+                    this.loading = true;
+                    this.error = null;
+
+                    try {
+                        // SINGLE API CALL - All data comes from backend
+                        const response = await fetch('/api/v1/dashboard?indices=NIFTY,BANKNIFTY,SENSEX&style=intraday');
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        this.data = await response.json();
+                        this.lastUpdated = new Date().toLocaleTimeString();
+
+                        console.log('[FRONTEND] Dashboard data loaded:', this.data);
+                    } catch (err) {
+                        this.error = err.message;
+                        console.error('[FRONTEND] Error fetching dashboard data:', err);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                setupAutoRefresh() {
+                    // Clear existing interval
+                    if (this.refreshInterval) {
+                        clearInterval(this.refreshInterval);
+                    }
+
+                    // Refresh every 10 seconds only during market hours
+                    this.refreshInterval = setInterval(async () => {
+                        // Check if market is open before refreshing
+                        if (this.data.market_status?.is_open) {
+                            console.log('[FRONTEND] Auto-refreshing (market open)...');
+                            await this.fetchData();
+                        } else {
+                            console.log('[FRONTEND] Skipping refresh (market closed)');
+                        }
+                    }, 10000); // 10 seconds
+                },
+
+                // Helper methods
+                getLTP(index) {
+                    const ltp = this.data.indices?.[index]?.last_price;
+                    return ltp ? ltp.toFixed(2) : '-';
+                },
+
+                getChangePercent(index) {
+                    const change = this.data.market_overview?.[index]?.change_percent;
+                    if (change === null || change === undefined) return '-';
+                    return (change > 0 ? '+' : '') + change.toFixed(2) + '%';
+                },
+
+                getChangeColor(index) {
+                    const change = this.data.market_overview?.[index]?.change_percent;
+                    if (change === null || change === undefined) return 'text-gray-600';
+                    return change >= 0 ? 'text-green-600' : 'text-red-600';
+                },
+
+                getSignalColor(action) {
+                    const colors = {
+                        'BUY': 'bg-green-100 text-green-800',
+                        'SELL': 'bg-red-100 text-red-800',
+                        'HOLD': 'bg-yellow-100 text-yellow-800',
+                        'WAIT': 'bg-gray-100 text-gray-800'
+                    };
+                    return colors[action] || 'bg-gray-100 text-gray-800';
+                },
+
+                getTopIndicators(index) {
+                    const indicators = this.data.indices?.[index]?.indicators;
+                    if (!indicators) return {};
+
+                    // Extract top indicators from each category
+                    const top = {};
+
+                    if (indicators.trend?.rsi) {
+                        top['RSI'] = indicators.trend.rsi.toFixed(2);
+                    }
+                    if (indicators.momentum?.macd_signal) {
+                        top['MACD'] = indicators.momentum.macd_signal;
+                    }
+                    if (indicators.volatility?.atr) {
+                        top['ATR'] = indicators.volatility.atr.toFixed(2);
+                    }
+                    if (indicators.pivot?.pivot) {
+                        top['Pivot'] = indicators.pivot.pivot.toFixed(2);
+                    }
+
+                    return top;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

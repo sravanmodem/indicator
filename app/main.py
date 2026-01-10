@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from loguru import logger
 
-from app.api import auth, market, signals, htmx, paper_trading, user_auth, email, admin, user_dashboard
+from app.api import auth, market, signals, htmx, paper_trading, user_auth, email, admin, user_dashboard, consolidated
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.services.zerodha_auth import get_auth_service
@@ -77,6 +77,7 @@ app.add_middleware(
 
 # Authentication middleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from app.middleware import APITrackingMiddleware
 
 class AuthMiddleware(BaseHTTPMiddleware):
     """Middleware to check user authentication for protected routes."""
@@ -115,7 +116,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
-app.add_middleware(AuthMiddleware)
+# Add middleware (order matters - last added is executed first)
+app.add_middleware(APITrackingMiddleware)  # Track API calls
+app.add_middleware(AuthMiddleware)  # Check authentication
 
 # Mount static files
 static_path = Path(__file__).parent / "static"
@@ -129,6 +132,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 app.include_router(user_auth.router)  # User login/logout
 app.include_router(auth.router)
 app.include_router(auth.zerodha_router)  # /zerodha/callback route
+app.include_router(consolidated.router)  # NEW: Consolidated API endpoints (single call per page)
 app.include_router(market.router)
 app.include_router(signals.router)
 app.include_router(htmx.router)
