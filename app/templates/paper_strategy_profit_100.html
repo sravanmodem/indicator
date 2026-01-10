@@ -251,6 +251,9 @@ function paperTrading() {
     return {
         autoTradeInterval: null,
         stats: {{ stats | tojson }},
+        _executeInProgress: false,
+        _exitCheckInProgress: false,
+        _statsRefreshInProgress: false,
 
         async init() {
             // Load all HTMX content in parallel (optimized - single batch)
@@ -282,6 +285,12 @@ function paperTrading() {
         },
 
         async refreshStats() {
+            if (this._statsRefreshInProgress) {
+                console.log('[FRONTEND] Skipping stats refresh - already in progress');
+                return;
+            }
+
+            this._statsRefreshInProgress = true;
             try {
                 const response = await fetch('/paper/stats');
                 if (response.ok) {
@@ -289,6 +298,8 @@ function paperTrading() {
                 }
             } catch (e) {
                 console.error('Stats refresh error:', e);
+            } finally {
+                this._statsRefreshInProgress = false;
             }
         },
 
@@ -327,6 +338,12 @@ function paperTrading() {
         },
 
         async checkExitSignals() {
+            if (this._exitCheckInProgress) {
+                console.log('[FRONTEND] Skipping exit check - already in progress');
+                return;
+            }
+
+            this._exitCheckInProgress = true;
             // Only check if there are open positions
             if (this.stats.status.open_positions === 0) return;
 
@@ -346,6 +363,8 @@ function paperTrading() {
                 await this.refreshStats();
             } catch (e) {
                 console.error('Exit signal check error:', e);
+            } finally {
+                this._exitCheckInProgress = false;
             }
         },
 
@@ -368,6 +387,12 @@ function paperTrading() {
         },
 
         async executeSignal() {
+            if (this._executeInProgress) {
+                console.log('[FRONTEND] Skipping execute - already in progress');
+                return;
+            }
+
+            this._executeInProgress = true;
             try {
                 const response = await fetch('/paper/execute-signal', { method: 'POST' });
                 const data = await response.json();
@@ -382,6 +407,8 @@ function paperTrading() {
                 await this.refreshStats();
             } catch (e) {
                 console.error('Execution error:', e);
+            } finally {
+                this._executeInProgress = false;
             }
         },
 
