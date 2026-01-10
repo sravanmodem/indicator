@@ -290,6 +290,7 @@ function dashboardData() {
         loading: false,
         error: null,
         refreshInterval: null,
+        _fetchInProgress: false,
 
         async init() {
             // Initial data fetch
@@ -300,6 +301,13 @@ function dashboardData() {
         },
 
         async fetchData() {
+            // Prevent duplicate concurrent requests
+            if (this._fetchInProgress) {
+                console.log('[FRONTEND] Skipping duplicate fetch request');
+                return;
+            }
+
+            this._fetchInProgress = true;
             this.loading = true;
             this.error = null;
 
@@ -315,11 +323,41 @@ function dashboardData() {
 
                 this.data = await response.json();
                 console.log('[FRONTEND] Dashboard data loaded:', this.data);
+
+                // Update global store for base.html components (header cards, auth status, ws status)
+                if (this.data.market_overview) {
+                    this.$store.sharedData.updateMarketOverview(this.data.market_overview);
+                }
+
+                // Fetch auth status and WS status for sidebar/header (only once per minute to minimize calls)
+                if (!this.$store.sharedData._lastStatusFetch || Date.now() - this.$store.sharedData._lastStatusFetch > 60000) {
+                    this.fetchStatusData();
+                    this.$store.sharedData._lastStatusFetch = Date.now();
+                }
             } catch (err) {
                 this.error = err.message;
                 console.error('[FRONTEND] Error fetching dashboard:', err);
             } finally {
                 this.loading = false;
+                this._fetchInProgress = false;
+            }
+        },
+
+        async fetchStatusData() {
+            try {
+                // Fetch auth status HTML
+                const authResponse = await fetch('/htmx/auth-status');
+                if (authResponse.ok) {
+                    this.$store.sharedData.authStatusHtml = await authResponse.text();
+                }
+
+                // Fetch WS status HTML
+                const wsResponse = await fetch('/htmx/ws-status');
+                if (wsResponse.ok) {
+                    this.$store.sharedData.wsStatusHtml = await wsResponse.text();
+                }
+            } catch (err) {
+                console.error('[FRONTEND] Error fetching status data:', err);
             }
         },
 

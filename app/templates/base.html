@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>{% block title %}Options Pro{% endblock %}</title>
 
     <!-- Preconnect for Performance -->
@@ -421,7 +424,18 @@
             </a>
         </div>
 
-        <!-- Zerodha Auth Status - Removed HTMX polling -->
+        <!-- Zerodha Auth Status -->
+        <div class="p-3 border-t border-slate-800/50">
+            <div id="sidebar-auth" x-data x-html="$store.sharedData.authStatusHtml || `
+                <div class='flex items-center space-x-3 p-2'>
+                    <div class='w-8 h-8 rounded-lg bg-slate-700 animate-pulse'></div>
+                    <div class='flex-1'>
+                        <div class='h-3 w-20 bg-slate-700 rounded animate-pulse'></div>
+                    </div>
+                </div>
+            `">
+            </div>
+        </div>
     </aside>
 
     <!-- Main Content Wrapper -->
@@ -436,8 +450,62 @@
                     </svg>
                 </button>
 
-                <!-- Market Overview - Removed HTMX polling -->
-                <div class="flex-1"></div>
+                <!-- Market Overview OHLC Cards - Full Width -->
+                <div id="market-status" class="flex-1 flex items-center justify-center h-full"
+                     x-data="marketHeaderCards()"
+                     x-init="init()">
+                    <div class="flex items-center justify-center gap-4 h-full w-full">
+                        <!-- NIFTY Card -->
+                        <div :class="getCardClass('nifty')" class="h-9 flex-1 max-w-xs rounded-lg px-3 py-1.5 flex items-center justify-between text-xs transition-all duration-200">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white" x-text="indices.nifty.name || 'NIFTY'">NIFTY</span>
+                                <span class="font-mono font-semibold text-white" x-text="formatPrice(indices.nifty.last_price)">-</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span :class="getChangeClass(indices.nifty.change)" class="font-mono font-medium" x-text="formatChange(indices.nifty.change)">-</span>
+                                <div class="text-[10px] text-slate-300">
+                                    <div>H: <span class="font-mono" x-text="formatPrice(indices.nifty.ohlc?.high)">-</span></div>
+                                    <div>L: <span class="font-mono" x-text="formatPrice(indices.nifty.ohlc?.low)">-</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BANKNIFTY Card -->
+                        <div :class="getCardClass('banknifty')" class="h-9 flex-1 max-w-xs rounded-lg px-3 py-1.5 flex items-center justify-between text-xs transition-all duration-200">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white" x-text="indices.banknifty.name || 'BANKNIFTY'">BANKNIFTY</span>
+                                <span class="font-mono font-semibold text-white" x-text="formatPrice(indices.banknifty.last_price)">-</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span :class="getChangeClass(indices.banknifty.change)" class="font-mono font-medium" x-text="formatChange(indices.banknifty.change)">-</span>
+                                <div class="text-[10px] text-slate-300">
+                                    <div>H: <span class="font-mono" x-text="formatPrice(indices.banknifty.ohlc?.high)">-</span></div>
+                                    <div>L: <span class="font-mono" x-text="formatPrice(indices.banknifty.ohlc?.low)">-</span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SENSEX Card -->
+                        <div :class="getCardClass('sensex')" class="h-9 flex-1 max-w-xs rounded-lg px-3 py-1.5 flex items-center justify-between text-xs transition-all duration-200">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-bold text-white" x-text="indices.sensex.name || 'SENSEX'">SENSEX</span>
+                                <span class="font-mono font-semibold text-white" x-text="formatPrice(indices.sensex.last_price)">-</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span :class="getChangeClass(indices.sensex.change)" class="font-mono font-medium" x-text="formatChange(indices.sensex.change)">-</span>
+                                <div class="text-[10px] text-slate-300">
+                                    <div>H: <span class="font-mono" x-text="formatPrice(indices.sensex.ohlc?.high)">-</span></div>
+                                    <div>L: <span class="font-mono" x-text="formatPrice(indices.sensex.ohlc?.low)">-</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Section - WS Status -->
+                <div id="ws-status" class="flex-shrink-0 ml-3"
+                     x-data x-html="$store.sharedData.wsStatusHtml || ''">
+                </div>
             </div>
         </header>
 
@@ -452,6 +520,68 @@
 
     <!-- Initialize Lucide Icons -->
     <script>
+        // Initialize AlpineJS global store for shared data
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('sharedData', {
+                marketOverview: {},
+                authStatusHtml: '',
+                wsStatusHtml: '',
+                updateMarketOverview(data) {
+                    this.marketOverview = data;
+                }
+            });
+        });
+
+        // Market Header Cards Component
+        function marketHeaderCards() {
+            return {
+                indices: {
+                    nifty: {},
+                    banknifty: {},
+                    sensex: {}
+                },
+                init() {
+                    // Watch for changes in shared store
+                    this.$watch('$store.sharedData.marketOverview', (newData) => {
+                        if (newData) {
+                            this.updateIndices(newData);
+                        }
+                    });
+
+                    // Initial update if data already exists
+                    if (this.$store.sharedData.marketOverview) {
+                        this.updateIndices(this.$store.sharedData.marketOverview);
+                    }
+                },
+                updateIndices(marketOverview) {
+                    // Map API response to indices
+                    this.indices.nifty = marketOverview.nifty || {};
+                    this.indices.banknifty = marketOverview.banknifty || {};
+                    this.indices.sensex = marketOverview.sensex || {};
+                },
+                formatPrice(price) {
+                    if (!price) return '-';
+                    return Number(price).toFixed(2);
+                },
+                formatChange(change) {
+                    if (change === undefined || change === null) return '-';
+                    const sign = change >= 0 ? '+' : '';
+                    return `${sign}${Number(change).toFixed(2)}%`;
+                },
+                getChangeClass(change) {
+                    if (!change) return 'text-slate-400';
+                    return change >= 0 ? 'text-emerald-400' : 'text-rose-400';
+                },
+                getCardClass(index) {
+                    const change = this.indices[index]?.change;
+                    if (!change) return 'bg-slate-800/50';
+                    return change >= 0
+                        ? 'bg-gradient-to-r from-emerald-900/30 to-emerald-800/20 border border-emerald-700/30'
+                        : 'bg-gradient-to-r from-rose-900/30 to-rose-800/20 border border-rose-700/30';
+                }
+            };
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
         });
@@ -557,58 +687,6 @@
         `;
         document.head.appendChild(style);
 
-        // Dynamic polling control based on market hours
-        let pollingControlInterval = null;
-
-        async function updatePollingTriggers() {
-            try {
-                const response = await fetch('/htmx/market-status');
-                const data = await response.json();
-
-                const marketStatusEl = document.getElementById('market-status');
-                const wsStatusEl = document.getElementById('ws-status');
-
-                if (data.is_open) {
-                    // Market is OPEN - enable polling
-                    if (marketStatusEl) {
-                        const pollTrigger = marketStatusEl.getAttribute('data-poll-trigger');
-                        marketStatusEl.setAttribute('hx-trigger', `load, ${pollTrigger}`);
-                        htmx.process(marketStatusEl);
-                    }
-                    if (wsStatusEl) {
-                        const pollTrigger = wsStatusEl.getAttribute('data-poll-trigger');
-                        wsStatusEl.setAttribute('hx-trigger', `load, ${pollTrigger}`);
-                        htmx.process(wsStatusEl);
-                    }
-                    console.log('Market open - polling enabled');
-
-                    // During market hours, check every 5 minutes if market closed
-                    pollingControlInterval = setInterval(updatePollingTriggers, 300000);
-                } else {
-                    // Market is CLOSED - disable polling, keep only load
-                    if (marketStatusEl) {
-                        marketStatusEl.setAttribute('hx-trigger', 'load');
-                    }
-                    if (wsStatusEl) {
-                        wsStatusEl.setAttribute('hx-trigger', 'load');
-                    }
-                    console.log('Market closed - polling disabled, stopping status checks');
-
-                    // Stop checking market status after hours
-                    if (pollingControlInterval) {
-                        clearInterval(pollingControlInterval);
-                        pollingControlInterval = null;
-                    }
-                }
-            } catch (error) {
-                console.error('Error updating polling triggers:', error);
-            }
-        }
-
-        // Check market status ONCE on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            updatePollingTriggers();
-        });
     </script>
 
     {% block scripts %}{% endblock %}
