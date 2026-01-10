@@ -4,7 +4,7 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
-<div x-data="{ tradingStyle: 'intraday' }" class="space-y-4">
+<div x-data="dashboardData()" x-init="init()" class="space-y-4">
     <!-- Header with Trading Style -->
     <div class="glass rounded-xl h-[48px] flex items-center px-4 bg-gradient-to-r from-surface-900/80 via-blue-900/10 to-surface-900/80">
         <div class="flex items-center justify-between w-full">
@@ -22,29 +22,47 @@
 
             <!-- Trading Style -->
             <div class="flex items-center space-x-1 bg-surface-900/80 rounded-lg p-0.5">
-                <button @click="tradingStyle = 'scalping'; switchAllStyles('scalping')"
+                <button @click="tradingStyle = 'scalping'; fetchData()"
                         :class="tradingStyle === 'scalping' ? 'bg-amber-500/30 text-amber-400' : 'text-slate-400 hover:text-white'"
                         class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
                     SCALP
                 </button>
-                <button @click="tradingStyle = 'intraday'; switchAllStyles('intraday')"
+                <button @click="tradingStyle = 'intraday'; fetchData()"
                         :class="tradingStyle === 'intraday' ? 'bg-blue-500/30 text-blue-400' : 'text-slate-400 hover:text-white'"
                         class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
                     INTRA
                 </button>
-                <button @click="tradingStyle = 'swing'; switchAllStyles('swing')"
+                <button @click="tradingStyle = 'swing'; fetchData()"
                         :class="tradingStyle === 'swing' ? 'bg-purple-500/30 text-purple-400' : 'text-slate-400 hover:text-white'"
                         class="px-2.5 py-1 rounded-md text-[10px] font-bold transition-all">
                     SWING
                 </button>
             </div>
 
-            <!-- Refresh Button -->
-            <button onclick="refreshAll()" class="p-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-300 transition-colors" title="Refresh All">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-            </button>
+            <!-- Status & Refresh -->
+            <div class="flex items-center space-x-2">
+                <!-- Market Status -->
+                <span x-show="data.market_status"
+                      class="px-2 py-1 rounded text-[9px] font-bold"
+                      :class="data.market_status?.is_open ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'"
+                      x-text="data.market_status?.is_open ? 'MARKET OPEN' : 'MARKET CLOSED'">
+                </span>
+
+                <!-- Loading Indicator -->
+                <div x-show="loading" class="flex items-center space-x-1">
+                    <svg class="animate-spin h-3 w-3 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+
+                <!-- Refresh Button -->
+                <button @click="fetchData()" class="p-1.5 rounded-lg bg-surface-700 hover:bg-surface-600 text-slate-300 transition-colors" title="Refresh All">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -55,22 +73,15 @@
                 <span class="text-white font-black text-[10px]">N</span>
             </div>
             <span class="text-white font-bold text-sm">NIFTY</span>
-            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold" id="nifty-expiry">-D</span>
+            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold">
+                <span x-text="getLastPrice('NIFTY')"></span>
+            </span>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div id="nifty-signal"
-                 hx-get="/htmx/signal-card-compact/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
-            <div id="nifty-indicators" class="overflow-hidden"
-                 hx-get="/htmx/indicator-panel-compact/nifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
+            <div x-html="renderSignalCard('NIFTY')"></div>
+            <div x-html="renderIndicators('NIFTY')"></div>
         </div>
+    </div>
 
     <!-- BANKNIFTY Row -->
     <div class="glass rounded-xl p-3 border border-purple-500/20 bg-gradient-to-r from-purple-900/10 to-pink-900/10 overflow-hidden">
@@ -79,21 +90,13 @@
                 <span class="text-white font-black text-[8px]">BN</span>
             </div>
             <span class="text-white font-bold text-sm">BANKNIFTY</span>
-            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[9px] font-bold" id="banknifty-expiry">-D</span>
+            <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[9px] font-bold">
+                <span x-text="getLastPrice('BANKNIFTY')"></span>
+            </span>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div id="banknifty-signal"
-                 hx-get="/htmx/signal-card-compact/banknifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
-            <div id="banknifty-indicators" class="overflow-hidden"
-                 hx-get="/htmx/indicator-panel-compact/banknifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
+            <div x-html="renderSignalCard('BANKNIFTY')"></div>
+            <div x-html="renderIndicators('BANKNIFTY')"></div>
         </div>
     </div>
 
@@ -104,21 +107,13 @@
                 <span class="text-white font-black text-[10px]">S</span>
             </div>
             <span class="text-white font-bold text-sm">SENSEX</span>
-            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold" id="sensex-expiry">-D</span>
+            <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold">
+                <span x-text="getLastPrice('SENSEX')"></span>
+            </span>
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div id="sensex-signal"
-                 hx-get="/htmx/signal-card-compact/sensex?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
-            <div id="sensex-indicators" class="overflow-hidden"
-                 hx-get="/htmx/indicator-panel-compact/sensex"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
+            <div x-html="renderSignalCard('SENSEX')"></div>
+            <div x-html="renderIndicators('SENSEX')"></div>
         </div>
     </div>
 
@@ -272,76 +267,172 @@
             </div>
         </div>
     </div>
+
+    <!-- Error Display -->
+    <div x-show="error" class="glass rounded-xl p-4 border border-red-500/50 bg-red-900/20">
+        <div class="flex items-center space-x-2">
+            <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="text-red-300 font-semibold">Error:</span>
+            <span class="text-red-200" x-text="error"></span>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-window.currentStyle = 'intraday';
+function dashboardData() {
+    return {
+        data: {},
+        tradingStyle: 'intraday',
+        loading: false,
+        error: null,
+        refreshInterval: null,
 
-function loadIndexData(index, style) {
-    htmx.ajax('GET', '/htmx/signal-card-compact/' + index + '?style=' + style, {target: '#' + index + '-signal', swap: 'innerHTML'});
-    htmx.ajax('GET', '/htmx/indicator-panel-compact/' + index, {target: '#' + index + '-indicators', swap: 'innerHTML'});
-}
+        async init() {
+            // Initial data fetch
+            await this.fetchData();
 
-function switchAllStyles(style) {
-    window.currentStyle = style;
-    loadIndexData('nifty', style);
-    loadIndexData('banknifty', style);
-    loadIndexData('sensex', style);
-}
+            // Setup auto-refresh (10 seconds during market hours)
+            this.setupAutoRefresh();
+        },
 
-function refreshAll() {
-    loadIndexData('nifty', window.currentStyle);
-    loadIndexData('banknifty', window.currentStyle);
-    loadIndexData('sensex', window.currentStyle);
-}
+        async fetchData() {
+            this.loading = true;
+            this.error = null;
 
-// Auto-refresh every 3 seconds during market hours only
-let refreshInterval = null;
-let marketStatusCheckInterval = null;
+            try {
+                console.log('[FRONTEND] Fetching dashboard data (single API call)...');
 
-async function checkMarketStatus() {
-    try {
-        const response = await fetch('/htmx/market-status');
-        const data = await response.json();
-        return data.is_open;
-    } catch (error) {
-        console.error('Error checking market status:', error);
-        return false; // Assume market closed if check fails
-    }
-}
+                // SINGLE API CALL - All data from backend
+                const response = await fetch(`/api/v1/dashboard?indices=NIFTY,BANKNIFTY,SENSEX&style=${this.tradingStyle}`);
 
-async function startRefreshLoop() {
-    // Check market status ONCE on startup
-    const isOpen = await checkMarketStatus();
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
 
-    if (!isOpen) {
-        // Market is closed, don't start polling at all
-        console.log('Market closed at startup - polling disabled');
-        return;
-    }
+                this.data = await response.json();
+                console.log('[FRONTEND] Dashboard data loaded:', this.data);
+            } catch (err) {
+                this.error = err.message;
+                console.error('[FRONTEND] Error fetching dashboard:', err);
+            } finally {
+                this.loading = false;
+            }
+        },
 
-    // Market is open, start polling
-    console.log('Market open at startup - polling enabled');
-    refreshAll(); // Immediate refresh
-    refreshInterval = setInterval(refreshAll, 3000);
+        setupAutoRefresh() {
+            // Clear existing interval
+            if (this.refreshInterval) {
+                clearInterval(this.refreshInterval);
+            }
 
-    // During market hours, check every 5 minutes if market closed (for mid-day transitions)
-    marketStatusCheckInterval = setInterval(async () => {
-        const stillOpen = await checkMarketStatus();
-        if (!stillOpen && refreshInterval) {
-            // Market just closed, stop polling
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-            console.log('Market closed during session - polling stopped');
+            // Refresh every 10 seconds ONLY during market hours
+            this.refreshInterval = setInterval(async () => {
+                if (this.data.market_status?.is_open) {
+                    console.log('[FRONTEND] Auto-refresh (market open)');
+                    await this.fetchData();
+                } else {
+                    console.log('[FRONTEND] Skip refresh (market closed)');
+                }
+            }, 10000); // 10 seconds
+        },
+
+        getLastPrice(index) {
+            const price = this.data.indices?.[index]?.last_price;
+            return price ? price.toFixed(2) : '-';
+        },
+
+        renderSignalCard(index) {
+            const indexData = this.data.indices?.[index];
+            if (!indexData || !indexData.signal) {
+                return '<div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>';
+            }
+
+            const signal = indexData.signal;
+            const actionClass = {
+                'BUY': 'bg-green-500/20 text-green-400',
+                'SELL': 'bg-red-500/20 text-red-400',
+                'HOLD': 'bg-yellow-500/20 text-yellow-400'
+            }[signal.action] || 'bg-gray-500/20 text-gray-400';
+
+            return `
+                <div class="glass rounded-lg p-2 border border-surface-600/50 h-[80px] overflow-hidden">
+                    <div class="flex justify-between items-start mb-1">
+                        <div>
+                            <span class="px-2 py-0.5 rounded ${actionClass} text-[10px] font-bold">${signal.action}</span>
+                            <span class="text-[10px] text-slate-400 ml-2">${signal.option_type}</span>
+                        </div>
+                        <span class="text-[10px] text-blue-400 font-bold">${signal.confidence}%</span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-[9px] mb-1">
+                        <div class="text-center">
+                            <div class="text-slate-500">Entry</div>
+                            <div class="text-white font-bold">${signal.entry_price?.toFixed(2) || '-'}</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-slate-500">Target</div>
+                            <div class="text-green-400 font-bold">${signal.target?.toFixed(2) || '-'}</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-slate-500">SL</div>
+                            <div class="text-red-400 font-bold">${signal.stop_loss?.toFixed(2) || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="text-[8px] text-slate-400 truncate">${signal.reasoning || ''}</div>
+                </div>
+            `;
+        },
+
+        renderIndicators(index) {
+            const indexData = this.data.indices?.[index];
+            if (!indexData || !indexData.indicators) {
+                return '<div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>';
+            }
+
+            const ind = indexData.indicators;
+            return `
+                <div class="glass rounded-lg p-2 border border-surface-600/50 h-[80px] overflow-hidden">
+                    <div class="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]">
+                        ${ind.trend?.rsi !== undefined ? `
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">RSI</span>
+                            <span class="text-white font-bold">${ind.trend.rsi.toFixed(1)}</span>
+                        </div>` : ''}
+                        ${ind.trend?.adx !== undefined ? `
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">ADX</span>
+                            <span class="text-white font-bold">${ind.trend.adx.toFixed(1)}</span>
+                        </div>` : ''}
+                        ${ind.momentum?.macd_signal ? `
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">MACD</span>
+                            <span class="text-white font-bold">${ind.momentum.macd_signal}</span>
+                        </div>` : ''}
+                        ${ind.volatility?.atr !== undefined ? `
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">ATR</span>
+                            <span class="text-white font-bold">${ind.volatility.atr.toFixed(1)}</span>
+                        </div>` : ''}
+                        ${ind.pivot?.pivot !== undefined ? `
+                        <div class="flex justify-between col-span-2">
+                            <span class="text-slate-400">Pivot</span>
+                            <span class="text-blue-400 font-bold">${ind.pivot.pivot.toFixed(2)}</span>
+                        </div>` : ''}
+                    </div>
+                    ${indexData.option_chain_summary ? `
+                    <div class="mt-1 pt-1 border-t border-surface-600/50 text-[8px]">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">PCR: <span class="text-purple-400 font-bold">${indexData.option_chain_summary.pcr}</span></span>
+                            <span class="text-slate-500">ATM: <span class="text-blue-400 font-bold">${indexData.option_chain_summary.atm_strike}</span></span>
+                        </div>
+                    </div>` : ''}
+                </div>
+            `;
         }
-    }, 300000); // 5 minutes
+    }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    // Initial check and start refresh loop once
-    startRefreshLoop();
-});
 </script>
 {% endblock %}
