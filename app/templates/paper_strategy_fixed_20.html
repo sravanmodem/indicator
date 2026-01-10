@@ -151,7 +151,7 @@
         <!-- Trading Index -->
         <div id="trading-index"
              hx-get="/paper/htmx/trading-index"
-             hx-trigger="load"
+             hx-trigger=""
              hx-swap="innerHTML">
             <div class="glass rounded-xl p-4">
                 <div class="h-16 bg-surface-700 rounded-lg animate-pulse"></div>
@@ -161,7 +161,7 @@
         <!-- Current Signal -->
         <div id="signal-panel"
              hx-get="/paper/htmx/signal-panel"
-             hx-trigger="load"
+             hx-trigger=""
              hx-swap="innerHTML">
             <div class="glass rounded-xl p-4">
                 <div class="h-16 bg-surface-700 rounded-lg animate-pulse"></div>
@@ -179,7 +179,7 @@
             </div>
             <div id="positions-table"
                  hx-get="/paper/htmx/positions?strategy=fixed_20_percent"
-                 hx-trigger="load"
+                 hx-trigger=""
                  hx-swap="innerHTML">
                 <div class="p-6">
                     <div class="h-32 bg-surface-700 rounded-xl animate-pulse"></div>
@@ -195,7 +195,7 @@
             </div>
             <div id="orders-table"
                  hx-get="/paper/htmx/orders?strategy=fixed_20_percent"
-                 hx-trigger="load"
+                 hx-trigger=""
                  hx-swap="innerHTML">
                 <div class="p-6">
                     <div class="h-32 bg-surface-700 rounded-xl animate-pulse"></div>
@@ -253,6 +253,9 @@ function paperTrading() {
         stats: {{ stats | tojson }},
 
         async init() {
+            // Load all HTMX content in parallel (optimized - single batch)
+            await this.loadAllContent();
+
             // Always start auto-trading
             this.startAutoTrade();
 
@@ -261,6 +264,21 @@ function paperTrading() {
 
             // Check exit signals every 10 seconds (for open positions)
             setInterval(() => this.checkExitSignals(), 10000);
+        },
+
+        async loadAllContent() {
+            // Trigger all HTMX loads in parallel instead of sequentially
+            const elements = [
+                document.getElementById('trading-index'),
+                document.getElementById('signal-panel'),
+                document.getElementById('positions-table'),
+                document.getElementById('orders-table')
+            ];
+
+            // Trigger HTMX for all elements at once
+            elements.forEach(el => {
+                if (el) htmx.trigger(el, 'load');
+            });
         },
 
         async refreshStats() {

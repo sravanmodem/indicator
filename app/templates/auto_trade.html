@@ -422,7 +422,7 @@
                         <th>Status</th>
                     </tr>
                 </thead>
-                <tbody id="auto-trades-log" hx-get="/htmx/auto-trades-log" hx-trigger="load">
+                <tbody id="auto-trades-log" hx-get="/htmx/auto-trades-log">
                     <tr>
                         <td colspan="10" class="text-center py-8 text-surface-500">
                             <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 text-surface-700"></i>
@@ -522,6 +522,9 @@ function autoTrading() {
         init() {
             this.loadSettings();
             this.startStatusUpdates();
+            // Trigger HTMX table load
+            const tableEl = document.getElementById('auto-trades-log');
+            if (tableEl) htmx.trigger(tableEl, 'load');
         },
 
         loadSettings() {

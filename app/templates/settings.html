@@ -351,7 +351,7 @@
         <div class="card p-6">
             <h3 class="text-lg font-semibold text-white mb-6">Broker Connection</h3>
 
-            <div id="broker-status" hx-get="/htmx/broker-status" hx-trigger="load" class="mb-6">
+            <div id="broker-status" hx-get="/htmx/broker-status" class="mb-6">
                 <!-- Status will be loaded here -->
             </div>
 
@@ -422,6 +422,9 @@ function settingsManager() {
 
         init() {
             this.loadSettings();
+            // Trigger HTMX broker status load
+            const statusEl = document.getElementById('broker-status');
+            if (statusEl) htmx.trigger(statusEl, 'load');
         },
 
         loadSettings() {

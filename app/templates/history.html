@@ -156,7 +156,7 @@
                         <th>P&L</th>
                     </tr>
                 </thead>
-                <tbody id="signals-table" hx-get="/htmx/signals-history" hx-trigger="load">
+                <tbody id="signals-table" hx-get="/htmx/signals-history">
                     <tr>
                         <td colspan="11" class="text-center py-8 text-surface-500">
                             <i data-lucide="loader-2" class="w-6 h-6 mx-auto mb-2 animate-spin"></i>
@@ -245,18 +245,41 @@ function signalHistory() {
         totalPages: 1,
 
         init() {
-            this.loadStats();
+            this.loadAllData();
+        },
+
+        async loadAllData() {
+            // Consolidated API call - single endpoint for history page
+            try {
+                const response = await fetch('/api/v1/history');
+                const data = await response.json();
+
+                // Update stats
+                this.updateStats(data.stats);
+
+                // Trigger HTMX to load table
+                const tableEl = document.getElementById('signals-table');
+                if (tableEl) htmx.trigger(tableEl, 'load');
+            } catch (error) {
+                console.error('Error loading history data:', error);
+            }
+        },
+
+        updateStats(stats) {
+            if (!stats) return;
+            document.getElementById('total-signals').textContent = stats.total || '0';
+            document.getElementById('win-rate').textContent = (stats.win_rate || 0) + '%';
+            document.getElementById('avg-score').textContent = (stats.avg_score || 0).toFixed(1);
+            document.getElementById('target-hit').textContent = stats.target_hit || '0';
+            document.getElementById('sl-hit').textContent = stats.sl_hit || '0';
         },
 
         loadStats() {
+            // Deprecated - using consolidated API now
             fetch('/signals/stats')
                 .then(r => r.json())
                 .then(data => {
-                    document.getElementById('total-signals').textContent = data.total || '0';
-                    document.getElementById('win-rate').textContent = (data.win_rate || 0) + '%';
-                    document.getElementById('avg-score').textContent = (data.avg_score || 0).toFixed(1);
-                    document.getElementById('target-hit').textContent = data.target_hit || '0';
-                    document.getElementById('sl-hit').textContent = data.sl_hit || '0';
+                    this.updateStats(data);
                 })
                 .catch(() => {
                     // Set to default values if API fails
