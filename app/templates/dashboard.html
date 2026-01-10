@@ -293,6 +293,9 @@ function dashboardData() {
         _fetchInProgress: false,
 
         async init() {
+            // Mark that we've fetched status to prevent duplicate on first load
+            this.$store.sharedData._lastStatusFetch = Date.now();
+
             // Fetch auth and WS status immediately on page load
             await this.fetchStatusData();
 
