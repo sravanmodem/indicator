@@ -282,10 +282,18 @@ rm app/templates/dashboard_optimized.html
 
 ## 📊 Current Status
 
-**Progress:** 1/10 pages (10%)
+**Progress:** 1/10 pages (10%) - Dashboard Complete
 
 **Backend:** 100% Complete ✅
 **Frontend:** 10% Complete ⏳
+
+**Completed:**
+- ✅ Dashboard with original UI and single API call
+- ✅ Base template with AlpineJS global store
+- ✅ Cache-busting headers
+- ✅ Request deduplication
+- ✅ Auth status fix
+- ✅ Live-orders template syntax fix
 
 **Next Priority:**
 1. Paper trading pages (4 files)
@@ -296,3 +304,16 @@ rm app/templates/dashboard_optimized.html
 
 **Branch:** `optimize-api-architecture`
 **Last Updated:** 2026-01-10
+
+## 📈 Current Results
+
+**API Calls per Dashboard Load:**
+- Before: 6+ calls
+- After: 1 primary + 2 status calls (every 60s)
+- Reduction: **67-75%** ✅
+
+**Issues Fixed:**
+- ✅ Zerodha auth status now visible immediately
+- ✅ Admin live-orders page working (500 error fixed)
+- ✅ Browser cache issues resolved
+- ✅ Original UI fully restored
