@@ -127,20 +127,32 @@ class LiveTradingService:
     @property
     def kite(self) -> Any:
         """Get Kite client, lazy load from auth service if needed."""
+        # Always try to get from auth service if we don't have it yet
         if self._kite is None:
             try:
                 from app.services.zerodha_auth import get_auth_service
                 auth_service = get_auth_service()
                 if auth_service.is_authenticated:
                     self._kite = auth_service.kite
+                    logger.debug("Live trading service: Got kite client from auth service")
             except Exception as e:
                 logger.error(f"Failed to get Kite client: {e}")
         return self._kite
 
     @property
     def is_authenticated(self) -> bool:
-        """Check if Zerodha is authenticated."""
-        return self.kite is not None
+        """Check if Zerodha is authenticated by checking auth service directly."""
+        try:
+            from app.services.zerodha_auth import get_auth_service
+            auth_service = get_auth_service()
+            # Update our cached kite client if auth service has it
+            if auth_service.is_authenticated and self._kite is None:
+                self._kite = auth_service.kite
+                logger.info("Live trading service: Authentication status updated from auth service")
+            return auth_service.is_authenticated
+        except Exception as e:
+            logger.error(f"Failed to check authentication: {e}")
+            return False
 
     def enable_live_mode(self, enabled: bool = True):
         """Toggle live trading mode."""
