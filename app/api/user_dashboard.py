@@ -298,7 +298,7 @@ async def htmx_active_signals(request: Request):
         return HTMLResponse("""
             <div class="p-8 text-center text-slate-500">
                 <p>No active signals at the moment</p>
-                <p class="text-sm mt-1">Signals will appear here when admin broadcasts them</p>
+                <p class="text-sm mt-1">Auto-trading will execute signals automatically when enabled</p>
             </div>
         """)
 

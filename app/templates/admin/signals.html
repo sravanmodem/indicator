@@ -2,24 +2,10 @@
 
 {% block title %}Signal Management{% endblock %}
 {% block page_title %}Signal Management{% endblock %}
-{% block page_subtitle %}Auto-generate and broadcast trading signals to users{% endblock %}
+{% block page_subtitle %}Monitor trading signals and user auto-execution{% endblock %}
 
 {% block content %}
 <div class="space-y-6 animate-fade-in" x-data="signalManager()">
-
-    <!-- Header Stats -->
-    <div id="broadcast-stats"
-         hx-get="/admin/htmx/broadcast-stats"
-         hx-trigger="load, every 10s"
-         hx-swap="innerHTML">
-        <div class="grid grid-cols-5 gap-3">
-            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
-            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
-            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
-            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
-            <div class="p-3 rounded-lg bg-surface-800/50 border border-surface-700 animate-pulse h-16"></div>
-        </div>
-    </div>
 
     <!-- Main Content Grid -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -126,7 +112,7 @@
                         </svg>
                     </div>
                     <h3 class="text-lg font-bold text-slate-400 mb-1">No Users Yet</h3>
-                    <p class="text-sm text-slate-500 mb-4">Add users to start broadcasting signals</p>
+                    <p class="text-sm text-slate-500 mb-4">Add users to enable auto-trading</p>
                     <a href="/admin/users/new" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 font-bold text-sm">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -326,30 +312,8 @@
 function signalManager() {
     return {
         init() {
-            // Handle broadcast result display
-            document.body.addEventListener('htmx:afterSwap', (event) => {
-                if (event.detail.target.id === 'broadcast-result') {
-                    // Show toast notification
-                    const result = event.detail.target.innerHTML;
-                    if (result.includes('success')) {
-                        this.showToast('Signal broadcasted successfully!', 'success');
-                    }
-                }
-            });
-        },
-
-        showToast(message, type = 'info') {
-            const toast = document.createElement('div');
-            toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in ${
-                type === 'success' ? 'bg-green-500' :
-                type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-            } text-white font-bold`;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-
-            setTimeout(() => {
-                toast.remove();
-            }, 3000);
+            // Signal manager initialized
+            console.log('Signal manager ready - auto-trading active');
         }
     }
 }
