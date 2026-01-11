@@ -168,7 +168,7 @@ class PaperTradingService:
     # Configuration
     CAPITAL = 500000  # ₹5,00,000
     MAX_CAPITAL_USE = 1.0  # 100%
-    MAX_DAILY_LOSS_PERCENT = 1.0  # 100% (No daily loss limit - disabled)
+    MAX_DAILY_LOSS_PERCENT = 0.20  # 20% daily loss limit - halt trading if reached
     MAX_LOTS_PER_ORDER = 25
 
     # Lot sizes
@@ -251,13 +251,19 @@ class PaperTradingService:
     def get_next_expiry(self, index: str) -> ExpiryInfo:
         """
         Get next expiry date for an index.
-        Uses cached data if available and less than 5 minutes old.
+        Uses cached data from Kite if available and less than 5 minutes old.
+
+        IMPORTANT: Cache must be populated first using refresh_expiry_cache().
+        This is done automatically on app startup.
 
         Args:
             index: NIFTY, BANKNIFTY, or SENSEX
 
         Returns:
             ExpiryInfo with expiry details
+
+        Raises:
+            RuntimeError: If cache is empty (Kite data never fetched)
         """
         index = index.upper()
 
@@ -269,47 +275,26 @@ class PaperTradingService:
         ):
             return self._expiry_cache[index]
 
-        # Return fallback expiry info (will be updated async)
-        today = datetime.now().date()
-
-        # Fallback weekday mapping if Kite data not available
-        fallback_days = {
-            "NIFTY": 3,      # Thursday
-            "SENSEX": 4,     # Friday
-            "BANKNIFTY": 2,  # Wednesday
-        }
-
-        expiry_day = fallback_days.get(index, 3)
-        current_weekday = today.weekday()
-        days_ahead = expiry_day - current_weekday
-
-        if days_ahead < 0:
-            days_ahead += 7
-        elif days_ahead == 0:
-            now = datetime.now()
-            if now.hour >= 15 and now.minute >= 30:
-                days_ahead = 7
-
-        expiry_date = today + timedelta(days=days_ahead)
-
-        return ExpiryInfo(
-            index=index,
-            expiry_date=expiry_date,
-            days_to_expiry=days_ahead,
-            is_expiry_day=(days_ahead == 0),
-            lot_size=self.LOT_SIZES.get(index, 25),
-            max_lots_per_order=self.MAX_LOTS_PER_ORDER,
+        # Cache miss - this means refresh_expiry_cache() was never called
+        logger.error(f"Expiry cache miss for {index}. Cache must be populated using refresh_expiry_cache() first.")
+        raise RuntimeError(
+            f"Expiry data not available for {index}. "
+            "Please call refresh_expiry_cache() first or wait for app startup to complete."
         )
 
     async def get_next_expiry_async(self, index: str) -> ExpiryInfo:
         """
         Get next expiry date for an index from Kite instruments (async).
+        This method always fetches fresh data from Kite and updates the cache.
 
         Args:
             index: NIFTY, BANKNIFTY, or SENSEX
 
         Returns:
             ExpiryInfo with expiry details
+
+        Raises:
+            RuntimeError: If unable to fetch from Kite
         """
         index = index.upper()
 
@@ -318,8 +303,9 @@ class PaperTradingService:
             expiry_data = await self.data_fetcher.get_next_expiry(index)
 
             if "error" in expiry_data:
-                logger.warning(f"Kite expiry fetch failed: {expiry_data['error']}, using fallback")
-                return self.get_next_expiry(index)
+                error_msg = f"Kite expiry fetch failed for {index}: {expiry_data['error']}"
+                logger.error(error_msg)
+                raise RuntimeError(error_msg)
 
             expiry_info = ExpiryInfo(
                 index=index,
@@ -339,13 +325,40 @@ class PaperTradingService:
             return expiry_info
 
         except Exception as e:
-            logger.error(f"Error fetching expiry from Kite: {e}")
-            return self.get_next_expiry(index)
+            logger.error(f"Error fetching expiry from Kite for {index}: {e}")
+            raise RuntimeError(f"Unable to fetch expiry data for {index} from Kite: {e}")
 
     async def refresh_expiry_cache(self):
-        """Refresh expiry cache for all indices from Kite."""
+        """
+        Refresh expiry cache for all indices from Kite.
+
+        This should be called:
+        - On app startup (done automatically)
+        - Before trading operations to ensure fresh data
+        - When cache expires (every 5 minutes)
+
+        Raises:
+            RuntimeError: If unable to fetch data for any index
+        """
+        logger.info("Refreshing expiry cache from Kite for all indices...")
+        success_count = 0
+        errors = []
+
         for index in ["NIFTY", "BANKNIFTY", "SENSEX"]:
-            await self.get_next_expiry_async(index)
+            try:
+                await self.get_next_expiry_async(index)
+                success_count += 1
+            except Exception as e:
+                error_msg = f"{index}: {str(e)}"
+                errors.append(error_msg)
+                logger.error(f"Failed to refresh expiry for {index}: {e}")
+
+        if success_count == 0:
+            raise RuntimeError(f"Failed to fetch expiry data for all indices. Errors: {'; '.join(errors)}")
+        elif errors:
+            logger.warning(f"Partial success: {success_count}/3 indices updated. Errors: {'; '.join(errors)}")
+        else:
+            logger.info(f"Successfully refreshed expiry cache for all {success_count} indices")
 
     def get_trading_index(self) -> ExpiryInfo:
         """
@@ -620,9 +633,9 @@ class PaperTradingService:
             logger.warning(f"TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
             return None
 
-        # Check confidence threshold (at least 40%)
-        if signal.confidence < 40:
-            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 40%+)")
+        # Check confidence threshold (at least 70%)
+        if signal.confidence < 70:
+            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 70%+)")
             return None
 
         # Get recommended option
@@ -717,6 +730,88 @@ class PaperTradingService:
         logger.info(f"Executed BUY order: {order.order_id} - {order.symbol} x {order.lots} lots @ {order.price}")
 
         return order
+
+    async def _check_next_signal_and_update(self, position: PaperPosition, exit_reason: str) -> bool:
+        """
+        Check if next signal is in same direction as current position.
+        If yes, update SL/target instead of exiting.
+
+        Args:
+            position: Current position about to exit
+            exit_reason: Reason for exit
+
+        Returns:
+            True if position was updated (don't exit), False if should exit normally
+        """
+        try:
+            from app.services.signal_engine import get_signal_engine, TradingStyle
+            from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+
+            logger.info(f"Checking next signal before exiting {position.symbol}...")
+
+            # Get token for index
+            tokens = {
+                "NIFTY": NIFTY_INDEX_TOKEN,
+                "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+                "SENSEX": SENSEX_INDEX_TOKEN,
+            }
+            token = tokens.get(position.index, NIFTY_INDEX_TOKEN)
+
+            # Fetch historical data for signal generation
+            df = await self.data_fetcher.fetch_historical_data(
+                instrument_token=token,
+                timeframe="5minute",
+                days=3,
+            )
+
+            if df.empty:
+                logger.warning("No historical data for signal generation, proceeding with exit")
+                return False
+
+            # Get option chain
+            chain_data = await self.data_fetcher.get_option_chain(index=position.index)
+            option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+            # Generate new signal
+            engine = get_signal_engine(TradingStyle.INTRADAY)
+            signal = engine.analyze(df=df, option_chain=option_chain)
+
+            if not signal:
+                logger.info("No new signal generated, proceeding with exit")
+                return False
+
+            # Check if signal confidence is above 70%
+            if signal.confidence < 70:
+                logger.info(f"New signal confidence {signal.confidence}% < 70%, proceeding with exit")
+                return False
+
+            # Check if signal direction matches current position
+            if signal.direction != position.option_type:
+                logger.info(f"New signal direction {signal.direction} != position {position.option_type}, proceeding with exit")
+                return False
+
+            # Same direction and high confidence! Update SL/target instead of exiting
+            logger.info(f"✓ SAME DIRECTION signal found! {signal.direction} @ {signal.confidence}% confidence")
+            logger.info(f"Updating position SL/Target: Old SL={position.stop_loss:.2f}, Target={position.target:.2f}")
+
+            # Update stop loss and target from new signal
+            old_sl = position.stop_loss
+            old_target = position.target
+
+            position.stop_loss = signal.stop_loss
+            position.target = signal.target_1
+
+            logger.info(f"Updated SL/Target: New SL={position.stop_loss:.2f}, Target={position.target:.2f}")
+            logger.info(f"Position {position.symbol} will CONTINUE with updated levels (not exiting)")
+
+            # Save state
+            self._save_state()
+
+            return True  # Don't exit, we updated instead
+
+        except Exception as e:
+            logger.error(f"Error checking next signal: {e}, proceeding with exit")
+            return False
 
     async def update_positions(self) -> tuple[list[PaperPosition], list[dict]]:
         """
@@ -843,14 +938,22 @@ class PaperTradingService:
                     logger.info(f"Market close exit for {position.symbol}")
 
                 if should_exit:
-                    await self.close_position(position, exit_reason)
-                    closed_positions.append({
-                        "position_id": position.position_id,
-                        "symbol": position.symbol,
-                        "exit_reason": exit_reason,
-                        "pnl": position.pnl,
-                        "pnl_percent": position.pnl_percent,
-                    })
+                    # SMART EXIT: Check if next signal is in same direction
+                    # If yes, update SL/target instead of exiting
+                    should_update_instead = await self._check_next_signal_and_update(position, exit_reason)
+
+                    if not should_update_instead:
+                        # No same-direction signal, exit normally
+                        await self.close_position(position, exit_reason)
+                        closed_positions.append({
+                            "position_id": position.position_id,
+                            "symbol": position.symbol,
+                            "exit_reason": exit_reason,
+                            "pnl": position.pnl,
+                            "pnl_percent": position.pnl_percent,
+                        })
+                    else:
+                        logger.info(f"Position {position.symbol} updated with new signal instead of exiting")
 
                 updated.append(position)
 

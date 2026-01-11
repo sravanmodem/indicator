@@ -105,6 +105,9 @@ class DataFetcher:
         """
         Fetch instruments list from Zerodha.
 
+        NOTE: Instruments list is static/semi-static metadata (contract definitions),
+        not live market data. It can be fetched anytime, even outside market hours.
+
         Args:
             exchange: Exchange (NSE, NFO, BSE, BFO)
 
@@ -122,12 +125,8 @@ class DataFetcher:
         ):
             return self._instruments_cache[cache_key]
 
-        # Check API time restriction
-        allowed, reason = is_api_allowed()
-        if not allowed:
-            logger.info(f"API blocked: {reason}")
-            return self._instruments_cache.get(cache_key, pd.DataFrame())
-
+        # Instruments list can be fetched anytime (it's metadata, not live market data)
+        # No API time restriction check here
         try:
             instruments = await asyncio.to_thread(self.kite.instruments, exchange)
             df = pd.DataFrame(instruments)
@@ -137,6 +136,10 @@ class DataFetcher:
             return df
         except Exception as e:
             logger.error(f"Failed to fetch instruments: {e}")
+            # Return cached data if available, even if stale
+            if cache_key in self._instruments_cache:
+                logger.warning(f"Using stale cached instruments for {exchange}")
+                return self._instruments_cache[cache_key]
             return pd.DataFrame()
 
     async def get_index_lot_size(self, index: str = "NIFTY") -> int:

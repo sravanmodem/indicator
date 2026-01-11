@@ -34,6 +34,12 @@ async def lifespan(app: FastAPI):
     if await auth_service.restore_session():
         logger.info("Session restored from stored tokens")
 
+        # Refresh expiry cache from Kite to get accurate expiry dates
+        from app.services.paper_trading import get_paper_trading_service
+        paper = get_paper_trading_service()
+        await paper.refresh_expiry_cache()
+        logger.info("Expiry cache refreshed from Kite")
+
         # Start auto-trader if authenticated
         from app.services.auto_trader import get_auto_trader
         auto_trader = get_auto_trader()
