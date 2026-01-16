@@ -49,29 +49,30 @@
     </div>
 
     <!-- NIFTY Row -->
-    <div class="glass rounded-xl p-3 border border-blue-500/20 bg-gradient-to-r from-blue-900/10 to-indigo-900/10 overflow-hidden">
-        <div class="flex items-center space-x-2 mb-2">
-            <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                <span class="text-white font-black text-[10px]">N</span>
+    <div class="glass rounded-xl p-3 border border-blue-500/20 bg-gradient-to-r from-blue-900/10 to-indigo-900/10 overflow-hidden mb-6 ">
+        <div class="glass rounded-xl p-3 border border-blue-500/20 bg-gradient-to-r from-blue-900/10 to-indigo-900/10 overflow-hidden">
+            <div class="flex items-center space-x-2 mb-2">
+                <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
+                    <span class="text-white font-black text-[10px]">N</span>
+                </div>
+                <span class="text-white font-bold text-sm">NIFTY</span>
+                <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold" id="nifty-expiry">-D</span>
             </div>
-            <span class="text-white font-bold text-sm">NIFTY</span>
-            <span class="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[9px] font-bold" id="nifty-expiry">-D</span>
+            <div class="flex flex-col gap-6">
+                <div id="nifty-signal"
+                    hx-get="/htmx/signal-card-compact/nifty?style=intraday"
+                    hx-trigger="load"
+                    hx-swap="innerHTML">
+                    <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+                </div>
+                <div id="nifty-indicators" class="overflow-hidden"
+                    hx-get="/htmx/indicator-panel-compact/nifty"
+                    hx-trigger="load"
+                    hx-swap="innerHTML">
+                    <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
+                </div>
+            </div>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div id="nifty-signal"
-                 hx-get="/htmx/signal-card-compact/nifty?style=intraday"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
-            <div id="nifty-indicators" class="overflow-hidden"
-                 hx-get="/htmx/indicator-panel-compact/nifty"
-                 hx-trigger="load"
-                 hx-swap="innerHTML">
-                <div class="h-[80px] bg-surface-700/50 rounded-lg animate-pulse"></div>
-            </div>
-        </div>
-
     <!-- BANKNIFTY Row -->
     <div class="glass rounded-xl p-3 border border-purple-500/20 bg-gradient-to-r from-purple-900/10 to-pink-900/10 overflow-hidden">
         <div class="flex items-center space-x-2 mb-2">
@@ -81,7 +82,7 @@
             <span class="text-white font-bold text-sm">BANKNIFTY</span>
             <span class="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[9px] font-bold" id="banknifty-expiry">-D</span>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="flex flex-col gap-6">
             <div id="banknifty-signal"
                  hx-get="/htmx/signal-card-compact/banknifty?style=intraday"
                  hx-trigger="load"
@@ -106,7 +107,7 @@
             <span class="text-white font-bold text-sm">SENSEX</span>
             <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[9px] font-bold" id="sensex-expiry">-D</span>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div class="flex flex-col gap-6">
             <div id="sensex-signal"
                  hx-get="/htmx/signal-card-compact/sensex?style=intraday"
                  hx-trigger="load"
