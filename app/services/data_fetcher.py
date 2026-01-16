@@ -357,6 +357,25 @@ class DataFetcher:
             if not future_expiries:
                 return {"error": "No future expiries found"}
 
+            # For BANKNIFTY, filter to monthly expiries only (last Wednesday of each month)
+            # BANKNIFTY does NOT have weekly options - only monthly expiry
+            if index.upper() == "BANKNIFTY":
+                monthly_expiries = []
+                for expiry in future_expiries:
+                    # Check if this is the last expiry in its month
+                    # Monthly expiry = no other expiry in the same month after this one
+                    is_monthly = True
+                    for next_exp in future_expiries:
+                        if next_exp > expiry and next_exp.month == expiry.month and next_exp.year == expiry.year:
+                            is_monthly = False
+                            break
+                    if is_monthly:
+                        monthly_expiries.append(expiry)
+
+                if monthly_expiries:
+                    future_expiries = monthly_expiries
+                    logger.info(f"BANKNIFTY monthly expiries: {[str(e) for e in monthly_expiries[:3]]}")
+
             next_expiry = future_expiries[0]
             days_to_expiry = (next_expiry - today).days
             is_expiry_day = (next_expiry == today)

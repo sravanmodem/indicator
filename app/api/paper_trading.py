@@ -210,6 +210,66 @@ async def paper_strategy_profit_100(request: Request):
     )
 
 
+@router.get("/strategy/5-percent-daily", response_class=HTMLResponse)
+async def paper_strategy_5_percent_daily(request: Request):
+    """Render paper trading page with 5% daily profit target strategy."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="5_percent_daily")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_strategy_5_percent_daily.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "5_percent_daily",
+            "strategy_name": "5% Daily Profit Target",
+            "strategy_description": "Trade till 3PM | Stop when 5% profit hit | Fixed capital (no compounding)",
+        },
+    )
+
+
+@router.get("/strategy/5-percent-15min", response_class=HTMLResponse)
+async def paper_strategy_5_percent_15min(request: Request):
+    """Render paper trading page with 5% every 15 minutes strategy."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="5_percent_15min")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    return templates.TemplateResponse(
+        "paper_strategy_5_percent_15min.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "5_percent_15min",
+            "strategy_name": "5% Every 15 Minutes",
+            "strategy_description": "Trade every 15 min interval | 5% per trade target | Fixed capital | Separate signal",
+        },
+    )
+
+
 @router.get("/stats")
 async def get_stats(strategy: str = "default"):
     """Get paper trading statistics."""
@@ -924,4 +984,94 @@ async def htmx_signal_panel(request: Request):
         return templates.TemplateResponse(
             "partials/paper_signal_panel.html",
             {"request": request, "error": str(e)},
+        )
+
+
+@router.get("/htmx/signal-panel-with-ltp", response_class=HTMLResponse)
+async def htmx_signal_panel_with_ltp(request: Request, strategy: str = "default"):
+    """
+    HTMX partial for signal panel with separate LTP display.
+    Used by 5% strategies that need LTP displayed separately from signal.
+    """
+    try:
+        require_auth()
+        paper = get_paper_trading_service()
+        fetcher = get_data_fetcher()
+
+        trading_index = paper.get_trading_index()
+
+        # Get token
+        tokens = {
+            "NIFTY": NIFTY_INDEX_TOKEN,
+            "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+            "SENSEX": SENSEX_INDEX_TOKEN,
+        }
+        token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+
+        # Fetch data
+        df = await fetcher.fetch_historical_data(
+            instrument_token=token,
+            timeframe="5minute",
+            days=3,
+        )
+
+        if df.empty:
+            return templates.TemplateResponse(
+                "partials/paper_signal_panel_ltp.html",
+                {"request": request, "error": "Market closed", "strategy": strategy},
+            )
+
+        # Get option chain for LTP
+        chain_data = await fetcher.get_option_chain(index=trading_index.index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+
+        # Generate signal (separate from LTP)
+        engine = get_signal_engine(TradingStyle.INTRADAY)
+        signal = engine.analyze(df=df, option_chain=option_chain)
+
+        # Get current spot price (LTP of index)
+        spot_price = df["close"].iloc[-1] if not df.empty else 0
+
+        # Get recommended option LTP separately
+        option_ltp = None
+        option_symbol = None
+        if signal and signal.recommended_option:
+            option_ltp = signal.recommended_option.ltp
+            option_symbol = signal.recommended_option.symbol
+
+        # Calculate order preview using fixed capital (no compounding)
+        order_preview = None
+        if signal and signal.recommended_option:
+            lots, qty, splits = paper.calculate_order_size(
+                price=signal.recommended_option.ltp,
+                lot_size=trading_index.lot_size,
+            )
+            order_preview = {
+                "lots": lots,
+                "quantity": qty,
+                "total_value": qty * signal.recommended_option.ltp,
+                "split_count": len(splits),
+                "splits": splits,
+            }
+
+        return templates.TemplateResponse(
+            "partials/paper_signal_panel_ltp.html",
+            {
+                "request": request,
+                "signal": signal,
+                "trading_index": trading_index,
+                "spot_price": spot_price,
+                "option_ltp": option_ltp,
+                "option_symbol": option_symbol,
+                "order_preview": order_preview,
+                "chain_data": chain_data if "error" not in chain_data else None,
+                "stats": paper.get_stats(),
+                "strategy": strategy,
+            },
+        )
+    except Exception as e:
+        logger.error(f"Signal panel with LTP error: {e}")
+        return templates.TemplateResponse(
+            "partials/paper_signal_panel_ltp.html",
+            {"request": request, "error": str(e), "strategy": strategy},
         )
