@@ -86,6 +86,13 @@ class PaperPosition:
     min_price: float = 0.0  # Lowest price reached during trade
     max_price_time: datetime | None = None
     min_price_time: datetime | None = None
+    # Trailing stop loss tracking
+    initial_stop_loss: float = 0.0  # Original SL from signal
+    initial_target: float = 0.0  # Original target from signal
+    trailing_sl_active: bool = False  # True when trailing SL is active
+    target_achieved: bool = False  # True when target price was reached
+    profit_locked_percent: float = 0.0  # Current locked profit %
+    sl_trail_count: int = 0  # Number of times SL was trailed up
 
 
 @dataclass
@@ -110,11 +117,14 @@ class OrderHistoryEntry:
     max_price_time: datetime | None = None
     min_price_time: datetime | None = None
     # Calculated metrics
-    pnl: float = 0.0
+    pnl: float = 0.0  # Gross P&L before charges
     pnl_percent: float = 0.0
     max_profit_percent: float = 0.0  # % from entry to max
     max_loss_percent: float = 0.0    # % from entry to min
     captured_move_percent: float = 0.0  # How much of max move was captured
+    # Broker charges
+    broker_charges: float = 0.0  # Total broker charges
+    net_pnl: float = 0.0  # Net P&L after charges (pnl - broker_charges)
     # Metadata
     signal_confidence: float = 0.0
     exit_reason: str = ""
@@ -163,10 +173,11 @@ class PaperTradingService:
     - Capital management with daily loss limits
     - Order splitting for large orders
     - Position tracking and P&L calculation
+    - Broker charges calculation (STT, transaction charges, GST, SEBI, stamp duty)
     """
 
     # Configuration
-    CAPITAL = 500000  # ₹5,00,000
+    CAPITAL = 100000  # ₹1,00,000
     MAX_CAPITAL_USE = 1.0  # 100%
     MAX_DAILY_LOSS_PERCENT = 0.20  # 20% daily loss limit - halt trading if reached
     MAX_LOTS_PER_ORDER = 25
@@ -177,6 +188,16 @@ class PaperTradingService:
         "BANKNIFTY": 15,
         "SENSEX": 10,
     }
+
+    # Broker Charges (standard rates for options)
+    # All rates are as per typical discount broker rates (Zerodha-like)
+    BROKERAGE_PER_ORDER = 20  # Flat ₹20 per executed order (buy + sell = ₹40)
+    STT_RATE = 0.000625  # 0.0625% on sell side (intrinsic value for options)
+    TRANSACTION_CHARGES_NSE = 0.00053  # 0.053% for options (NSE)
+    TRANSACTION_CHARGES_BSE = 0.000375  # 0.0375% for options (BSE/SENSEX)
+    GST_RATE = 0.18  # 18% on brokerage + transaction charges
+    SEBI_CHARGES = 0.000001  # ₹10 per crore = 0.0001%
+    STAMP_DUTY_BUY = 0.00003  # 0.003% on buy side only
 
     def __init__(self, strategy: str = "default"):
         self.settings = get_settings()
@@ -197,8 +218,12 @@ class PaperTradingService:
         self._expiry_cache: dict[str, ExpiryInfo] = {}
         self._expiry_cache_time: datetime | None = None
 
-        # Data file path
-        self.data_file = Path(self.settings.data_dir) / "paper_trading.json"
+        # Data file path - EACH STRATEGY HAS ITS OWN FILE
+        # This ensures orders, positions, and history are separate per strategy
+        if strategy == "default":
+            self.data_file = Path(self.settings.data_dir) / "paper_trading.json"
+        else:
+            self.data_file = Path(self.settings.data_dir) / f"paper_trading_{strategy}.json"
 
         # Initialize daily stats
         self._initialize_daily_stats()
@@ -496,6 +521,171 @@ class PaperTradingService:
             return True
 
         return False
+
+    def calculate_broker_charges(
+        self,
+        buy_value: float,
+        sell_value: float,
+        index: str = "NIFTY",
+    ) -> dict:
+        """
+        Calculate all broker charges for a complete trade (buy + sell).
+
+        Args:
+            buy_value: Total value of buy order (price * quantity)
+            sell_value: Total value of sell order (price * quantity)
+            index: Index name (NIFTY/BANKNIFTY/SENSEX) for exchange selection
+
+        Returns:
+            Dictionary with breakdown of all charges and total
+        """
+        # 1. Brokerage: ₹20 per order (buy + sell = ₹40)
+        brokerage = self.BROKERAGE_PER_ORDER * 2
+
+        # 2. STT (Securities Transaction Tax): 0.0625% on sell side only (on premium)
+        stt = sell_value * self.STT_RATE
+
+        # 3. Transaction charges: Different for NSE vs BSE
+        if index.upper() == "SENSEX":
+            transaction_rate = self.TRANSACTION_CHARGES_BSE
+        else:
+            transaction_rate = self.TRANSACTION_CHARGES_NSE
+        transaction_charges = (buy_value + sell_value) * transaction_rate
+
+        # 4. GST: 18% on (brokerage + transaction charges)
+        gst = (brokerage + transaction_charges) * self.GST_RATE
+
+        # 5. SEBI charges: ₹10 per crore (0.0001%)
+        sebi_charges = (buy_value + sell_value) * self.SEBI_CHARGES
+
+        # 6. Stamp duty: 0.003% on buy side only
+        stamp_duty = buy_value * self.STAMP_DUTY_BUY
+
+        # Total charges
+        total_charges = brokerage + stt + transaction_charges + gst + sebi_charges + stamp_duty
+
+        return {
+            "brokerage": round(brokerage, 2),
+            "stt": round(stt, 2),
+            "transaction_charges": round(transaction_charges, 2),
+            "gst": round(gst, 2),
+            "sebi_charges": round(sebi_charges, 2),
+            "stamp_duty": round(stamp_duty, 2),
+            "total": round(total_charges, 2),
+        }
+
+    def calculate_smart_entry_price(
+        self,
+        ltp: float,
+        signal_direction: str,
+        option_chain: list[dict] | None = None,
+    ) -> float:
+        """
+        Calculate smart entry price for options in 40-60 range.
+
+        Instead of taking immediate LTP, this calculates a better entry:
+        - For options in 40-60 range, use LTP as-is (optimal range)
+        - For higher priced options, calculate entry with slight discount
+        - Uses bid-ask spread if available
+
+        Args:
+            ltp: Current last traded price
+            signal_direction: CE or PE
+            option_chain: Option chain data with bid/ask
+
+        Returns:
+            Smart entry price
+        """
+        # Target range for options: 40-60
+        OPTIMAL_MIN = 40
+        OPTIMAL_MAX = 60
+
+        if OPTIMAL_MIN <= ltp <= OPTIMAL_MAX:
+            # Price is in optimal range, use as-is
+            logger.info(f"Entry price {ltp:.2f} is in optimal range (40-60)")
+            return ltp
+
+        if ltp < OPTIMAL_MIN:
+            # Very cheap option - use LTP but log warning
+            logger.warning(f"Entry price {ltp:.2f} is below optimal range (may be risky)")
+            return ltp
+
+        if ltp > OPTIMAL_MAX:
+            # Higher priced option - try to get slightly better entry
+            # Apply a small discount (0.5-1%) to account for slippage
+            discount = ltp * 0.005  # 0.5% discount
+            smart_price = ltp - discount
+            logger.info(f"Entry price adjusted: LTP {ltp:.2f} -> Smart Entry {smart_price:.2f} (0.5% discount)")
+            return round(smart_price, 2)
+
+        return ltp
+
+    def calculate_trailing_stop_loss(
+        self,
+        position: "PaperPosition",
+        current_price: float,
+    ) -> tuple[float, str]:
+        """
+        Calculate trailing stop loss based on profit movement.
+
+        Rules:
+        - Initial SL from signal is baseline
+        - When profit reaches 50%, move SL to entry (breakeven)
+        - For every 10% profit move after that, trail SL by 10%
+        - Example: 60% profit -> SL at 50%, 70% profit -> SL at 60%
+
+        Args:
+            position: Current position
+            current_price: Current market price
+
+        Returns:
+            Tuple of (new_stop_loss, reason_for_change)
+        """
+        entry_price = position.entry_price
+        current_sl = position.stop_loss
+
+        # Calculate current profit %
+        profit_percent = ((current_price - entry_price) / entry_price) * 100
+
+        # If in loss, keep original SL
+        if profit_percent <= 0:
+            return current_sl, ""
+
+        # Calculate new SL based on profit level
+        new_sl = current_sl
+        reason = ""
+
+        # Rule 1: At 50% profit, move SL to entry (breakeven)
+        if profit_percent >= 50 and not position.trailing_sl_active:
+            new_sl = entry_price
+            reason = f"BREAKEVEN: +{profit_percent:.0f}% profit, SL moved to entry {entry_price:.2f}"
+            position.trailing_sl_active = True
+            position.profit_locked_percent = 0
+            logger.info(reason)
+
+        # Rule 2: For every 10% above 50%, trail SL by 10%
+        elif profit_percent >= 50 and position.trailing_sl_active:
+            # Calculate how many 10% increments above 50%
+            increments_above_50 = int((profit_percent - 50) / 10)
+            locked_profit_percent = increments_above_50 * 10  # 0, 10, 20, 30...
+
+            if locked_profit_percent > position.profit_locked_percent:
+                # Calculate new SL price
+                # SL should be at (locked_profit_percent)% above entry
+                new_sl = entry_price * (1 + locked_profit_percent / 100)
+                reason = f"TRAIL SL: +{profit_percent:.0f}% profit, SL moved to +{locked_profit_percent}% ({new_sl:.2f})"
+                position.profit_locked_percent = locked_profit_percent
+                position.sl_trail_count += 1
+                logger.info(reason)
+
+        # Rule 3: When target is achieved, set SL at target and wait
+        if not position.target_achieved and current_price >= position.target:
+            position.target_achieved = True
+            new_sl = max(new_sl, position.target)  # SL at least at target
+            reason = f"TARGET HIT: Price {current_price:.2f} >= Target {position.target:.2f}, SL set at {new_sl:.2f}"
+            logger.info(reason)
+
+        return round(new_sl, 2), reason
 
     def is_trading_hours(self, trading_index: "ExpiryInfo | None" = None) -> tuple[bool, str]:
         """
@@ -864,75 +1054,90 @@ class PaperTradingService:
                 exit_reason = ""
 
                 # ========================================
-                # STRATEGY-BASED EXIT LOGIC
-                # SL and Target are LOCKED from signal - never modified
+                # NEW EXIT LOGIC: ALL EXITS THROUGH STOP LOSS ONLY
+                # - When target is hit, SL is moved to target price
+                # - Trailing SL: at 50% profit -> SL to breakeven
+                # - Every 10% above 50% -> trail SL by 10%
                 # ========================================
 
-                # Exit conditions (checked in priority order):
+                # Store initial SL and target if not set
+                if position.initial_stop_loss == 0 and position.stop_loss > 0:
+                    position.initial_stop_loss = position.stop_loss
+                if position.initial_target == 0 and position.target > 0:
+                    position.initial_target = position.target
 
-                # 1. FIXED STOP LOSS - Exit if price hits SL (ALL STRATEGIES)
+                # Apply trailing stop loss logic (modifies position.stop_loss based on profit)
+                new_sl, sl_reason = self.calculate_trailing_stop_loss(position, current_premium)
+                if new_sl > position.stop_loss:
+                    old_sl = position.stop_loss
+                    position.stop_loss = new_sl
+                    logger.info(f"SL Updated for {position.symbol}: {old_sl:.2f} -> {new_sl:.2f} ({sl_reason})")
+
+                # ONLY EXIT CONDITION: Stop loss hit
+                # ALL strategies now exit ONLY through stop loss
                 if position.stop_loss > 0 and current_premium <= position.stop_loss:
                     should_exit = True
-                    exit_reason = f"STOP LOSS HIT: Rs.{current_premium:.2f} <= SL Rs.{position.stop_loss:.2f} | P&L: {position.pnl_percent:+.1f}%"
+                    sl_type = "TRAILING SL" if position.trailing_sl_active else "STOP LOSS"
+                    if position.target_achieved:
+                        sl_type = "TARGET LOCKED SL"
+                    exit_reason = f"{sl_type} HIT: Rs.{current_premium:.2f} <= SL Rs.{position.stop_loss:.2f} | P&L: {position.pnl_percent:+.1f}%"
+                    if position.profit_locked_percent > 0:
+                        exit_reason += f" | Locked +{position.profit_locked_percent:.0f}%"
                     logger.warning(f"SL triggered for {position.symbol}: {exit_reason}")
 
-                # 2. TARGET HIT - Exit when target price is reached (ALL STRATEGIES)
-                if not should_exit and position.target > 0 and current_premium >= position.target:
-                    should_exit = True
-                    exit_reason = f"TARGET HIT: Rs.{current_premium:.2f} >= Target Rs.{position.target:.2f} | P&L: {position.pnl_percent:+.1f}%"
-                    logger.info(f"Target hit for {position.symbol}: {exit_reason}")
-
-                # 3. STRATEGY-SPECIFIC EXIT CONDITIONS
+                # 3. STRATEGY-SPECIFIC PROFIT TARGETS (Move SL up instead of exiting)
+                # When target is reached, set SL at target price and wait for SL exit
                 if not should_exit:
+                    target_percent = 0
                     if self.strategy == "fixed_20_percent":
-                        # Strategy 3: Exit at 20% profit, then halt trading
-                        if position.pnl_percent >= 20.0:
-                            should_exit = True
-                            exit_reason = f"FIXED 20% PROFIT: {position.pnl_percent:+.1f}% reached"
-                            logger.info(f"20% profit exit for {position.symbol}")
-                            # Halt trading for the day after hitting 20%
-                            self.daily_stats.is_trading_halted = True
-                            self.daily_stats.halt_reason = "20% profit target reached - No more trades today"
-
-                    elif self.strategy == "trailing_stoploss":
-                        # Strategy 4: Trailing stop loss - lock profit at 20%, trail as it increases
-                        if position.entry_price > 0:
-                            max_profit_pct = ((position.max_price - position.entry_price) / position.entry_price)
-                            PROFIT_LOCK_THRESHOLD = 0.20  # 20%
-
-                            if max_profit_pct >= PROFIT_LOCK_THRESHOLD:
-                                # Price reached 20%+ profit at some point
-                                profit_lock_price = position.entry_price * (1 + PROFIT_LOCK_THRESHOLD)
-                                if current_premium <= profit_lock_price:
-                                    should_exit = True
-                                    exit_reason = f"TRAILING STOP: Max +{max_profit_pct*100:.0f}% -> Locked +20% | Current: {position.pnl_percent:+.1f}%"
-                                    logger.info(f"Trailing stop exit for {position.symbol}: {exit_reason}")
-
+                        target_percent = 20.0
                     elif self.strategy == "profit_100_halt":
-                        # Strategy 5: Exit at 100% profit, then halt trading
-                        if position.pnl_percent >= 100.0:
-                            should_exit = True
-                            exit_reason = f"100% PROFIT HALT: {position.pnl_percent:+.1f}% reached"
-                            logger.info(f"100% profit exit for {position.symbol}")
-                            # Halt trading for the day after hitting 100%
-                            self.daily_stats.is_trading_halted = True
-                            self.daily_stats.halt_reason = "100% profit target reached - No more trades today"
-
+                        target_percent = 100.0
+                    elif self.strategy in ["5_percent_daily", "5_percent_15min"]:
+                        target_percent = 5.0
                     else:
-                        # Default strategy (Page 2): 100% profit ceiling + -15% hard stop
-                        if position.pnl_percent >= 100:
-                            should_exit = True
-                            exit_reason = f"MAX PROFIT CEILING: +{position.pnl_percent:.0f}% (100% reached)"
-                            logger.info(f"100% profit exit for {position.symbol}")
+                        # Default strategy: 100% profit target
+                        target_percent = 100.0
 
-                        if not should_exit and position.pnl_percent <= -15.0:
-                            should_exit = True
-                            exit_reason = f"HARD STOP: {position.pnl_percent:.1f}% loss (Safety Limit: -15%)"
-                            logger.warning(f"HARD STOP triggered for {position.symbol}: {exit_reason}")
+                    # When target % is reached, move SL to lock in profit (don't exit)
+                    if target_percent > 0 and position.pnl_percent >= target_percent:
+                        if not position.target_achieved:
+                            position.target_achieved = True
+                            # Set SL at target profit level to lock in gains
+                            target_sl = position.entry_price * (1 + target_percent / 100)
+                            if target_sl > position.stop_loss:
+                                old_sl = position.stop_loss
+                                position.stop_loss = target_sl
+                                logger.info(f"TARGET REACHED +{target_percent}%: SL moved to lock profit: {old_sl:.2f} -> {target_sl:.2f}")
 
-                # 4. Market close force exit: 3:20 PM (ALL STRATEGIES)
+                            # Mark trading halted for strategies that require it
+                            if self.strategy == "fixed_20_percent":
+                                self.daily_stats.is_trading_halted = True
+                                self.daily_stats.halt_reason = f"20% profit target locked - Waiting for SL exit or higher"
+                            elif self.strategy == "profit_100_halt":
+                                self.daily_stats.is_trading_halted = True
+                                self.daily_stats.halt_reason = f"100% profit target locked - Waiting for SL exit or higher"
+
+                        # Check daily target for 5% strategies
+                        if self.strategy == "5_percent_daily":
+                            stats = self.get_stats()
+                            if stats.pnl.percent >= 5.0:
+                                self.daily_stats.is_trading_halted = True
+                                self.daily_stats.halt_reason = "5% daily profit target reached - No more trades today"
+
+                    # Note: trailing_stoploss strategy uses the new universal trailing SL logic above
+                    # (calculate_trailing_stop_loss method handles all trailing at 50% and every 10% above)
+
+                # 4. Market close force exit
+                # expiry_day, 5% strategies: Exit at 3:00 PM
+                # Other strategies: Exit at 3:20 PM
                 now = datetime.now()
-                if not should_exit and now.hour == 15 and now.minute >= 20:
+                if self.strategy in ["5_percent_daily", "5_percent_15min", "expiry_day"]:
+                    close_hour, close_minute = 15, 0  # 3:00 PM
+                else:
+                    close_hour, close_minute = 15, 20  # 3:20 PM
+
+                if not should_exit and now.hour == close_hour and now.minute >= close_minute:
                     should_exit = True
                     exit_reason = f"MARKET CLOSE EXIT @ {now.strftime('%H:%M')} | P&L: {position.pnl_percent:+.1f}%"
                     logger.info(f"Market close exit for {position.symbol}")
@@ -1035,6 +1240,18 @@ class PaperTradingService:
         # Duration in minutes
         duration = (now - position.entry_time).total_seconds() / 60
 
+        # Calculate broker charges
+        buy_value = position.entry_price * position.quantity
+        sell_value = position.exit_price * position.quantity
+        charges = self.calculate_broker_charges(buy_value, sell_value, position.index)
+        broker_charges = charges["total"]
+
+        # Calculate net P&L after broker charges
+        gross_pnl = position.pnl
+        net_pnl = gross_pnl - broker_charges
+
+        logger.info(f"Trade closed: Gross P&L: ₹{gross_pnl:.2f}, Charges: ₹{broker_charges:.2f}, Net P&L: ₹{net_pnl:.2f}")
+
         # Create order history entry
         history_entry = OrderHistoryEntry(
             order_id=order.order_id,
@@ -1053,11 +1270,13 @@ class PaperTradingService:
             min_price=position.min_price,
             max_price_time=position.max_price_time,
             min_price_time=position.min_price_time,
-            pnl=position.pnl,
+            pnl=gross_pnl,  # Gross P&L before charges
             pnl_percent=position.pnl_percent,
             max_profit_percent=max_profit_percent,
             max_loss_percent=max_loss_percent,
             captured_move_percent=captured_move_percent,
+            broker_charges=broker_charges,
+            net_pnl=net_pnl,  # Net P&L after charges
             signal_confidence=0,  # Will be populated from entry order if available
             exit_reason=reason,
             entry_time=position.entry_time,
@@ -1074,8 +1293,8 @@ class PaperTradingService:
 
         self.order_history.append(history_entry)
 
-        # Update daily stats
-        self.daily_stats.realized_pnl += position.pnl
+        # Update daily stats with NET P&L (after broker charges)
+        self.daily_stats.realized_pnl += net_pnl
         self.daily_stats.current_capital += position.quantity * position.exit_price
 
         if position.pnl > 0:
@@ -1305,6 +1524,13 @@ class PaperTradingService:
                         "min_price": p.min_price,
                         "max_price_time": p.max_price_time.isoformat() if p.max_price_time else None,
                         "min_price_time": p.min_price_time.isoformat() if p.min_price_time else None,
+                        # Trailing SL fields
+                        "initial_stop_loss": p.initial_stop_loss,
+                        "initial_target": p.initial_target,
+                        "trailing_sl_active": p.trailing_sl_active,
+                        "target_achieved": p.target_achieved,
+                        "profit_locked_percent": p.profit_locked_percent,
+                        "sl_trail_count": p.sl_trail_count,
                     }
                     for p in self.positions[-50:]  # Keep last 50 positions
                 ],
@@ -1351,6 +1577,8 @@ class PaperTradingService:
                         "max_profit_percent": h.max_profit_percent,
                         "max_loss_percent": h.max_loss_percent,
                         "captured_move_percent": h.captured_move_percent,
+                        "broker_charges": h.broker_charges,
+                        "net_pnl": h.net_pnl,
                         "signal_confidence": h.signal_confidence,
                         "exit_reason": h.exit_reason,
                         "entry_time": h.entry_time.isoformat() if h.entry_time else None,
@@ -1456,6 +1684,13 @@ class PaperTradingService:
                         min_price=p_data.get("min_price", p_data["entry_price"]),
                         max_price_time=datetime.fromisoformat(p_data["max_price_time"]) if p_data.get("max_price_time") else entry_time,
                         min_price_time=datetime.fromisoformat(p_data["min_price_time"]) if p_data.get("min_price_time") else entry_time,
+                        # Trailing SL fields
+                        initial_stop_loss=p_data.get("initial_stop_loss", p_data.get("stop_loss", 0)),
+                        initial_target=p_data.get("initial_target", p_data.get("target", 0)),
+                        trailing_sl_active=p_data.get("trailing_sl_active", False),
+                        target_achieved=p_data.get("target_achieved", False),
+                        profit_locked_percent=p_data.get("profit_locked_percent", 0),
+                        sl_trail_count=p_data.get("sl_trail_count", 0),
                     ))
 
             # Load order history
@@ -1482,6 +1717,8 @@ class PaperTradingService:
                     max_profit_percent=h_data.get("max_profit_percent", 0),
                     max_loss_percent=h_data.get("max_loss_percent", 0),
                     captured_move_percent=h_data.get("captured_move_percent", 0),
+                    broker_charges=h_data.get("broker_charges", 0),
+                    net_pnl=h_data.get("net_pnl", h_data.get("pnl", 0)),  # Fallback to pnl if net_pnl not available
                     signal_confidence=h_data.get("signal_confidence", 0),
                     exit_reason=h_data.get("exit_reason", ""),
                     entry_time=datetime.fromisoformat(h_data["entry_time"]) if h_data.get("entry_time") else None,

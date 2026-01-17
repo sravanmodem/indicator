@@ -270,6 +270,40 @@ async def paper_strategy_5_percent_15min(request: Request):
     )
 
 
+@router.get("/strategy/expiry-day", response_class=HTMLResponse)
+async def paper_strategy_expiry_day(request: Request):
+    """Render paper trading page for expiry day trading (1 PM - 3 PM)."""
+    auth = get_auth_service()
+
+    if not auth.is_authenticated:
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/")
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy="expiry_day")
+
+    # Fetch fresh expiry data from Kite
+    await paper.refresh_expiry_cache()
+    trading_index = paper.get_trading_index()
+
+    # Check if today is expiry day
+    is_expiry_day = trading_index.is_expiry_day if trading_index else False
+
+    return templates.TemplateResponse(
+        "paper_strategy_expiry_day.html",
+        {
+            "request": request,
+            "user": auth.user_profile,
+            "trading_index": trading_index,
+            "stats": paper.get_stats(),
+            "strategy": "expiry_day",
+            "strategy_name": "Expiry Day Trading",
+            "strategy_description": "Trade 1 PM - 3 PM on expiry day | High volatility | Quick profits",
+            "is_expiry_day": is_expiry_day,
+        },
+    )
+
+
 @router.get("/stats")
 async def get_stats(strategy: str = "default"):
     """Get paper trading statistics."""
@@ -318,9 +352,9 @@ async def get_all_expiries():
 
 
 @router.post("/execute-signal")
-async def execute_signal_trade():
-    """Execute trade based on current signal."""
-    logger.info("Execute signal endpoint called")
+async def execute_signal_trade(strategy: str = "default"):
+    """Execute trade based on current signal for a specific strategy."""
+    logger.info(f"Execute signal endpoint called for strategy: {strategy}")
     require_auth()
 
     # Check trading time restrictions
@@ -341,7 +375,8 @@ async def execute_signal_trade():
     elif not allowed and bypass_hours:
         logger.warning(f"Market check would fail ({reason}), but bypassing for testing")
 
-    paper = get_paper_trading_service()
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
     fetcher = get_data_fetcher()
 
     # Get trading index
@@ -473,10 +508,12 @@ async def get_positions(strategy: str = "default"):
 
 
 @router.post("/positions/{position_id}/close")
-async def close_position(position_id: str):
-    """Close a specific position."""
+async def close_position(position_id: str, strategy: str = "default"):
+    """Close a specific position for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     # Find position
     position = next(
@@ -505,10 +542,12 @@ async def close_position(position_id: str):
 
 
 @router.post("/positions/close-all")
-async def close_all_positions():
-    """Close all open positions."""
+async def close_all_positions(strategy: str = "default"):
+    """Close all open positions for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     # Update positions first
     await paper.update_positions()
@@ -554,10 +593,12 @@ async def get_orders(strategy: str = "default"):
 
 
 @router.post("/update-positions")
-async def update_positions():
-    """Update all positions with current prices and check exit signals."""
+async def update_positions(strategy: str = "default"):
+    """Update all positions with current prices and check exit signals for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     updated, closed = await paper.update_positions()
 
@@ -569,47 +610,55 @@ async def update_positions():
 
 
 @router.post("/reset")
-async def reset_paper_trading():
-    """Reset all paper trading data."""
+async def reset_paper_trading(strategy: str = "default"):
+    """Reset all paper trading data for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     paper.reset_all()
 
-    return {"success": True, "message": "Paper trading reset to initial state"}
+    return {"success": True, "message": f"Paper trading reset for strategy: {strategy}"}
 
 
 @router.post("/reset-daily")
-async def reset_daily():
-    """Reset daily statistics only."""
+async def reset_daily(strategy: str = "default"):
+    """Reset daily statistics only for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     paper.reset_daily()
 
-    return {"success": True, "message": "Daily statistics reset"}
+    return {"success": True, "message": f"Daily statistics reset for strategy: {strategy}"}
 
 
 @router.post("/toggle-auto-trade")
-async def toggle_auto_trade(enabled: bool = None):
-    """Toggle auto trade on/off."""
+async def toggle_auto_trade(enabled: bool = None, strategy: str = "default"):
+    """Toggle auto trade on/off for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     new_status = paper.toggle_auto_trade(enabled)
 
     return {
         "success": True,
         "is_auto_trade": new_status,
-        "message": f"Auto trade {'enabled' if new_status else 'disabled'}",
+        "message": f"Auto trade {'enabled' if new_status else 'disabled'} for {strategy}",
     }
 
 
 @router.get("/auto-trade-status")
-async def get_auto_trade_status():
-    """Get auto trade status."""
+async def get_auto_trade_status(strategy: str = "default"):
+    """Get auto trade status for a specific strategy."""
     require_auth()
-    paper = get_paper_trading_service()
+
+    from app.services.paper_trading import PaperTradingService
+    paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
     return {
         "is_auto_trade": paper.is_auto_trade,
@@ -889,11 +938,13 @@ async def download_order_history(days: int = 30, strategy: str = "default"):
 
 
 @router.get("/htmx/order-history", response_class=HTMLResponse)
-async def htmx_order_history(request: Request, days: int = 30):
-    """HTMX partial for order history table."""
+async def htmx_order_history(request: Request, days: int = 30, strategy: str = "default"):
+    """HTMX partial for order history table for a specific strategy."""
     try:
         require_auth()
-        paper = get_paper_trading_service()
+
+        from app.services.paper_trading import PaperTradingService
+        paper = PaperTradingService(strategy=strategy) if strategy != "default" else get_paper_trading_service()
 
         history = paper.get_order_history(days=days)
         summary = paper.get_order_history_summary()
@@ -1030,7 +1081,9 @@ async def htmx_signal_panel_with_ltp(request: Request, strategy: str = "default"
         signal = engine.analyze(df=df, option_chain=option_chain)
 
         # Get current spot price (LTP of index)
-        spot_price = df["close"].iloc[-1] if not df.empty else 0
+        spot_price = 0
+        if not df.empty and "close" in df.columns:
+            spot_price = df["close"].iloc[-1]
 
         # Get recommended option LTP separately
         option_ltp = None

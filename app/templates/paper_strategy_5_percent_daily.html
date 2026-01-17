@@ -213,6 +213,27 @@
         </div>
     </div>
 
+    <!-- Order History Section -->
+    <div class="mt-6 glass rounded-2xl overflow-hidden">
+        <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
+            <h3 class="text-lg font-bold text-white">Order History</h3>
+            <select class="bg-surface-700 text-white text-sm rounded-lg px-3 py-1.5 border border-surface-600"
+                    onchange="htmx.ajax('GET', '/paper/htmx/order-history?strategy=5_percent_daily&days=' + this.value, '#order-history-table')">
+                <option value="7">Last 7 days</option>
+                <option value="30" selected>Last 30 days</option>
+                <option value="90">Last 90 days</option>
+            </select>
+        </div>
+        <div id="order-history-table"
+             hx-get="/paper/htmx/order-history?strategy=5_percent_daily&days=30"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <div class="p-6">
+                <div class="h-32 bg-surface-700 rounded-xl animate-pulse"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Trading Rules -->
     <div class="mt-6 glass rounded-2xl p-6">
         <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Strategy Rules</h3>

@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Paper Trading: 100% Profit & Halt - Options Indicator{% endblock %}
+{% block title %}Paper Trading: Expiry Day Trading - Options Indicator{% endblock %}
 
 {% block content %}
 <div x-data="paperTrading()" x-init="init()">
     <!-- Ultra-Pro Header -->
-    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-emerald-900/20 to-surface-900/50 border border-emerald-500/20">
+    <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-rose-900/20 to-surface-900/50 border border-rose-500/20">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div class="flex items-center space-x-4">
                 <!-- Logo -->
-                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 via-green-500 to-teal-500 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500 via-pink-500 to-red-500 flex items-center justify-center shadow-lg shadow-rose-500/30">
                     <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                 </div>
                 <div>
@@ -22,11 +22,24 @@
 
             <!-- Controls -->
             <div class="flex flex-wrap items-center gap-3">
-                <!-- Auto-Trade Status (Always On) -->
-                <div class="flex items-center space-x-3 bg-gradient-to-r from-green-600/20 to-emerald-600/20 rounded-xl px-4 py-2.5 border border-green-500/30">
-                    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                    <span class="text-green-400 text-sm font-bold">Auto Trading Active</span>
-                    <span class="text-green-400/60 text-xs">(every 10s)</span>
+                <!-- Expiry Day Status -->
+                <div class="flex items-center space-x-3 bg-gradient-to-r from-rose-600/20 to-pink-600/20 rounded-xl px-4 py-2.5 border border-rose-500/30">
+                    <div class="w-2 h-2 rounded-full" :class="isExpiryDay ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'"></div>
+                    <span class="text-rose-400 text-sm font-bold" x-text="isExpiryDay ? 'EXPIRY DAY' : 'Non-Expiry Day'"></span>
+                </div>
+
+                <!-- Trading Window -->
+                <div class="flex items-center space-x-2 bg-surface-700/50 rounded-xl px-4 py-2.5 border border-surface-600">
+                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span class="text-pink-400 text-sm font-mono">1:00 PM - 3:00 PM</span>
+                </div>
+
+                <!-- Countdown -->
+                <div class="flex items-center space-x-2 bg-surface-700/50 rounded-xl px-4 py-2.5 border border-surface-600">
+                    <span class="text-rose-400 text-xs">Window:</span>
+                    <span class="text-rose-400 text-sm font-mono font-bold" x-text="tradingWindowStatus"></span>
                 </div>
 
                 <!-- Close All -->
@@ -46,20 +59,20 @@
         </div>
     </div>
 
-    <!-- Capital Stats Row with Enhanced Design -->
+    <!-- Capital Stats Row -->
     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        <!-- Capital -->
-        <div class="glass rounded-xl p-4 border border-slate-700/30">
+        <!-- Capital (Fixed) -->
+        <div class="glass rounded-xl p-4 border border-rose-500/30">
             <div class="flex items-center space-x-2 mb-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
-                <p class="text-slate-500 text-xs font-semibold">Capital</p>
+                <p class="text-slate-500 text-xs font-semibold">Fixed Capital</p>
             </div>
-            <p class="text-white font-mono font-black text-xl">₹{{ "{:,.0f}".format(stats.capital.current) }}</p>
-            <p class="text-slate-500 text-[10px] mt-1">of ₹{{ "{:,.0f}".format(stats.capital.initial) }}</p>
+            <p class="text-rose-400 font-mono font-black text-xl">{{ "{:,.0f}".format(stats.capital.initial) }}</p>
+            <p class="text-slate-500 text-[10px] mt-1">Per trade basis</p>
         </div>
 
         <!-- Total P&L -->
@@ -73,11 +86,25 @@
                 <p class="text-slate-500 text-xs font-semibold">Total P&L</p>
             </div>
             <p class="font-mono font-black text-xl {% if stats.pnl.total >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                {% if stats.pnl.total >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.pnl.total) }}
+                {% if stats.pnl.total >= 0 %}+{% endif %}{{ "{:,.0f}".format(stats.pnl.total) }}
             </p>
             <p class="{% if stats.pnl.percent >= 0 %}text-green-400{% else %}text-red-400{% endif %} text-[10px] mt-1 font-bold">
                 {{ "{:+.2f}".format(stats.pnl.percent) }}%
             </p>
+        </div>
+
+        <!-- Trades Today -->
+        <div class="glass rounded-xl p-4 border border-pink-500/30">
+            <div class="flex items-center space-x-2 mb-2">
+                <div class="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <p class="text-slate-500 text-xs font-semibold">Trades Today</p>
+            </div>
+            <p class="text-pink-400 font-mono font-bold text-lg" x-text="stats.trades.total"></p>
+            <p class="text-slate-500 text-[10px] mt-1">Expiry day trades</p>
         </div>
 
         <!-- Realized P&L -->
@@ -91,22 +118,7 @@
                 <p class="text-slate-500 text-xs font-semibold">Realized</p>
             </div>
             <p class="font-mono font-bold text-lg {% if stats.pnl.realized >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                {% if stats.pnl.realized >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.pnl.realized) }}
-            </p>
-        </div>
-
-        <!-- Unrealized P&L -->
-        <div class="glass rounded-xl p-4 border border-slate-700/30">
-            <div class="flex items-center space-x-2 mb-2">
-                <div class="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-                <p class="text-slate-500 text-xs font-semibold">Unrealized</p>
-            </div>
-            <p class="font-mono font-bold text-lg {% if stats.pnl.unrealized >= 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                {% if stats.pnl.unrealized >= 0 %}+{% endif %}₹{{ "{:,.0f}".format(stats.pnl.unrealized) }}
+                {% if stats.pnl.realized >= 0 %}+{% endif %}{{ "{:,.0f}".format(stats.pnl.realized) }}
             </p>
         </div>
 
@@ -124,29 +136,22 @@
             <p class="text-slate-500 text-[10px] mt-1">{{ stats.trades.winning }}/{{ stats.trades.total }} trades</p>
         </div>
 
-        <!-- Daily Loss Limit -->
-        <div class="glass rounded-xl p-4 {% if stats.status.is_halted %}border-2 border-red-500 bg-red-500/5{% else %}border border-slate-700/30{% endif %}">
+        <!-- Trading Window -->
+        <div class="glass rounded-xl p-4 border border-rose-500/30">
             <div class="flex items-center space-x-2 mb-2">
-                <div class="w-8 h-8 rounded-lg {% if stats.risk.daily_loss_used > 15 %}bg-red-500/20{% elif stats.risk.daily_loss_used > 10 %}bg-yellow-500/20{% else %}bg-slate-500/20{% endif %} flex items-center justify-center">
-                    <svg class="w-4 h-4 {% if stats.risk.daily_loss_used > 15 %}text-red-400{% elif stats.risk.daily_loss_used > 10 %}text-yellow-400{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                <div class="w-8 h-8 rounded-lg bg-rose-500/20 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
-                <p class="text-slate-500 text-xs font-semibold">Loss Limit</p>
+                <p class="text-slate-500 text-xs font-semibold">Trade Window</p>
             </div>
-            <div class="flex items-center space-x-2">
-                <p class="{% if stats.risk.daily_loss_used > 15 %}text-red-400{% elif stats.risk.daily_loss_used > 10 %}text-yellow-400{% else %}text-white{% endif %} font-mono font-bold text-lg">
-                    {{ "{:.1f}".format(stats.risk.daily_loss_used) }}%
-                </p>
-                <span class="text-slate-600 text-xs">/ {{ stats.risk.daily_loss_limit }}%</span>
-            </div>
-            {% if stats.status.is_halted %}
-            <p class="text-red-400 text-[10px] mt-1 font-bold uppercase">TRADING HALTED</p>
-            {% endif %}
+            <p class="text-rose-400 font-mono font-bold text-lg">1-3 PM</p>
+            <p class="text-slate-500 text-[10px] mt-1">Expiry day only</p>
         </div>
     </div>
 
-    <!-- Trading Index + Current Signal Row (Same Row) -->
+    <!-- Trading Index + Current Signal Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <!-- Trading Index -->
         <div id="trading-index"
@@ -158,9 +163,9 @@
             </div>
         </div>
 
-        <!-- Current Signal -->
+        <!-- Current Signal with LTP (Separate) -->
         <div id="signal-panel"
-             hx-get="/paper/htmx/signal-panel"
+             hx-get="/paper/htmx/signal-panel-with-ltp?strategy=expiry_day"
              hx-trigger="load, every 2s"
              hx-swap="innerHTML">
             <div class="glass rounded-xl p-4">
@@ -175,10 +180,10 @@
         <div class="glass rounded-2xl overflow-hidden">
             <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
                 <h3 class="text-lg font-bold text-white">Open Positions</h3>
-                <span class="px-3 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-xs font-bold" x-text="stats.status.open_positions + ' Open'"></span>
+                <span class="px-3 py-1 rounded-lg bg-rose-500/20 text-rose-400 text-xs font-bold" x-text="stats.status.open_positions + ' Open'"></span>
             </div>
             <div id="positions-table"
-                 hx-get="/paper/htmx/positions?strategy=profit_100_halt"
+                 hx-get="/paper/htmx/positions?strategy=expiry_day"
                  hx-trigger="load, every 2s"
                  hx-swap="innerHTML">
                 <div class="p-6">
@@ -194,7 +199,7 @@
                 <span class="px-3 py-1 rounded-lg bg-slate-500/20 text-slate-400 text-xs font-bold">{{ stats.trades.total }} Orders</span>
             </div>
             <div id="orders-table"
-                 hx-get="/paper/htmx/orders?strategy=profit_100_halt"
+                 hx-get="/paper/htmx/orders?strategy=expiry_day"
                  hx-trigger="load, every 5s"
                  hx-swap="innerHTML">
                 <div class="p-6">
@@ -209,14 +214,14 @@
         <div class="p-4 border-b border-slate-700/50 flex items-center justify-between">
             <h3 class="text-lg font-bold text-white">Order History</h3>
             <select class="bg-surface-700 text-white text-sm rounded-lg px-3 py-1.5 border border-surface-600"
-                    onchange="htmx.ajax('GET', '/paper/htmx/order-history?strategy=profit_100_halt&days=' + this.value, '#order-history-table')">
+                    onchange="htmx.ajax('GET', '/paper/htmx/order-history?strategy=expiry_day&days=' + this.value, '#order-history-table')">
                 <option value="7">Last 7 days</option>
                 <option value="30" selected>Last 30 days</option>
                 <option value="90">Last 90 days</option>
             </select>
         </div>
         <div id="order-history-table"
-             hx-get="/paper/htmx/order-history?strategy=profit_100_halt&days=30"
+             hx-get="/paper/htmx/order-history?strategy=expiry_day&days=30"
              hx-trigger="load"
              hx-swap="innerHTML">
             <div class="p-6">
@@ -227,38 +232,38 @@
 
     <!-- Trading Rules -->
     <div class="mt-6 glass rounded-2xl p-6">
-        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Strategy Rules</h3>
+        <h3 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Strategy Rules - Expiry Day Trading</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div class="bg-surface-800/50 rounded-xl p-4">
-                <p class="text-blue-400 font-bold mb-2">Capital Management</p>
+                <p class="text-rose-400 font-bold mb-2">Trading Window</p>
                 <ul class="text-slate-300 space-y-1 text-xs">
-                    <li>• Initial Capital: ₹5,00,000</li>
-                    <li>• Max Capital Use: 100%</li>
-                    <li>• Max Daily Loss: 20%</li>
+                    <li><span class="text-rose-400 font-bold">1:00 PM - 3:00 PM ONLY</span></li>
+                    <li>High volatility period</li>
+                    <li>Expiry day only trading</li>
                 </ul>
             </div>
             <div class="bg-surface-800/50 rounded-xl p-4">
-                <p class="text-green-400 font-bold mb-2">Order Management</p>
+                <p class="text-pink-400 font-bold mb-2">Expiry Day Focus</p>
                 <ul class="text-slate-300 space-y-1 text-xs">
-                    <li>• Max 25 lots per order</li>
-                    <li>• Auto-split large orders</li>
-                    <li>• Min confidence: 55%</li>
+                    <li>Weekly/Monthly expiry</li>
+                    <li>High premium decay</li>
+                    <li>Quick trades</li>
                 </ul>
             </div>
             <div class="bg-surface-800/50 rounded-xl p-4">
-                <p class="text-yellow-400 font-bold mb-2">Index Priority</p>
+                <p class="text-green-400 font-bold mb-2">Exit Strategy</p>
                 <ul class="text-slate-300 space-y-1 text-xs">
-                    <li>• Auto-detect nearest expiry</li>
-                    <li>• Priority: NIFTY > SENSEX</li>
-                    <li>• Then: BANKNIFTY</li>
+                    <li><span class="text-green-400 font-bold">ALL exits via Stop Loss</span></li>
+                    <li>Trailing SL after 50%</li>
+                    <li>Auto square-off at 3 PM</li>
                 </ul>
             </div>
             <div class="bg-surface-800/50 rounded-xl p-4">
-                <p class="text-emerald-400 font-bold mb-2">Exit Rules: 100% Goal</p>
+                <p class="text-purple-400 font-bold mb-2">Signal Generation</p>
                 <ul class="text-slate-300 space-y-1 text-xs">
-                    <li>• Exit at Stop Loss hit</li>
-                    <li>• Exit at Target hit</li>
-                    <li>• <span class="text-emerald-400 font-bold">Exit at 100% profit (HALT)</span></li>
+                    <li>Separate expiry signals</li>
+                    <li>ATM/OTM options focus</li>
+                    <li>Quick profit capture</li>
                 </ul>
             </div>
         </div>
@@ -270,85 +275,132 @@
 <script>
 function paperTrading() {
     return {
-        autoTradeInterval: null,
         stats: {{ stats | tojson }},
+        isExpiryDay: {{ is_expiry_day | tojson }},
+        tradingWindowStatus: 'Checking...',
+        _executeInProgress: false,
+        _exitCheckInProgress: false,
+        _statsRefreshInProgress: false,
+        lastTradeMinute: null,
 
         async init() {
-            // Always start auto-trading
-            this.startAutoTrade();
+            // Update trading window status every second
+            setInterval(() => this.updateTradingWindow(), 1000);
 
             // Refresh stats every 5 seconds
             setInterval(() => this.refreshStats(), 5000);
 
-            // Check exit signals every 10 seconds (for open positions)
+            // Check exit signals every 10 seconds
             setInterval(() => this.checkExitSignals(), 10000);
+
+            // Auto-execute during trading window
+            setInterval(() => this.checkAndExecute(), 1000);
+        },
+
+        updateTradingWindow() {
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const currentTime = hours * 60 + minutes;
+
+            const windowStart = 13 * 60;  // 1:00 PM
+            const windowEnd = 15 * 60;    // 3:00 PM
+
+            if (!this.isExpiryDay) {
+                this.tradingWindowStatus = 'Not Expiry Day';
+                return;
+            }
+
+            if (currentTime < windowStart) {
+                // Before trading window
+                const minsUntil = windowStart - currentTime;
+                const h = Math.floor(minsUntil / 60);
+                const m = minsUntil % 60;
+                this.tradingWindowStatus = `Starts in ${h}h ${m}m`;
+            } else if (currentTime < windowEnd) {
+                // During trading window
+                const minsLeft = windowEnd - currentTime;
+                this.tradingWindowStatus = `ACTIVE - ${minsLeft}m left`;
+            } else {
+                // After trading window
+                this.tradingWindowStatus = 'Closed for today';
+            }
+        },
+
+        isWithinTradingWindow() {
+            if (!this.isExpiryDay) return false;
+
+            const now = new Date();
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            const currentTime = hours * 60 + minutes;
+
+            const windowStart = 13 * 60;  // 1:00 PM
+            const windowEnd = 15 * 60;    // 3:00 PM
+
+            return currentTime >= windowStart && currentTime < windowEnd;
         },
 
         async refreshStats() {
+            if (this._statsRefreshInProgress) return;
+            this._statsRefreshInProgress = true;
+
             try {
-                const response = await fetch('/paper/stats');
+                const response = await fetch('/paper/stats?strategy=expiry_day');
                 if (response.ok) {
                     this.stats = await response.json();
                 }
             } catch (e) {
                 console.error('Stats refresh error:', e);
+            } finally {
+                this._statsRefreshInProgress = false;
             }
         },
 
-        startAutoTrade() {
-            // Execute immediately on page load
-            this.checkAndExecute();
+        async checkAndExecute() {
+            if (!this.isWithinTradingWindow()) return;
+            if (this.stats.status.is_halted) return;
+            if (this._executeInProgress) return;
 
-            // Then execute every 10 seconds
-            this.autoTradeInterval = setInterval(() => {
-                this.checkAndExecute();
-            }, 10000);
-        },
-
-        checkAndExecute() {
             const now = new Date();
-            const hours = now.getHours();
-            const minutes = now.getMinutes();
-            const currentTime = hours * 60 + minutes; // Minutes since midnight
+            const currentMinute = now.getHours() * 60 + now.getMinutes();
 
-            const tradingStartTime = 9 * 60 + 30;  // 9:30 AM (market open)
-            const tradingEndTime = 14 * 60 + 10;   // 2:10 PM (5 min before square-off)
-            const squareOffTime = 14 * 60 + 15;    // 2:15 PM (auto square-off)
-
-            // Auto square-off at 2:15 PM
-            if (currentTime >= squareOffTime && this.stats.status.open_positions > 0) {
-                this.autoSquareOff();
-                return;
+            // Execute every 5 minutes during the window
+            if (currentMinute % 5 === 0 && now.getSeconds() < 2) {
+                if (this.lastTradeMinute !== currentMinute) {
+                    this.lastTradeMinute = currentMinute;
+                    console.log(`[Expiry Day] Executing trade at ${now.getHours()}:${now.getMinutes()}`);
+                    await this.executeSignal();
+                }
             }
 
-            // Only trade between 9:30 AM and 2:10 PM
-            if (currentTime >= tradingStartTime && currentTime < tradingEndTime) {
-                if (!this.stats.status.is_halted) {
-                    this.executeSignal();
-                }
+            // Auto square-off at 3:00 PM
+            if (now.getHours() === 15 && now.getMinutes() === 0 && now.getSeconds() < 5) {
+                await this.autoSquareOff();
             }
         },
 
         async checkExitSignals() {
-            // Only check if there are open positions
             if (this.stats.status.open_positions === 0) return;
+            if (this._exitCheckInProgress) return;
+            this._exitCheckInProgress = true;
 
             try {
-                const response = await fetch('/paper/update-positions', { method: 'POST' });
+                const response = await fetch('/paper/update-positions?strategy=expiry_day', { method: 'POST' });
                 const data = await response.json();
 
                 if (data.closed && data.closed.length > 0) {
-                    // Positions were closed by exit signal
                     data.closed.forEach(pos => {
-                        this.showToast(`Exit Signal: ${pos.symbol} closed - ${pos.exit_reason}`, 'warning');
+                        this.showToast(`Exit: ${pos.symbol} - ${pos.exit_reason}`, 'warning');
                     });
                     htmx.trigger('#positions-table', 'htmx:trigger');
-                    htmx.trigger('#history-table', 'htmx:trigger');
                 }
 
                 await this.refreshStats();
             } catch (e) {
                 console.error('Exit signal check error:', e);
+            } finally {
+                this._exitCheckInProgress = false;
             }
         },
 
@@ -356,11 +408,11 @@ function paperTrading() {
             if (this.stats.status.open_positions === 0) return;
 
             try {
-                const response = await fetch('/paper/positions/close-all', { method: 'POST' });
+                const response = await fetch('/paper/positions/close-all?strategy=expiry_day', { method: 'POST' });
                 const data = await response.json();
 
                 if (data.success) {
-                    this.showToast(`Auto Square-off: Closed ${data.closed_count} positions`, 'warning');
+                    this.showToast(`3 PM Square-off: Closed ${data.closed_count} positions`, 'warning');
                     htmx.trigger('#positions-table', 'htmx:trigger');
                 }
 
@@ -371,20 +423,24 @@ function paperTrading() {
         },
 
         async executeSignal() {
+            if (this._executeInProgress) return;
+            this._executeInProgress = true;
+
             try {
-                const response = await fetch('/paper/execute-signal', { method: 'POST' });
+                const response = await fetch('/paper/execute-signal?strategy=expiry_day', { method: 'POST' });
                 const data = await response.json();
 
                 if (data.success) {
-                    this.showToast(`Executed: ${data.order.symbol} x ${data.order.lots} lots`, 'success');
+                    this.showToast(`Expiry Trade: ${data.order.symbol} x ${data.order.lots} lots`, 'success');
                     htmx.trigger('#positions-table', 'htmx:trigger');
                     htmx.trigger('#orders-table', 'htmx:trigger');
                 }
-                // Don't show warning for normal "no signal" responses
 
                 await this.refreshStats();
             } catch (e) {
                 console.error('Execution error:', e);
+            } finally {
+                this._executeInProgress = false;
             }
         },
 
@@ -392,7 +448,7 @@ function paperTrading() {
             if (!confirm('Close all open positions?')) return;
 
             try {
-                const response = await fetch('/paper/positions/close-all', { method: 'POST' });
+                const response = await fetch('/paper/positions/close-all?strategy=expiry_day', { method: 'POST' });
                 const data = await response.json();
 
                 if (data.success) {
@@ -410,7 +466,7 @@ function paperTrading() {
             if (!confirm('Reset all paper trading data? This cannot be undone.')) return;
 
             try {
-                const response = await fetch('/paper/reset', { method: 'POST' });
+                const response = await fetch('/paper/reset?strategy=expiry_day', { method: 'POST' });
                 const data = await response.json();
 
                 if (data.success) {
@@ -428,7 +484,7 @@ function paperTrading() {
                 success: 'bg-green-500',
                 error: 'bg-red-500',
                 warning: 'bg-yellow-500',
-                info: 'bg-blue-500'
+                info: 'bg-rose-500'
             };
 
             const toast = document.createElement('div');

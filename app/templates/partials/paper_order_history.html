@@ -14,14 +14,18 @@
     <table class="w-full text-sm">
         <thead class="bg-surface-800/50 text-slate-400 text-xs uppercase sticky top-0 z-10">
             <tr>
-                <th class="px-3 py-3 text-left">Time</th>
                 <th class="px-3 py-3 text-left">Symbol</th>
-                <th class="px-3 py-3 text-center">Type</th>
-                <th class="px-3 py-3 text-right">Entry</th>
-                <th class="px-3 py-3 text-right">Exit</th>
-                <th class="px-3 py-3 text-right">Max</th>
-                <th class="px-3 py-3 text-right">Min</th>
-                <th class="px-3 py-3 text-right">P&L</th>
+                <th class="px-3 py-3 text-center">Entry Time</th>
+                <th class="px-3 py-3 text-center">Exit Time</th>
+                <th class="px-3 py-3 text-right">Entry ₹</th>
+                <th class="px-3 py-3 text-right">Exit ₹</th>
+                <th class="px-3 py-3 text-right">Max ₹</th>
+                <th class="px-3 py-3 text-center">Max Time</th>
+                <th class="px-3 py-3 text-right">Min ₹</th>
+                <th class="px-3 py-3 text-center">Min Time</th>
+                <th class="px-3 py-3 text-right">Gross P&L</th>
+                <th class="px-3 py-3 text-right">Charges</th>
+                <th class="px-3 py-3 text-right">Net P&L</th>
                 <th class="px-3 py-3 text-right">Max %</th>
                 <th class="px-3 py-3 text-right">Min %</th>
                 <th class="px-3 py-3 text-center">Duration</th>
@@ -31,13 +35,7 @@
         <tbody class="divide-y divide-slate-700/30">
             {% for h in history %}
             <tr class="hover:bg-surface-800/50 transition-colors">
-                <!-- Time -->
-                <td class="px-3 py-3 text-left">
-                    <div class="text-white text-xs font-medium">{{ h.timestamp.strftime('%d %b') }}</div>
-                    <div class="text-slate-500 text-[10px]">{{ h.timestamp.strftime('%H:%M') }}</div>
-                </td>
-
-                <!-- Symbol -->
+                <!-- Symbol with CE/PE badge -->
                 <td class="px-3 py-3 text-left">
                     <div class="flex items-center space-x-2">
                         <span class="px-1.5 py-0.5 rounded text-[9px] font-bold {% if h.option_type == 'CE' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
@@ -45,72 +43,126 @@
                         </span>
                         <div>
                             <div class="text-white font-mono text-xs">{{ h.symbol }}</div>
-                            <div class="text-slate-500 text-[10px]">{{ h.lots }}L x {{ h.quantity // h.lots }}</div>
+                            <div class="text-slate-500 text-[10px]">{{ h.lots }}L x {{ h.quantity // h.lots if h.lots > 0 else h.quantity }}</div>
                         </div>
                     </div>
                 </td>
 
-                <!-- Direction -->
+                <!-- Entry Time -->
                 <td class="px-3 py-3 text-center">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold {% if h.direction == 'BUY' %}bg-green-500/20 text-green-400{% else %}bg-red-500/20 text-red-400{% endif %}">
-                        {{ h.direction }}
-                    </span>
+                    {% if h.entry_time %}
+                    <div class="text-white text-xs font-medium">{{ h.entry_time.strftime('%d %b') }}</div>
+                    <div class="text-cyan-400 text-[10px] font-mono">{{ h.entry_time.strftime('%H:%M:%S') }}</div>
+                    {% else %}
+                    <span class="text-slate-500 text-xs">--</span>
+                    {% endif %}
                 </td>
 
-                <!-- Entry -->
+                <!-- Exit Time -->
+                <td class="px-3 py-3 text-center">
+                    {% if h.exit_time %}
+                    <div class="text-white text-xs font-medium">{{ h.exit_time.strftime('%d %b') }}</div>
+                    <div class="text-orange-400 text-[10px] font-mono">{{ h.exit_time.strftime('%H:%M:%S') }}</div>
+                    {% else %}
+                    <span class="text-slate-500 text-xs">--</span>
+                    {% endif %}
+                </td>
+
+                <!-- Entry Price -->
                 <td class="px-3 py-3 text-right">
-                    <span class="text-white font-mono text-xs">{{ "%.2f"|format(h.entry_price) }}</span>
+                    <span class="text-white font-mono text-xs font-medium">{{ "%.2f"|format(h.entry_price) }}</span>
                 </td>
 
-                <!-- Exit -->
+                <!-- Exit Price -->
                 <td class="px-3 py-3 text-right">
                     <span class="text-white font-mono text-xs">{{ "%.2f"|format(h.exit_price) }}</span>
                 </td>
 
-                <!-- Max Price -->
+                <!-- Max Price with highlight -->
                 <td class="px-3 py-3 text-right">
-                    <span class="text-green-400 font-mono text-xs">{{ "%.2f"|format(h.max_price) }}</span>
+                    <span class="text-green-400 font-mono text-xs font-bold">{{ "%.2f"|format(h.max_price) }}</span>
                 </td>
 
-                <!-- Min Price -->
-                <td class="px-3 py-3 text-right">
-                    <span class="text-red-400 font-mono text-xs">{{ "%.2f"|format(h.min_price) }}</span>
+                <!-- Max Price Time -->
+                <td class="px-3 py-3 text-center">
+                    {% if h.max_price_time %}
+                    <span class="text-green-400/80 text-[10px] font-mono">{{ h.max_price_time.strftime('%H:%M:%S') }}</span>
+                    {% else %}
+                    <span class="text-slate-500 text-xs">--</span>
+                    {% endif %}
                 </td>
 
-                <!-- P&L -->
+                <!-- Min Price with highlight -->
                 <td class="px-3 py-3 text-right">
-                    <div class="{% if h.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} font-mono font-bold text-xs">
-                        {{ "{:+,.0f}".format(h.pnl) }}
+                    <span class="text-red-400 font-mono text-xs font-bold">{{ "%.2f"|format(h.min_price) }}</span>
+                </td>
+
+                <!-- Min Price Time -->
+                <td class="px-3 py-3 text-center">
+                    {% if h.min_price_time %}
+                    <span class="text-red-400/80 text-[10px] font-mono">{{ h.min_price_time.strftime('%H:%M:%S') }}</span>
+                    {% else %}
+                    <span class="text-slate-500 text-xs">--</span>
+                    {% endif %}
+                </td>
+
+                <!-- Gross P&L (before charges) -->
+                <td class="px-3 py-3 text-right">
+                    <div class="{% if h.pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} font-mono text-xs">
+                        ₹{{ "{:+,.0f}".format(h.pnl) }}
                     </div>
                     <div class="{% if h.pnl_percent >= 0 %}text-green-400{% else %}text-red-400{% endif %} text-[10px]">
                         {{ "{:+.1f}".format(h.pnl_percent) }}%
                     </div>
                 </td>
 
-                <!-- Max Profit % -->
+                <!-- Broker Charges -->
                 <td class="px-3 py-3 text-right">
-                    <span class="text-green-400 font-mono text-xs">+{{ "%.1f"|format(h.max_profit_percent) }}%</span>
+                    <div class="text-yellow-400 font-mono text-xs">
+                        -₹{{ "{:,.0f}".format(h.broker_charges) }}
+                    </div>
                 </td>
 
-                <!-- Max Loss % -->
+                <!-- Net P&L (after charges) -->
                 <td class="px-3 py-3 text-right">
-                    <span class="text-red-400 font-mono text-xs">{{ "%.1f"|format(h.max_loss_percent) }}%</span>
+                    <div class="{% if h.net_pnl >= 0 %}text-green-400{% else %}text-red-400{% endif %} font-mono font-bold text-xs">
+                        ₹{{ "{:+,.0f}".format(h.net_pnl) }}
+                    </div>
+                </td>
+
+                <!-- Max Profit % (from entry to max) -->
+                <td class="px-3 py-3 text-right">
+                    <div class="text-green-400 font-mono text-xs font-bold">+{{ "%.1f"|format(h.max_profit_percent) }}%</div>
+                    <div class="text-slate-500 text-[9px]">peak</div>
+                </td>
+
+                <!-- Max Loss % (from entry to min) -->
+                <td class="px-3 py-3 text-right">
+                    <div class="text-red-400 font-mono text-xs font-bold">{{ "%.1f"|format(h.max_loss_percent) }}%</div>
+                    <div class="text-slate-500 text-[9px]">dip</div>
                 </td>
 
                 <!-- Duration -->
                 <td class="px-3 py-3 text-center">
-                    <span class="text-slate-400 text-xs">{{ h.duration_minutes }}m</span>
+                    <div class="text-slate-300 text-xs font-medium">
+                        {% if h.duration_minutes >= 60 %}
+                        {{ h.duration_minutes // 60 }}h {{ h.duration_minutes % 60 }}m
+                        {% else %}
+                        {{ h.duration_minutes }}m
+                        {% endif %}
+                    </div>
                 </td>
 
-                <!-- Exit Reason -->
-                <td class="px-3 py-3 text-left">
-                    <span class="px-2 py-1 rounded text-[10px] font-medium
-                        {% if 'Target' in h.exit_reason %}bg-green-500/20 text-green-400
-                        {% elif 'Stop' in h.exit_reason %}bg-red-500/20 text-red-400
-                        {% elif 'Manual' in h.exit_reason %}bg-blue-500/20 text-blue-400
-                        {% else %}bg-slate-500/20 text-slate-400{% endif %}">
+                <!-- Exit Reason with better styling -->
+                <td class="px-3 py-3 text-left max-w-[200px]">
+                    <div class="px-2 py-1 rounded text-[10px] font-medium inline-block
+                        {% if 'TARGET' in h.exit_reason|upper or 'PROFIT' in h.exit_reason|upper %}bg-green-500/20 text-green-400 border border-green-500/30
+                        {% elif 'STOP' in h.exit_reason|upper or 'LOSS' in h.exit_reason|upper %}bg-red-500/20 text-red-400 border border-red-500/30
+                        {% elif 'MANUAL' in h.exit_reason|upper %}bg-blue-500/20 text-blue-400 border border-blue-500/30
+                        {% elif 'MARKET' in h.exit_reason|upper or 'CLOSE' in h.exit_reason|upper %}bg-yellow-500/20 text-yellow-400 border border-yellow-500/30
+                        {% else %}bg-slate-500/20 text-slate-400 border border-slate-500/30{% endif %}">
                         {{ h.exit_reason }}
-                    </span>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -121,7 +173,20 @@
 <!-- Summary Footer -->
 {% if summary %}
 <div class="p-4 bg-gradient-to-r from-surface-800/70 to-surface-900/70 border-t border-slate-700/50">
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
+        <!-- Total Trades -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Total Trades</p>
+                <p class="text-white font-mono font-bold">{{ summary.total_trades }}</p>
+            </div>
+        </div>
+
         <!-- Winning Trades -->
         <div class="flex items-center space-x-3">
             <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
@@ -131,7 +196,7 @@
             </div>
             <div>
                 <p class="text-slate-500 text-[10px]">Winning</p>
-                <p class="text-green-400 font-mono font-bold">{{ summary.winning_trades }}</p>
+                <p class="text-green-400 font-mono font-bold">{{ summary.winning_trades }} <span class="text-[10px] text-slate-500">({{ "%.0f"|format(summary.win_rate) }}%)</span></p>
             </div>
         </div>
 
@@ -157,7 +222,7 @@
             </div>
             <div>
                 <p class="text-slate-500 text-[10px]">Best Trade</p>
-                <p class="text-green-400 font-mono font-bold">{{ "{:+,.0f}".format(summary.best_trade_pnl) }}</p>
+                <p class="text-green-400 font-mono font-bold">₹{{ "{:+,.0f}".format(summary.best_trade_pnl) }}</p>
             </div>
         </div>
 
@@ -170,7 +235,75 @@
             </div>
             <div>
                 <p class="text-slate-500 text-[10px]">Worst Trade</p>
-                <p class="text-red-400 font-mono font-bold">{{ "{:+,.0f}".format(summary.worst_trade_pnl) }}</p>
+                <p class="text-red-400 font-mono font-bold">₹{{ "{:+,.0f}".format(summary.worst_trade_pnl) }}</p>
+            </div>
+        </div>
+
+        <!-- Avg Duration -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Avg Duration</p>
+                <p class="text-blue-400 font-mono font-bold">{{ "%.0f"|format(summary.avg_duration_minutes) }}m</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row: More Stats -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mt-4 pt-4 border-t border-slate-700/30">
+        <!-- Avg Profit % -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Avg Profit %</p>
+                <p class="text-green-400 font-mono font-bold">+{{ "%.1f"|format(summary.avg_profit_percent) }}%</p>
+            </div>
+        </div>
+
+        <!-- Avg Loss % -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Avg Loss %</p>
+                <p class="text-red-400 font-mono font-bold">{{ "%.1f"|format(summary.avg_loss_percent) }}%</p>
+            </div>
+        </div>
+
+        <!-- Avg Max Profit (Peak) -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Avg Peak %</p>
+                <p class="text-emerald-400 font-mono font-bold">+{{ "%.1f"|format(summary.avg_max_profit_percent) }}%</p>
+            </div>
+        </div>
+
+        <!-- Avg Max Loss (Dip) -->
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                </svg>
+            </div>
+            <div>
+                <p class="text-slate-500 text-[10px]">Avg Dip %</p>
+                <p class="text-orange-400 font-mono font-bold">{{ "%.1f"|format(summary.avg_max_loss_percent) }}%</p>
             </div>
         </div>
     </div>
