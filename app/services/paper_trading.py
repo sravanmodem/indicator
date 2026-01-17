@@ -574,51 +574,274 @@ class PaperTradingService:
             "total": round(total_charges, 2),
         }
 
+    def analyze_swing_entry(
+        self,
+        df: "pd.DataFrame",
+        signal_direction: str,
+        ltp: float,
+    ) -> dict:
+        """
+        Analyze 30-minute data to find swing entry point.
+
+        Strategy:
+        - Don't enter when price is moving opposite to signal
+        - Wait for reversal/pullback confirmation
+        - Use swing high/low for entry confirmation
+
+        Args:
+            df: DataFrame with last 30+ minutes of data
+            signal_direction: CE or PE
+            ltp: Current LTP
+
+        Returns:
+            Dict with entry_allowed, entry_price, reason
+        """
+        if df is None or len(df) < 6:  # Need at least 30 min (6 x 5min candles)
+            return {
+                "entry_allowed": True,
+                "entry_price": ltp,
+                "reason": "Insufficient data - using LTP"
+            }
+
+        # Get last 30 minutes of data
+        recent_df = df.tail(6)  # 6 candles * 5 min = 30 min
+
+        # Calculate swing points
+        highs = recent_df["High"].values
+        lows = recent_df["Low"].values
+        closes = recent_df["Close"].values
+
+        current_close = closes[-1]
+        prev_close = closes[-2] if len(closes) > 1 else current_close
+
+        # Calculate price movement direction
+        price_change = current_close - prev_close
+        price_change_pct = (price_change / prev_close) * 100 if prev_close > 0 else 0
+
+        # Calculate swing high and swing low from last 30 min
+        swing_high = max(highs)
+        swing_low = min(lows)
+        swing_range = swing_high - swing_low
+
+        # Calculate position in swing range (0-100%)
+        if swing_range > 0:
+            position_in_range = ((current_close - swing_low) / swing_range) * 100
+        else:
+            position_in_range = 50
+
+        # Determine if price is moving in signal direction
+        moving_with_signal = False
+        if signal_direction == "CE" and price_change > 0:
+            moving_with_signal = True
+        elif signal_direction == "PE" and price_change < 0:
+            moving_with_signal = True
+
+        # ENTRY LOGIC based on swing trading
+        entry_allowed = False
+        entry_price = ltp
+        reason = ""
+
+        if signal_direction == "CE":
+            # For CE signal:
+            # - Don't enter if price is falling (opposite to signal)
+            # - Wait for price to bounce from swing low or break swing high
+            # - Best entry: price near swing low and starting to rise
+
+            if position_in_range < 30 and price_change > 0:
+                # Near swing low and rising - BEST ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"CE Entry: Near swing low ({position_in_range:.0f}%) + Rising (+{price_change_pct:.1f}%)"
+                logger.info(f"SWING ENTRY CONFIRMED: {reason}")
+
+            elif position_in_range < 50 and moving_with_signal:
+                # In lower half and moving up - GOOD ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"CE Entry: Lower range ({position_in_range:.0f}%) + Upward momentum"
+                logger.info(f"SWING ENTRY: {reason}")
+
+            elif current_close > swing_high * 0.99:  # Breaking out
+                # Breaking above swing high - BREAKOUT ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"CE Entry: Breakout above swing high ({swing_high:.2f})"
+                logger.info(f"BREAKOUT ENTRY: {reason}")
+
+            elif price_change < 0:
+                # Price falling - WAIT for reversal
+                entry_allowed = False
+                reason = f"CE Wait: Price falling ({price_change_pct:.1f}%) - Wait for reversal"
+                logger.info(f"SWING WAIT: {reason}")
+
+            else:
+                # Default - enter with caution
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"CE Entry: Standard entry at {position_in_range:.0f}% of range"
+
+        else:  # PE signal
+            # For PE signal:
+            # - Don't enter if price is rising (opposite to signal)
+            # - Wait for price to drop from swing high or break swing low
+            # - Best entry: price near swing high and starting to fall
+
+            if position_in_range > 70 and price_change < 0:
+                # Near swing high and falling - BEST ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"PE Entry: Near swing high ({position_in_range:.0f}%) + Falling ({price_change_pct:.1f}%)"
+                logger.info(f"SWING ENTRY CONFIRMED: {reason}")
+
+            elif position_in_range > 50 and moving_with_signal:
+                # In upper half and moving down - GOOD ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"PE Entry: Upper range ({position_in_range:.0f}%) + Downward momentum"
+                logger.info(f"SWING ENTRY: {reason}")
+
+            elif current_close < swing_low * 1.01:  # Breaking down
+                # Breaking below swing low - BREAKDOWN ENTRY
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"PE Entry: Breakdown below swing low ({swing_low:.2f})"
+                logger.info(f"BREAKDOWN ENTRY: {reason}")
+
+            elif price_change > 0:
+                # Price rising - WAIT for reversal
+                entry_allowed = False
+                reason = f"PE Wait: Price rising (+{price_change_pct:.1f}%) - Wait for reversal"
+                logger.info(f"SWING WAIT: {reason}")
+
+            else:
+                # Default - enter with caution
+                entry_allowed = True
+                entry_price = ltp
+                reason = f"PE Entry: Standard entry at {position_in_range:.0f}% of range"
+
+        return {
+            "entry_allowed": entry_allowed,
+            "entry_price": entry_price,
+            "reason": reason,
+            "swing_high": swing_high,
+            "swing_low": swing_low,
+            "position_in_range": position_in_range,
+            "price_change_pct": price_change_pct,
+        }
+
     def calculate_smart_entry_price(
         self,
         ltp: float,
         signal_direction: str,
         option_chain: list[dict] | None = None,
-    ) -> float:
+        index_df: "pd.DataFrame | None" = None,
+    ) -> tuple[float, float, float, bool, str]:
         """
-        Calculate smart entry price for options in 40-60 range.
+        Calculate smart entry price based on swing trading analysis.
 
-        Instead of taking immediate LTP, this calculates a better entry:
-        - For options in 40-60 range, use LTP as-is (optimal range)
-        - For higher priced options, calculate entry with slight discount
-        - Uses bid-ask spread if available
+        Strategy:
+        1. Analyze last 30 minutes of index price movement
+        2. Don't enter when price moving opposite to signal
+        3. Wait for reversal confirmation (swing point)
+        4. Use bid-ask spread and delta for precise entry/SL/target
 
         Args:
             ltp: Current last traded price
             signal_direction: CE or PE
-            option_chain: Option chain data with bid/ask
+            option_chain: Option chain data with bid/ask/greeks
+            index_df: DataFrame with index price data for swing analysis
 
         Returns:
-            Smart entry price
+            Tuple of (entry_price, stop_loss, target, entry_allowed, reason)
         """
-        # Target range for options: 40-60
+        entry_price = ltp
+        entry_allowed = True
+        entry_reason = ""
+
+        # Step 1: Swing Trading Analysis (wait for confirmation)
+        if index_df is not None and len(index_df) >= 6:
+            swing_analysis = self.analyze_swing_entry(index_df, signal_direction, ltp)
+            entry_allowed = swing_analysis["entry_allowed"]
+            entry_reason = swing_analysis["reason"]
+
+            if not entry_allowed:
+                # Return early - don't enter yet
+                return ltp, 0, 0, False, entry_reason
+
+        # Step 2: Calculate entry from option chain data
+        if option_chain:
+            # Find the option in the chain
+            opt_data = None
+            for opt in option_chain:
+                ce_data = opt.get("ce", {})
+                pe_data = opt.get("pe", {})
+
+                if signal_direction == "CE" and abs(ce_data.get("ltp", 0) - ltp) < 1:
+                    opt_data = ce_data
+                    break
+                elif signal_direction == "PE" and abs(pe_data.get("ltp", 0) - ltp) < 1:
+                    opt_data = pe_data
+                    break
+
+            if opt_data:
+                # Use bid-ask spread for better entry
+                bid = opt_data.get("bid", ltp)
+                ask = opt_data.get("ask", ltp)
+
+                if bid > 0 and ask > 0:
+                    spread = ask - bid
+                    spread_pct = (spread / ltp) * 100 if ltp > 0 else 0
+
+                    # Tight spread: use mid-point
+                    # Wide spread: use bid + 25% of spread
+                    if spread_pct < 2:
+                        entry_price = (bid + ask) / 2
+                    else:
+                        entry_price = bid + (spread * 0.25)
+
+                # Get delta for SL calculation
+                delta = abs(opt_data.get("delta", 0.5))
+
+                # Dynamic SL based on delta
+                if delta >= 0.6:
+                    sl_pct = 0.12  # 12% for high delta (ITM)
+                elif delta >= 0.4:
+                    sl_pct = 0.15  # 15% for medium delta (ATM)
+                else:
+                    sl_pct = 0.20  # 20% for low delta (OTM)
+
+                stop_loss = entry_price * (1 - sl_pct)
+
+                # Target: 1:2.5 risk/reward
+                risk = entry_price - stop_loss
+                target = entry_price + (risk * 2.5)
+
+                logger.info(
+                    f"Smart Entry: LTP={ltp:.2f}, Entry={entry_price:.2f}, "
+                    f"SL={stop_loss:.2f} ({sl_pct*100:.0f}%), Target={target:.2f}, "
+                    f"Delta={delta:.2f}"
+                )
+
+                return round(entry_price, 2), round(stop_loss, 2), round(target, 2), True, entry_reason
+
+        # Step 3: Fallback calculation based on price level
         OPTIMAL_MIN = 40
         OPTIMAL_MAX = 60
 
         if OPTIMAL_MIN <= ltp <= OPTIMAL_MAX:
-            # Price is in optimal range, use as-is
-            logger.info(f"Entry price {ltp:.2f} is in optimal range (40-60)")
-            return ltp
+            sl_pct = 0.15
+            target_pct = 0.30
+        elif ltp < OPTIMAL_MIN:
+            sl_pct = 0.20
+            target_pct = 0.50
+        else:
+            sl_pct = 0.12
+            target_pct = 0.25
 
-        if ltp < OPTIMAL_MIN:
-            # Very cheap option - use LTP but log warning
-            logger.warning(f"Entry price {ltp:.2f} is below optimal range (may be risky)")
-            return ltp
+        stop_loss = entry_price * (1 - sl_pct)
+        target = entry_price * (1 + target_pct)
 
-        if ltp > OPTIMAL_MAX:
-            # Higher priced option - try to get slightly better entry
-            # Apply a small discount (0.5-1%) to account for slippage
-            discount = ltp * 0.005  # 0.5% discount
-            smart_price = ltp - discount
-            logger.info(f"Entry price adjusted: LTP {ltp:.2f} -> Smart Entry {smart_price:.2f} (0.5% discount)")
-            return round(smart_price, 2)
-
-        return ltp
+        return round(entry_price, 2), round(stop_loss, 2), round(target, 2), True, entry_reason or "Fallback entry"
 
     def calculate_trailing_stop_loss(
         self,
@@ -787,13 +1010,15 @@ class PaperTradingService:
         self,
         signal: Any,
         trading_index: ExpiryInfo,
+        index_df: Any = None,
     ) -> PaperOrder | None:
         """
-        Execute a trade based on signal.
+        Execute a trade based on signal with swing entry confirmation.
 
         Args:
             signal: TradeSignal from signal engine
             trading_index: ExpiryInfo for the trading index
+            index_df: DataFrame with index price data for swing analysis
 
         Returns:
             PaperOrder if executed, None otherwise
@@ -847,15 +1072,39 @@ class PaperTradingService:
                 logger.warning("TRADE BLOCKED: Position already open with different direction. Skipping new order.")
             return None
 
-        logger.info("All pre-checks passed. Executing trade directly (NO AI)...")
+        logger.info("All pre-checks passed. Executing trade with swing entry analysis...")
 
-        # NO AI - Execute trade directly based on signal
-        # SL and Target are FIXED from signal generation - never modified
-        logger.info(f"Signal SL: {signal.stop_loss:.2f} | Target: {signal.target_1:.2f} (LOCKED - no changes)")
+        # Get option chain for smart entry calculation
+        chain_data = await self.data_fetcher.get_option_chain(index=trading_index.index)
+        option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
 
-        # Calculate order size
+        # Calculate smart entry price with swing analysis
+        entry_price, smart_sl, smart_target, entry_allowed, entry_reason = self.calculate_smart_entry_price(
+            ltp=opt.ltp,
+            signal_direction=signal.direction,
+            option_chain=option_chain,
+            index_df=index_df,
+        )
+
+        if not entry_allowed:
+            logger.info(f"SWING WAIT: {entry_reason}")
+            return None
+
+        # Use smart entry values if valid, otherwise use signal values
+        if smart_sl > 0 and smart_target > 0:
+            stop_loss = smart_sl
+            target = smart_target
+            logger.info(f"Smart Entry: Price={entry_price:.2f}, SL={stop_loss:.2f}, Target={target:.2f}")
+        else:
+            stop_loss = signal.stop_loss
+            target = signal.target_1
+            logger.info(f"Signal Entry: Price={entry_price:.2f}, SL={stop_loss:.2f}, Target={target:.2f}")
+
+        logger.info(f"Entry Reason: {entry_reason}")
+
+        # Calculate order size using entry price
         lots, quantity, split_orders = self.calculate_order_size(
-            price=opt.ltp,
+            price=entry_price,
             lot_size=trading_index.lot_size,
         )
 
@@ -863,7 +1112,7 @@ class PaperTradingService:
             logger.warning("Insufficient capital for trade")
             return None
 
-        # Create order
+        # Create order with smart entry price
         order = PaperOrder(
             order_id=self._generate_order_id(),
             timestamp=datetime.now(),
@@ -874,16 +1123,16 @@ class PaperTradingService:
             order_type=OrderType.BUY,
             quantity=quantity,
             lots=lots,
-            price=opt.ltp,
+            price=entry_price,
             status=OrderStatus.EXECUTED,
             executed_quantity=quantity,
-            executed_price=opt.ltp,
+            executed_price=entry_price,
             split_orders=split_orders,
-            reason=f"Signal: {signal.signal_type.value}, Confidence: {signal.confidence}%",
+            reason=f"Signal: {signal.signal_type.value}, Confidence: {signal.confidence}% | {entry_reason}",
             signal_confidence=signal.confidence,
         )
 
-        # Create position with max/min tracking initialized to entry price
+        # Create position with smart entry values
         now = datetime.now()
         position = PaperPosition(
             position_id=self._generate_position_id(),
@@ -891,18 +1140,21 @@ class PaperTradingService:
             symbol=opt.symbol,
             strike=opt.strike,
             option_type=signal.direction,
-            entry_price=opt.ltp,
+            entry_price=entry_price,
             quantity=quantity,
             lots=lots,
             entry_time=now,
-            current_price=opt.ltp,
+            current_price=entry_price,
             status=PositionStatus.OPEN,
-            stop_loss=signal.stop_loss,
-            target=signal.target_1,
-            max_price=opt.ltp,  # Initialize to entry price
-            min_price=opt.ltp,  # Initialize to entry price
+            stop_loss=stop_loss,
+            target=target,
+            max_price=entry_price,  # Initialize to entry price
+            min_price=entry_price,  # Initialize to entry price
             max_price_time=now,
             min_price_time=now,
+            # Store initial values for trailing SL
+            initial_stop_loss=stop_loss,
+            initial_target=target,
         )
 
         # Update capital

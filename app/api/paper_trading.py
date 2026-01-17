@@ -422,8 +422,31 @@ async def execute_signal_trade(strategy: str = "default"):
 
     logger.info(f"Signal generated: {signal.direction} | Confidence: {signal.confidence:.0f}%")
 
+    # Check swing entry confirmation before executing
+    # Pass the index dataframe for 30-min swing analysis
+    if signal.recommended_option:
+        entry_price, stop_loss, target, entry_allowed, entry_reason = paper.calculate_smart_entry_price(
+            ltp=signal.recommended_option.ltp,
+            signal_direction=signal.direction,
+            option_chain=option_chain,
+            index_df=df,
+        )
+
+        if not entry_allowed:
+            logger.info(f"Trade delayed - Swing analysis: {entry_reason}")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "success": False,
+                    "error": f"Waiting for confirmation: {entry_reason}",
+                    "swing_wait": True,
+                },
+            )
+
+        logger.info(f"Swing entry confirmed: {entry_reason}")
+
     # Execute trade
-    order = await paper.execute_signal_trade(signal, trading_index)
+    order = await paper.execute_signal_trade(signal, trading_index, index_df=df)
 
     if order:
         logger.info(f"Order executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
