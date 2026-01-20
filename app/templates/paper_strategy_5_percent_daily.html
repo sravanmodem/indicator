@@ -147,10 +147,10 @@
                 <p class="text-slate-500 text-xs font-semibold">Status</p>
             </div>
             <p class="{% if stats.pnl.percent >= 5 %}text-green-400{% else %}text-white{% endif %} font-bold text-lg">
-                {% if stats.pnl.percent >= 5 %}TARGET HIT{% else %}TRADING{% endif %}
+                {% if stats.pnl.percent >= 5 %}PROFIT LOCKED{% else %}TRADING{% endif %}
             </p>
             {% if stats.pnl.percent >= 5 %}
-            <p class="text-green-400 text-[10px] mt-1 font-bold uppercase">No more trades today</p>
+            <p class="text-green-400 text-[10px] mt-1 font-bold uppercase">Target hit - Profit locked, trading continues</p>
             {% endif %}
         </div>
     </div>
@@ -331,12 +331,6 @@ function paperTrading() {
             const tradingStartTime = 10 * 60;       // 10:00 AM
             const tradingEndTime = 15 * 60;        // 3:00 PM
             const squareOffTime = 15 * 60;         // 3:00 PM square-off
-
-            // Check if 5% target is already hit
-            if (this.stats.pnl.percent >= 5) {
-                console.log('[5% Daily] Target achieved - no more trades');
-                return;
-            }
 
             // Auto square-off at 3:00 PM
             if (currentTime >= squareOffTime && this.stats.status.open_positions > 0) {

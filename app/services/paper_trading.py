@@ -1337,8 +1337,8 @@ class PaperTradingService:
                         exit_reason += f" | Locked +{position.profit_locked_percent:.0f}%"
                     logger.warning(f"SL triggered for {position.symbol}: {exit_reason}")
 
-                # 3. STRATEGY-SPECIFIC PROFIT TARGETS (Move SL up instead of exiting)
-                # When target is reached, set SL at target price and wait for SL exit
+                # 3. STRATEGY-SPECIFIC PROFIT TARGETS (Exit immediately at target)
+                # When target is reached, close position and take profit
                 if not should_exit:
                     target_percent = 0
                     if self.strategy == "fixed_20_percent":
@@ -1351,31 +1351,13 @@ class PaperTradingService:
                         # Default strategy: 100% profit target
                         target_percent = 100.0
 
-                    # When target % is reached, move SL to lock in profit (don't exit)
+                    # When target % is reached, EXIT immediately to take profit
                     if target_percent > 0 and position.pnl_percent >= target_percent:
                         if not position.target_achieved:
                             position.target_achieved = True
-                            # Set SL at target profit level to lock in gains
-                            target_sl = position.entry_price * (1 + target_percent / 100)
-                            if target_sl > position.stop_loss:
-                                old_sl = position.stop_loss
-                                position.stop_loss = target_sl
-                                logger.info(f"TARGET REACHED +{target_percent}%: SL moved to lock profit: {old_sl:.2f} -> {target_sl:.2f}")
-
-                            # Mark trading halted for strategies that require it
-                            if self.strategy == "fixed_20_percent":
-                                self.daily_stats.is_trading_halted = True
-                                self.daily_stats.halt_reason = f"20% profit target locked - Waiting for SL exit or higher"
-                            elif self.strategy == "profit_100_halt":
-                                self.daily_stats.is_trading_halted = True
-                                self.daily_stats.halt_reason = f"100% profit target locked - Waiting for SL exit or higher"
-
-                        # Check daily target for 5% strategies
-                        if self.strategy == "5_percent_daily":
-                            stats = self.get_stats()
-                            if stats.pnl.percent >= 5.0:
-                                self.daily_stats.is_trading_halted = True
-                                self.daily_stats.halt_reason = "5% daily profit target reached - No more trades today"
+                            should_exit = True
+                            exit_reason = f"TARGET EXIT +{target_percent:.0f}% profit taken | Entry: {position.entry_price:.2f}, Exit: {position.current_price:.2f}"
+                            logger.info(f"TARGET ACHIEVED: {exit_reason}")
 
                     # Note: trailing_stoploss strategy uses the new universal trailing SL logic above
                     # (calculate_trailing_stop_loss method handles all trailing at 50% and every 10% above)
@@ -1391,12 +1373,17 @@ class PaperTradingService:
                     logger.info(f"Market close exit for {position.symbol}")
 
                 if should_exit:
-                    # SMART EXIT: Check if next signal is in same direction
-                    # If yes, update SL/target instead of exiting
-                    should_update_instead = await self._check_next_signal_and_update(position, exit_reason)
+                    # For TARGET-BASED exits: Always exit, don't update (to allow new trades)
+                    # For other exits (SL, market close): Check if same signal exists (smart update)
+                    should_update_instead = False
+                    is_target_exit = "TARGET EXIT" in exit_reason
+
+                    if not is_target_exit:
+                        # Only check for smart exit update if NOT a target-based exit
+                        should_update_instead = await self._check_next_signal_and_update(position, exit_reason)
 
                     if not should_update_instead:
-                        # No same-direction signal, exit normally
+                        # Exit normally
                         await self.close_position(position, exit_reason)
                         closed_positions.append({
                             "position_id": position.position_id,
