@@ -915,8 +915,8 @@ class PaperTradingService:
         Check if current time is within trading hours.
 
         Trading Hours:
-        - Normal Day: 9:20 AM to 3:15 PM
-        - Expiry Day: 9:20 AM to 3:15 PM (same, we handle exit separately)
+        - Normal Day: 9:30 AM to 3:00 PM
+        - Expiry Day: 9:30 AM to 3:00 PM (same, we handle exit separately)
 
         Args:
             trading_index: ExpiryInfo to check if it's expiry day
@@ -928,18 +928,18 @@ class PaperTradingService:
         current_hour = now.hour
         current_minute = now.minute
 
-        # Market open time: 9:20 AM (5 min after market open)
+        # Market open time: 9:30 AM
         market_open_hour = 9
-        market_open_minute = 20
+        market_open_minute = 30
 
         # Before market open
         if current_hour < market_open_hour or (current_hour == market_open_hour and current_minute < market_open_minute):
-            return False, "Market not yet open (Opens at 9:20 AM)"
+            return False, "Market not yet open (Opens at 9:30 AM)"
 
-        # Trading close time: 3:15 PM (15 min before market close)
+        # Trading close time: 3:00 PM
         close_hour = 15
-        close_minute = 15
-        close_time_str = "3:15 PM"
+        close_minute = 0
+        close_time_str = "3:00 PM"
 
         # After trading close time
         if current_hour > close_hour or (current_hour == close_hour and current_minute >= close_minute):
@@ -1381,13 +1381,9 @@ class PaperTradingService:
                     # (calculate_trailing_stop_loss method handles all trailing at 50% and every 10% above)
 
                 # 4. Market close force exit
-                # expiry_day, 5% strategies: Exit at 3:00 PM
-                # Other strategies: Exit at 3:20 PM
+                # All strategies: Exit at 3:00 PM (market close)
                 now = datetime.now()
-                if self.strategy in ["5_percent_daily", "5_percent_15min", "expiry_day"]:
-                    close_hour, close_minute = 15, 0  # 3:00 PM
-                else:
-                    close_hour, close_minute = 15, 20  # 3:20 PM
+                close_hour, close_minute = 15, 0  # 3:00 PM
 
                 if not should_exit and now.hour == close_hour and now.minute >= close_minute:
                     should_exit = True

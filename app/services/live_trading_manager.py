@@ -3,7 +3,7 @@ Live Trading Manager
 Signal-based live trading with same logic as paper_strategy_fixed_20
 
 Features:
-- 70% minimum confidence filter
+- 80% minimum confidence filter
 - Smart exit: Check next signal before closing
 - Fixed 20% profit strategy
 - Same signals as paper trading
@@ -51,11 +51,11 @@ class LiveTradingManager:
     Mirrors paper_trading_service with fixed_20_percent strategy.
     """
 
-    CONFIDENCE_THRESHOLD = 70.0  # Minimum confidence for entry
+    CONFIDENCE_THRESHOLD = 80.0  # Minimum confidence for entry
     PROFIT_TARGET = 20.0  # Exit at 20% profit
     LOSS_LIMIT = 20.0  # Halt trading at 20% daily loss
     MARKET_CLOSE_HOUR = 15
-    MARKET_CLOSE_MINUTE = 20
+    MARKET_CLOSE_MINUTE = 0
 
     def __init__(self):
         self.live_service = get_live_trading_service()
@@ -86,9 +86,9 @@ class LiveTradingManager:
         if weekday >= 5:
             return False, "Weekend"
 
-        # Market hours: 9:15 AM to 3:20 PM
-        start_time = time(9, 15)
-        end_time = time(15, 20)
+        # Market hours: 9:30 AM to 3:00 PM
+        start_time = time(9, 30)
+        end_time = time(15, 0)
 
         if current_time < start_time:
             return False, "Pre-market"
@@ -160,7 +160,7 @@ class LiveTradingManager:
             logger.warning(f"TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
             return False
 
-        # Check confidence threshold (70%)
+        # Check confidence threshold (80%)
         if signal.confidence < self.CONFIDENCE_THRESHOLD:
             logger.warning(
                 f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% "
