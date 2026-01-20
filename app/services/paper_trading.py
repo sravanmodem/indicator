@@ -1060,36 +1060,40 @@ class PaperTradingService:
         bypass_hours = getattr(settings, 'bypass_market_hours', False)
 
         is_trading, reason = self.is_trading_hours(trading_index)
-        logger.info(f"Paper trading hours check: allowed={is_trading}, reason={reason}, bypass={bypass_hours}")
+        logger.info(f"[{self.strategy}] Paper trading hours check: allowed={is_trading}, reason={reason}, bypass={bypass_hours}")
 
         if not is_trading and not bypass_hours:
-            logger.info(f"Outside trading hours: {reason}")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: Outside trading hours: {reason}")
             return None
         elif not is_trading and bypass_hours:
-            logger.warning(f"Trading hours check would fail ({reason}), but bypassing for testing")
+            logger.warning(f"[{self.strategy}] Trading hours check would fail ({reason}), but bypassing for testing")
 
         # Check if trading is halted
         if self.check_daily_loss_limit():
-            logger.warning("TRADE BLOCKED: Trading halted due to daily loss limit")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: Trading halted due to daily loss limit")
             return None
 
         # Check signal direction
         if signal.direction not in ["CE", "PE"]:
-            logger.warning(f"TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
             return None
+
+        logger.info(f"[{self.strategy}] Signal direction check passed: {signal.direction}")
 
         # Check confidence threshold (at least 60%)
         if signal.confidence < 60:
-            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 60%+)")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 60%+)")
             return None
+
+        logger.info(f"[{self.strategy}] Confidence check passed: {signal.confidence}%")
 
         # Get recommended option
         if not signal.recommended_option:
-            logger.warning("TRADE BLOCKED: No recommended option in signal")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: No recommended option in signal")
             return None
 
         opt = signal.recommended_option
-        logger.info(f"Signal option: {opt.strike} {signal.direction} @ Rs.{opt.ltp:.2f}")
+        logger.info(f"[{self.strategy}] Signal option: {opt.strike} {signal.direction} @ Rs.{opt.ltp:.2f}")
 
         # Check if there's already an open position
         if self.has_open_position():
@@ -1097,12 +1101,12 @@ class PaperTradingService:
             # Once signal generates SL/Target, they are LOCKED
             existing_position = self.find_similar_position(signal.direction)
             if existing_position:
-                logger.warning(f"TRADE BLOCKED: Position already open: {existing_position.symbol} - SL/Target LOCKED (no updates)")
+                logger.warning(f"[{self.strategy}] TRADE BLOCKED: Position already open: {existing_position.symbol} - SL/Target LOCKED (no updates)")
             else:
-                logger.warning("TRADE BLOCKED: Position already open with different direction. Skipping new order.")
+                logger.warning(f"[{self.strategy}] TRADE BLOCKED: Position already open with different direction. Skipping new order.")
             return None
 
-        logger.info("All pre-checks passed. Executing trade with swing entry analysis...")
+        logger.info(f"[{self.strategy}] All pre-checks passed. Proceeding with order execution...")
 
         # Check for reversal signal - for default strategy only (conservative)
         # For aggressive strategies (5%, 15min, 20%, 100%), skip reversal check entirely
