@@ -1075,6 +1075,12 @@ class PaperTradingService:
 
         logger.info("All pre-checks passed. Executing trade with swing entry analysis...")
 
+        # Check for reversal signal - if detected, wait for confirmation
+        if signal.is_reversal_signal:
+            logger.info(f"REVERSAL SIGNAL DETECTED: {signal.reversal_reason}")
+            logger.info("Waiting for reversal confirmation before entry...")
+            return None
+
         # Get option chain for smart entry calculation
         chain_data = await self.data_fetcher.get_option_chain(index=trading_index.index)
         option_chain = chain_data.get("chain", []) if "error" not in chain_data else None

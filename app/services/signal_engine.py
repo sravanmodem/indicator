@@ -130,6 +130,9 @@ class TradeSignal:
     index_spot: float = 0.0  # Current index spot price (e.g., NIFTY 24500)
     index_sl: float = 0.0  # Index level for SL
     index_target: float = 0.0  # Index level for target
+    # Reversal detection
+    is_reversal_signal: bool = False  # True if signal detected at reversal point
+    reversal_reason: str = ""  # Why this is marked as reversal (SuperTrend flip, ADX collapse, RSI exhaustion, etc)
 
 
 class SignalEngine:
@@ -148,6 +151,89 @@ class SignalEngine:
         self.trading_style = trading_style
         self.params = INDICATOR_PARAMS
         self.thresholds = SIGNAL_THRESHOLDS
+
+    def detect_reversal_conditions(
+        self,
+        df: pd.DataFrame,
+        st_data,  # SuperTrend data
+        adx_data,  # ADX data
+        rsi_data,  # RSI data
+    ) -> tuple[bool, str]:
+        """
+        Detect if current signal is at a reversal point.
+
+        Returns:
+            (is_reversal: bool, reason: str)
+        """
+        reversal_reasons = []
+        reversal_score = 0
+
+        # 1. SuperTrend Flip Detection
+        if len(df) >= 2:
+            curr_st_dir = st_data.direction.iloc[-1]
+            prev_st_dir = st_data.direction.iloc[-2]
+            if curr_st_dir != prev_st_dir:
+                reversal_reasons.append(f"SuperTrend flip ({prev_st_dir} → {curr_st_dir})")
+                reversal_score += 40
+
+        # 2. ADX Collapse Detection (trend weakening = reversal zone)
+        if len(adx_data) >= 2:
+            curr_adx = adx_data.adx.iloc[-1]
+            prev_adx = adx_data.adx.iloc[-2]
+
+            # Strong trend weakening to weak = reversal signal
+            if prev_adx > 25 and curr_adx < 20:
+                reversal_reasons.append(f"ADX collapse ({prev_adx:.0f} → {curr_adx:.0f})")
+                reversal_score += 30
+
+            # Already in weak trend zone
+            if curr_adx < 15:
+                reversal_reasons.append(f"Very weak trend (ADX {curr_adx:.0f} < 15)")
+                reversal_score += 15
+
+        # 3. RSI Exhaustion Detection (overbought/oversold = reversal zone)
+        if len(rsi_data) >= 2:
+            curr_rsi = rsi_data.rsi.iloc[-1]
+            prev_rsi = rsi_data.rsi.iloc[-2]
+
+            # Overbought RSI
+            if curr_rsi > 75:
+                reversal_reasons.append(f"Overbought zone (RSI {curr_rsi:.1f} > 75)")
+                reversal_score += 25
+
+            # Oversold RSI
+            if curr_rsi < 25:
+                reversal_reasons.append(f"Oversold zone (RSI {curr_rsi:.1f} < 25)")
+                reversal_score += 25
+
+            # RSI divergence detection (already in signal, just note it)
+            if hasattr(rsi_data, 'divergence'):
+                if rsi_data.divergence.iloc[-1] != 0:
+                    reversal_reasons.append(f"RSI divergence detected")
+                    reversal_score += 20
+
+        # 4. Price at Extremes (near daily high/low = reversal zone)
+        if len(df) >= 20:
+            recent_high = df["High"].iloc[-20:].max()
+            recent_low = df["Low"].iloc[-20:].min()
+            current_price = df["Close"].iloc[-1]
+            price_range = recent_high - recent_low
+
+            # Near the high (PE reversal likely)
+            if (recent_high - current_price) < (price_range * 0.05):
+                reversal_reasons.append("Price near 5-day high (PE reversal zone)")
+                reversal_score += 15
+
+            # Near the low (CE reversal likely)
+            if (current_price - recent_low) < (price_range * 0.05):
+                reversal_reasons.append("Price near 5-day low (CE reversal zone)")
+                reversal_score += 15
+
+        # Determine if this is a reversal signal
+        is_reversal = reversal_score >= 30  # Threshold for reversal classification
+        reason = " | ".join(reversal_reasons) if reversal_reasons else "No reversal conditions"
+
+        return is_reversal, reason
 
     def analyze(
         self,
@@ -466,6 +552,15 @@ class SignalEngine:
         else:
             ce_confidence = pe_confidence = 0
 
+        # === REVERSAL DETECTION ===
+        # Detect if signal is at a reversal point (SuperTrend flip, ADX collapse, RSI exhaustion, price extremes)
+        is_reversal_signal, reversal_reason = self.detect_reversal_conditions(
+            df=df,
+            st_data=st,
+            adx_data=adx,
+            rsi_data=rsi,
+        )
+
         # Determine signal
         confidence_diff = abs(ce_confidence - pe_confidence)
 
@@ -655,6 +750,8 @@ class SignalEngine:
             index_spot=round(index_spot_val, 2),
             index_sl=round(index_sl_val, 2),
             index_target=round(index_target_val, 2),
+            is_reversal_signal=is_reversal_signal,
+            reversal_reason=reversal_reason,
         )
 
     def _find_best_option(
