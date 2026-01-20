@@ -20,8 +20,8 @@ from app.core.config import get_settings, NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOK
 
 
 # Trading window
-MARKET_OPEN = time(9, 15)
-MARKET_CLOSE = time(15, 30)
+MARKET_OPEN = time(9, 30)
+MARKET_CLOSE = time(15, 0)
 
 # Known market holidays for 2024-2026 (NSE)
 INDIAN_MARKET_HOLIDAYS = {
@@ -264,23 +264,40 @@ class AutoTrader:
             # Log signal
             logger.info(f"AUTO-TRADE Signal: {signal.direction} @ {signal.recommended_option.strike} | LTP: {signal.recommended_option.ltp:.2f} | Confidence: {signal.confidence:.0f}%")
 
-            # Execute trade (AI decision happens inside execute_signal_trade)
+            # Execute paper trade (AI decision happens inside execute_signal_trade)
             order = await paper.execute_signal_trade(signal, trading_index)
 
             if order:
                 self._last_signal_id = signal_id
                 self._last_signal_time = datetime.now()
-                logger.info(f"AUTO-TRADE Executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
+                logger.info(f"AUTO-TRADE Paper Executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
             else:
-                logger.debug("AUTO-TRADE: Signal rejected by AI or other condition")
+                logger.debug("AUTO-TRADE: Paper trade signal rejected by AI or other condition")
+
+            # Also execute live trade if enabled
+            try:
+                from app.services.live_trading_manager import get_live_trading_manager
+                live_manager = get_live_trading_manager()
+
+                if live_manager.is_live_mode:
+                    live_executed = await live_manager.execute_signal_trade(signal, trading_index.index)
+                    if live_executed:
+                        self._last_signal_id = signal_id
+                        self._last_signal_time = datetime.now()
+                        logger.info(f"AUTO-TRADE Live Executed: Signal {signal.direction} | Strike: {signal.recommended_option.strike} | Price: {signal.recommended_option.ltp:.2f}")
+                    else:
+                        logger.debug("AUTO-TRADE: Live trade signal rejected")
+            except Exception as e:
+                logger.error(f"Live trading execution error: {e}")
 
         except Exception as e:
             logger.error(f"Auto trade signal check error: {e}")
 
     async def _monitor_positions(self):
-        """Monitor open positions and trigger AI exit analysis."""
+        """Monitor open positions (paper and live) and trigger AI exit analysis."""
         try:
             from app.services.paper_trading import get_paper_trading_service
+            from app.services.live_trading_manager import get_live_trading_manager
             from app.services.zerodha_auth import get_auth_service
 
             auth = get_auth_service()
@@ -289,12 +306,21 @@ class AutoTrader:
 
             paper = get_paper_trading_service()
 
-            # Update positions (this internally calls AI for exit decisions)
+            # Monitor paper positions (this internally calls AI for exit decisions)
             updated_positions, closed_positions = await paper.update_positions()
 
             if closed_positions:
                 for pos in closed_positions:
-                    logger.info(f"AUTO-TRADE Position Closed: {pos.get('symbol', 'unknown')} | Reason: {pos.get('exit_reason', 'unknown')} | P&L: {pos.get('pnl', 0):.0f}")
+                    logger.info(f"AUTO-TRADE Paper Position Closed: {pos.get('symbol', 'unknown')} | Reason: {pos.get('exit_reason', 'unknown')} | P&L: {pos.get('pnl', 0):.0f}")
+
+            # Monitor live positions if live trading is enabled
+            try:
+                live_manager = get_live_trading_manager()
+                if live_manager.is_live_mode:
+                    live_positions = await live_manager.check_positions()
+                    logger.debug(f"Live positions monitored: {len(live_manager.tracked_positions)} active")
+            except Exception as e:
+                logger.error(f"Live position monitoring error: {e}")
 
         except Exception as e:
             logger.error(f"Auto trade position monitor error: {e}")
