@@ -153,9 +153,9 @@ class AutoTrader:
         logger.info("Auto trading loop ended")
 
     async def _check_and_execute_signals(self):
-        """Check for signals and execute if AI approves."""
+        """Check for signals and execute if AI approves for all strategies."""
         try:
-            from app.services.paper_trading import get_paper_trading_service
+            from app.services.paper_trading import PaperTradingService
             from app.services.signal_engine import get_signal_engine, TradingStyle
             from app.services.data_fetcher import get_data_fetcher
             from app.services.zerodha_auth import get_auth_service
@@ -165,130 +165,123 @@ class AutoTrader:
             if not auth.is_authenticated:
                 return
 
-            paper = get_paper_trading_service()
             fetcher = get_data_fetcher()
 
-            # Skip if auto-trade is disabled
-            if not paper.is_auto_trade:
-                return
+            # Check signals for all strategies
+            strategies_to_check = ["default", "5_percent_daily", "5_percent_15min", "fixed_20_percent", "profit_100_halt"]
 
-            # Skip if already have open position
-            if paper.has_open_position():
-                return
+            for strategy in strategies_to_check:
+                try:
+                    paper = PaperTradingService(strategy=strategy) if strategy != "default" else PaperTradingService()
 
-            # Get trading index
-            trading_index = paper.get_trading_index()
-            tokens = {
-                "NIFTY": NIFTY_INDEX_TOKEN,
-                "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
-                "SENSEX": SENSEX_INDEX_TOKEN,
-            }
-            token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
+                    # Skip if auto-trade is disabled for this strategy
+                    if not paper.is_auto_trade:
+                        continue
 
-            # Fetch historical data for signal generation (5-min for indicators)
-            df = await fetcher.fetch_historical_data(
-                instrument_token=token,
-                timeframe="5minute",
-                days=3,
-            )
+                    # Skip if already have open position in this strategy
+                    if paper.has_open_position():
+                        continue
 
-            if df.empty:
-                return
+                    # Get trading index
+                    trading_index = paper.get_trading_index()
+                    tokens = {
+                        "NIFTY": NIFTY_INDEX_TOKEN,
+                        "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+                        "SENSEX": SENSEX_INDEX_TOKEN,
+                    }
+                    token = tokens.get(trading_index.index, NIFTY_INDEX_TOKEN)
 
-            # Fetch 1-minute data for last 15 minutes (short-term momentum)
-            df_1min = await fetcher.fetch_historical_data(
-                instrument_token=token,
-                timeframe="minute",
-                days=1,  # Just 1 day is enough for 15 minutes
-            )
+                    # Fetch historical data for signal generation (5-min for indicators)
+                    df = await fetcher.fetch_historical_data(
+                        instrument_token=token,
+                        timeframe="5minute",
+                        days=3,
+                    )
 
-            # Fetch 10-minute data for last 1 hour (longer-term trend)
-            df_10min = await fetcher.fetch_historical_data(
-                instrument_token=token,
-                timeframe="10minute",
-                days=1,  # 1 day is enough for 1 hour
-            )
+                    if df.empty:
+                        continue
 
-            # Get option chain
-            chain_data = await fetcher.get_option_chain(index=trading_index.index)
-            option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
+                    # Fetch 1-minute data for last 15 minutes (short-term momentum)
+                    df_1min = await fetcher.fetch_historical_data(
+                        instrument_token=token,
+                        timeframe="minute",
+                        days=1,  # Just 1 day is enough for 15 minutes
+                    )
 
-            # Generate signal
-            engine = get_signal_engine(TradingStyle.INTRADAY)
-            signal = engine.analyze(df=df, option_chain=option_chain)
+                    # Fetch 10-minute data for last 1 hour (longer-term trend)
+                    df_10min = await fetcher.fetch_historical_data(
+                        instrument_token=token,
+                        timeframe="10minute",
+                        days=1,  # 1 day is enough for 1 hour
+                    )
 
-            # Prepare OHLCV data for AI
-            # Last 15 candles of 1-minute data
-            ohlcv_1min = []
-            if not df_1min.empty:
-                recent_1min = df_1min.tail(15)
-                for idx, row in recent_1min.iterrows():
-                    ohlcv_1min.append({
-                        "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
-                        "open": float(row.get("open", 0)),
-                        "high": float(row.get("high", 0)),
-                        "low": float(row.get("low", 0)),
-                        "close": float(row.get("close", 0)),
-                        "volume": int(row.get("volume", 0)),
-                    })
+                    # Get option chain
+                    chain_data = await fetcher.get_option_chain(index=trading_index.index)
+                    option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
 
-            # Last 6 candles of 10-minute data (1 hour)
-            ohlcv_10min = []
-            if not df_10min.empty:
-                recent_10min = df_10min.tail(6)
-                for idx, row in recent_10min.iterrows():
-                    ohlcv_10min.append({
-                        "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
-                        "open": float(row.get("open", 0)),
-                        "high": float(row.get("high", 0)),
-                        "low": float(row.get("low", 0)),
-                        "close": float(row.get("close", 0)),
-                        "volume": int(row.get("volume", 0)),
-                    })
+                    # Generate signal
+                    engine = get_signal_engine(TradingStyle.INTRADAY)
+                    signal = engine.analyze(df=df, option_chain=option_chain)
 
-            # Store in signal for AI context
-            if signal:
-                signal.ohlcv_1min = ohlcv_1min
-                signal.ohlcv_10min = ohlcv_10min
+                    # Prepare OHLCV data for AI
+                    # Last 15 candles of 1-minute data
+                    ohlcv_1min = []
+                    if not df_1min.empty:
+                        recent_1min = df_1min.tail(15)
+                        for idx, row in recent_1min.iterrows():
+                            ohlcv_1min.append({
+                                "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
+                                "open": float(row.get("open", 0)),
+                                "high": float(row.get("high", 0)),
+                                "low": float(row.get("low", 0)),
+                                "close": float(row.get("close", 0)),
+                                "volume": int(row.get("volume", 0)),
+                            })
 
-            if not signal or not signal.recommended_option:
-                return
+                    # Last 6 candles of 10-minute data (1 hour)
+                    ohlcv_10min = []
+                    if not df_10min.empty:
+                        recent_10min = df_10min.tail(6)
+                        for idx, row in recent_10min.iterrows():
+                            ohlcv_10min.append({
+                                "time": idx.strftime("%H:%M") if hasattr(idx, 'strftime') else str(idx),
+                                "open": float(row.get("open", 0)),
+                                "high": float(row.get("high", 0)),
+                                "low": float(row.get("low", 0)),
+                                "close": float(row.get("close", 0)),
+                                "volume": int(row.get("volume", 0)),
+                            })
 
-            # Skip if same signal as last time (avoid duplicate trades)
-            signal_id = f"{signal.direction}_{signal.recommended_option.strike}_{signal.recommended_option.ltp:.0f}"
-            if signal_id == self._last_signal_id:
-                # Same signal, skip unless 5 minutes passed
-                if self._last_signal_time and (datetime.now() - self._last_signal_time).seconds < 300:
-                    return
+                    # Store in signal for AI context
+                    if signal:
+                        signal.ohlcv_1min = ohlcv_1min
+                        signal.ohlcv_10min = ohlcv_10min
 
-            # Log signal
-            logger.info(f"AUTO-TRADE Signal: {signal.direction} @ {signal.recommended_option.strike} | LTP: {signal.recommended_option.ltp:.2f} | Confidence: {signal.confidence:.0f}%")
+                    if not signal or not signal.recommended_option:
+                        continue
 
-            # Execute paper trade (AI decision happens inside execute_signal_trade)
-            order = await paper.execute_signal_trade(signal, trading_index)
+                    # Skip if same signal as last time (avoid duplicate trades)
+                    signal_id = f"{signal.direction}_{signal.recommended_option.strike}_{signal.recommended_option.ltp:.0f}"
+                    if signal_id == self._last_signal_id:
+                        # Same signal, skip unless 5 minutes passed
+                        if self._last_signal_time and (datetime.now() - self._last_signal_time).seconds < 300:
+                            continue
 
-            if order:
-                self._last_signal_id = signal_id
-                self._last_signal_time = datetime.now()
-                logger.info(f"AUTO-TRADE Paper Executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
-            else:
-                logger.debug("AUTO-TRADE: Paper trade signal rejected by AI or other condition")
+                    # Log signal
+                    logger.info(f"AUTO-TRADE [{strategy}] Signal: {signal.direction} @ {signal.recommended_option.strike} | LTP: {signal.recommended_option.ltp:.2f} | Confidence: {signal.confidence:.0f}%")
 
-            # Also execute live trade if enabled
-            try:
-                from app.services.live_trading_manager import get_live_trading_manager
-                live_manager = get_live_trading_manager()
+                    # Execute paper trade
+                    order = await paper.execute_signal_trade(signal, trading_index, index_df=df)
 
-                if live_manager.is_live_mode:
-                    live_executed = await live_manager.execute_signal_trade(signal, trading_index.index)
-                    if live_executed:
+                    if order:
                         self._last_signal_id = signal_id
                         self._last_signal_time = datetime.now()
-                        logger.info(f"AUTO-TRADE Live Executed: Signal {signal.direction} | Strike: {signal.recommended_option.strike} | Price: {signal.recommended_option.ltp:.2f}")
+                        logger.info(f"AUTO-TRADE [{strategy}] Paper Executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
                     else:
-                        logger.debug("AUTO-TRADE: Live trade signal rejected")
-            except Exception as e:
-                logger.error(f"Live trading execution error: {e}")
+                        logger.debug(f"AUTO-TRADE [{strategy}]: Paper trade signal rejected by conditions")
+
+                except Exception as e:
+                    logger.error(f"Auto trade error for strategy {strategy}: {e}")
 
         except Exception as e:
             logger.error(f"Auto trade signal check error: {e}")
