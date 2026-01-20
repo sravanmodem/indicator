@@ -163,6 +163,11 @@ class ExpiryInfo:
     max_lots_per_order: int
 
 
+# Global expiry cache shared across all PaperTradingService instances
+_global_expiry_cache: dict[str, "ExpiryInfo"] = {}
+_global_cache_time: datetime | None = None
+
+
 class PaperTradingService:
     """
     Paper Trading Service for automatic signal-based trading.
@@ -277,6 +282,7 @@ class PaperTradingService:
         """
         Get next expiry date for an index.
         Uses cached data from Kite if available and less than 5 minutes old.
+        Falls back to global singleton cache if instance cache is empty.
 
         IMPORTANT: Cache must be populated first using refresh_expiry_cache().
         This is done automatically on app startup.
@@ -292,12 +298,25 @@ class PaperTradingService:
         """
         index = index.upper()
 
-        # Check cache first (valid for 5 minutes)
+        # Check instance cache first (valid for 5 minutes)
         if (
             self._expiry_cache_time
             and index in self._expiry_cache
             and (datetime.now() - self._expiry_cache_time).seconds < 300
         ):
+            return self._expiry_cache[index]
+
+        # Fallback to global singleton cache if available
+        from app.services.paper_trading import _global_expiry_cache, _global_cache_time
+        if (
+            _global_cache_time
+            and index in _global_expiry_cache
+            and (datetime.now() - _global_cache_time).seconds < 300
+        ):
+            # Copy to instance cache for future use
+            self._expiry_cache[index] = _global_expiry_cache[index]
+            self._expiry_cache_time = _global_cache_time
+            logger.debug(f"Using global expiry cache for {index}")
             return self._expiry_cache[index]
 
         # Cache miss - this means refresh_expiry_cache() was never called
@@ -341,9 +360,14 @@ class PaperTradingService:
                 max_lots_per_order=self.MAX_LOTS_PER_ORDER,
             )
 
-            # Cache the result
+            # Cache the result (both instance and global)
             self._expiry_cache[index] = expiry_info
             self._expiry_cache_time = datetime.now()
+
+            # Update global cache so other instances can use it
+            global _global_expiry_cache, _global_cache_time
+            _global_expiry_cache[index] = expiry_info
+            _global_cache_time = datetime.now()
 
             logger.info(f"Fetched expiry from Kite: {index} -> {expiry_data['expiry_date']} ({expiry_data['expiry_weekday']})")
 
