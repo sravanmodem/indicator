@@ -177,40 +177,46 @@ class SignalEngine:
                 reversal_score += 40
 
         # 2. ADX Collapse Detection (trend weakening = reversal zone)
-        if len(adx_data) >= 2:
-            curr_adx = adx_data.adx.iloc[-1]
-            prev_adx = adx_data.adx.iloc[-2]
+        if adx_data is not None and hasattr(adx_data, 'adx') and len(adx_data.adx) >= 2:
+            try:
+                curr_adx = adx_data.adx.iloc[-1]
+                prev_adx = adx_data.adx.iloc[-2]
 
-            # Strong trend weakening to weak = reversal signal
-            if prev_adx > 25 and curr_adx < 20:
-                reversal_reasons.append(f"ADX collapse ({prev_adx:.0f} → {curr_adx:.0f})")
-                reversal_score += 30
+                # Strong trend weakening to weak = reversal signal
+                if prev_adx > 25 and curr_adx < 20:
+                    reversal_reasons.append(f"ADX collapse ({prev_adx:.0f} → {curr_adx:.0f})")
+                    reversal_score += 30
 
-            # Already in weak trend zone
-            if curr_adx < 15:
-                reversal_reasons.append(f"Very weak trend (ADX {curr_adx:.0f} < 15)")
-                reversal_score += 15
+                # Already in weak trend zone
+                if curr_adx < 15:
+                    reversal_reasons.append(f"Very weak trend (ADX {curr_adx:.0f} < 15)")
+                    reversal_score += 15
+            except (IndexError, AttributeError):
+                pass
 
         # 3. RSI Exhaustion Detection (overbought/oversold = reversal zone)
-        if len(rsi_data) >= 2:
-            curr_rsi = rsi_data.rsi.iloc[-1]
-            prev_rsi = rsi_data.rsi.iloc[-2]
+        if rsi_data is not None and hasattr(rsi_data, 'rsi') and len(rsi_data.rsi) >= 2:
+            try:
+                curr_rsi = rsi_data.rsi.iloc[-1]
+                prev_rsi = rsi_data.rsi.iloc[-2]
 
-            # Overbought RSI
-            if curr_rsi > 75:
-                reversal_reasons.append(f"Overbought zone (RSI {curr_rsi:.1f} > 75)")
-                reversal_score += 25
+                # Overbought RSI
+                if curr_rsi > 75:
+                    reversal_reasons.append(f"Overbought zone (RSI {curr_rsi:.1f} > 75)")
+                    reversal_score += 25
 
-            # Oversold RSI
-            if curr_rsi < 25:
-                reversal_reasons.append(f"Oversold zone (RSI {curr_rsi:.1f} < 25)")
-                reversal_score += 25
+                # Oversold RSI
+                if curr_rsi < 25:
+                    reversal_reasons.append(f"Oversold zone (RSI {curr_rsi:.1f} < 25)")
+                    reversal_score += 25
 
-            # RSI divergence detection (already in signal, just note it)
-            if hasattr(rsi_data, 'divergence'):
-                if rsi_data.divergence.iloc[-1] != 0:
-                    reversal_reasons.append(f"RSI divergence detected")
-                    reversal_score += 20
+                # RSI divergence detection (already in signal, just note it)
+                if hasattr(rsi_data, 'divergence'):
+                    if rsi_data.divergence.iloc[-1] != 0:
+                        reversal_reasons.append(f"RSI divergence detected")
+                        reversal_score += 20
+            except (IndexError, AttributeError):
+                pass
 
         # 4. Price at Extremes (near daily high/low = reversal zone)
         if len(df) >= 20:
