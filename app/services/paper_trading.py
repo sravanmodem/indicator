@@ -742,8 +742,8 @@ class PaperTradingService:
 
         Strategy:
         1. Analyze last 30 minutes of index price movement
-        2. Don't enter when price moving opposite to signal
-        3. Wait for reversal confirmation (swing point)
+        2. For default strategy: wait for reversal confirmation
+        3. For aggressive strategies (5%, 15min, 20%, 100%): skip swing wait, always allow entry
         4. Use bid-ask spread and delta for precise entry/SL/target
 
         Args:
@@ -759,15 +759,20 @@ class PaperTradingService:
         entry_allowed = True
         entry_reason = ""
 
-        # Step 1: Swing Trading Analysis (wait for confirmation)
-        if index_df is not None and len(index_df) >= 6:
+        # Step 1: Swing Trading Analysis (only for default strategy - conservative)
+        if index_df is not None and len(index_df) >= 6 and self.strategy == "default":
             swing_analysis = self.analyze_swing_entry(index_df, signal_direction, ltp)
             entry_allowed = swing_analysis["entry_allowed"]
             entry_reason = swing_analysis["reason"]
 
             if not entry_allowed:
-                # Return early - don't enter yet
+                # Return early - don't enter yet (only for default strategy)
                 return ltp, 0, 0, False, entry_reason
+        elif index_df is not None and len(index_df) >= 6 and self.strategy != "default":
+            # For aggressive strategies, ignore swing wait - just log the analysis
+            swing_analysis = self.analyze_swing_entry(index_df, signal_direction, ltp)
+            entry_reason = swing_analysis["reason"] + " [Aggressive: ignoring swing wait]"
+            logger.debug(f"Swing analysis for {self.strategy}: {swing_analysis['reason']} - proceeding anyway")
 
         # Step 2: Calculate entry from option chain data
         if option_chain:
