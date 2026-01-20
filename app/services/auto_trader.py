@@ -61,8 +61,8 @@ class AutoTrader:
         self.settings = get_settings()
         self._running = False
         self._task: Optional[asyncio.Task] = None
-        self._last_signal_time: Optional[datetime] = None
-        self._last_signal_id: Optional[str] = None
+        # Track last signal PER STRATEGY (not global) to avoid cross-strategy blocking
+        self._last_signals: dict[str, tuple[str, datetime]] = {}  # {strategy: (signal_id, timestamp)}
         self._consecutive_errors = 0
         self._max_errors = 10
 
@@ -264,13 +264,15 @@ class AutoTrader:
                         logger.info(f"AUTO-TRADE [{strategy}]: No signal or recommended option")
                         continue
 
-                    # Skip if same signal as last time (avoid duplicate trades)
+                    # Skip if same signal as last time for THIS STRATEGY (avoid duplicate trades)
                     signal_id = f"{signal.direction}_{signal.recommended_option.strike}_{signal.recommended_option.ltp:.0f}"
-                    if signal_id == self._last_signal_id:
-                        # Same signal, skip unless 5 minutes passed
-                        if self._last_signal_time and (datetime.now() - self._last_signal_time).seconds < 300:
-                            logger.debug(f"AUTO-TRADE [{strategy}]: Same signal - duplicate skip")
-                            continue
+                    if strategy in self._last_signals:
+                        last_signal_id, last_signal_time = self._last_signals[strategy]
+                        if signal_id == last_signal_id:
+                            # Same signal, skip unless 5 minutes passed
+                            if (datetime.now() - last_signal_time).seconds < 300:
+                                logger.debug(f"AUTO-TRADE [{strategy}]: Same signal - duplicate skip")
+                                continue
 
                     # Log signal
                     logger.info(f"AUTO-TRADE [{strategy}] Signal: {signal.direction} @ {signal.recommended_option.strike} | LTP: {signal.recommended_option.ltp:.2f} | Confidence: {signal.confidence:.0f}%")
@@ -279,8 +281,8 @@ class AutoTrader:
                     order = await paper.execute_signal_trade(signal, trading_index, index_df=df)
 
                     if order:
-                        self._last_signal_id = signal_id
-                        self._last_signal_time = datetime.now()
+                        # Store signal per strategy
+                        self._last_signals[strategy] = (signal_id, datetime.now())
                         logger.info(f"AUTO-TRADE [{strategy}] SUCCESS: Executed {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
                     else:
                         logger.warning(f"AUTO-TRADE [{strategy}]: Trade REJECTED - check reversal, swing entry, or confidence levels")
