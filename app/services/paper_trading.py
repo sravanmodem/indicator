@@ -1542,8 +1542,13 @@ class PaperTradingService:
         self.order_history.append(history_entry)
 
         # Update daily stats with NET P&L (after broker charges)
-        # Keep current_capital fixed at starting_capital (no profit reinvestment)
+        # Capital logic: Keep fixed on profits, deduct losses for next trades
         self.daily_stats.realized_pnl += net_pnl
+
+        # Deduct losses from capital for next orders (but keep profits)
+        if net_pnl < 0:
+            self.daily_stats.current_capital += net_pnl  # Deduct loss (net_pnl is negative)
+            logger.info(f"Loss deducted from capital: ₹{net_pnl:.2f} | Remaining: ₹{self.daily_stats.current_capital:.2f}")
 
         if position.pnl > 0:
             self.daily_stats.winning_trades += 1
