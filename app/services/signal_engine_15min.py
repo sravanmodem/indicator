@@ -1,13 +1,20 @@
 """
 15-Minute Dedicated Signal Engine
-Generates high-confidence signals every 15 minutes for 5% profit targeting
+Generates ONE high-confidence signal per 15-minute boundary for 5% profit targeting
 
 Features:
-- Signals generated only at 15-minute intervals (9:30, 9:45, 10:00, 10:15, etc.)
+- ONE signal per 15-minute boundary (9:30-9:44, 9:45-9:59, 10:00-10:14, etc.)
+- Once signal generated in a boundary, LOCKED until next boundary
 - Requires 90% confidence minimum (waits if below 90%)
+- If confidence < 90%, skips entire boundary, tries next one
 - Targets 5% profit with aggressive entry
 - Only for 5_percent_15min strategy
-- Skip low confidence periods - try again next 15-min interval
+
+Execution Timeline:
+9:30:00-9:44:59 → Generate signal (if 90%+ confidence, execute) OR skip entire window
+9:45:00-9:59:59 → Generate NEW signal (if 90%+ confidence, execute) OR skip entire window
+10:00:00-10:14:59 → Generate NEW signal (if 90%+ confidence, execute) OR skip entire window
+etc.
 """
 
 import pandas as pd
