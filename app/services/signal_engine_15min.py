@@ -25,6 +25,7 @@ class SignalGeneration15Min:
     """Track signal generation timing for 15-minute strategy."""
     last_signal_time: Optional[datetime] = None
     last_signal_id: Optional[str] = None
+    last_signal_boundary: Optional[datetime] = None  # Track which 15-min boundary had a signal
     consecutive_low_confidence: int = 0  # Count of low confidence periods
     last_check_time: Optional[datetime] = None
 
@@ -90,19 +91,24 @@ class Signal15MinEngine:
         """
         Check if we should generate a signal now.
 
+        ONE signal per 15-minute boundary:
+        - 9:30-9:44:59 → Signal at boundary 9:30
+        - 9:45-9:59:59 → Signal at boundary 9:45
+        - 10:00-10:14:59 → Signal at boundary 10:00
+        - etc.
+
         Returns:
             (should_generate, reason)
         """
         current_boundary = self.get_current_15min_boundary(now)
 
-        # If we just generated a signal in this 15-min interval, skip
-        if self.signal_state.last_signal_time:
-            if (now - self.signal_state.last_signal_time).total_seconds() < 900:  # Less than 15 min
-                boundary_of_last_signal = self.get_current_15min_boundary(self.signal_state.last_signal_time)
-                if boundary_of_last_signal == current_boundary:
-                    return False, f"Already generated signal in this 15-min boundary ({current_boundary.strftime('%H:%M')})"
+        # If we already generated a signal in THIS boundary, skip
+        if self.signal_state.last_signal_boundary:
+            if self.signal_state.last_signal_boundary == current_boundary:
+                time_until_next = (current_boundary + timedelta(minutes=15) - now).total_seconds() / 60
+                return False, f"Already got signal for {current_boundary.strftime('%H:%M')} boundary. Next signal at {(current_boundary + timedelta(minutes=15)).strftime('%H:%M')} ({time_until_next:.0f} min)"
 
-        return True, f"15-min boundary at {current_boundary.strftime('%H:%M')}"
+        return True, f"Ready for signal at {current_boundary.strftime('%H:%M')} boundary"
 
     async def generate_signal(
         self,
@@ -167,9 +173,13 @@ class Signal15MinEngine:
         # Reset low confidence counter since we got a high confidence signal
         self.signal_state.consecutive_low_confidence = 0
 
-        # Store this signal as the last one
+        # Store this signal as the last one (track boundary for one-signal-per-boundary enforcement)
+        current_boundary = self.get_current_15min_boundary(now)
         self.signal_state.last_signal_time = now
+        self.signal_state.last_signal_boundary = current_boundary
         self.signal_state.last_signal_id = f"{signal.direction}_{signal.recommended_option.strike if signal.recommended_option else 'NA'}"
+
+        logger.info(f"15MIN: Signal locked for {current_boundary.strftime('%H:%M')} boundary. Next signal at {(current_boundary + timedelta(minutes=15)).strftime('%H:%M')}")
 
         return signal
 
