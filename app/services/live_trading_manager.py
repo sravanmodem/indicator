@@ -48,11 +48,11 @@ class LiveTradePosition:
 class LiveTradingManager:
     """
     Manages live trading with signal-based entry/exit logic.
-    Mirrors paper_trading_service with fixed_20_percent strategy.
+    Mirrors paper_trading_service with 5% daily profit strategy.
     """
 
     CONFIDENCE_THRESHOLD = 80.0  # Minimum confidence for entry
-    PROFIT_TARGET = 20.0  # Exit at 20% profit
+    PROFIT_TARGET = 5.0  # Exit at 5% daily profit and halt trading
     LOSS_LIMIT = 20.0  # Halt trading at 20% daily loss
     MARKET_CLOSE_HOUR = 15
     MARKET_CLOSE_MINUTE = 0
@@ -150,7 +150,7 @@ class LiveTradingManager:
             logger.info(f"Outside trading hours: {reason}")
             return False
 
-        # Check if trading is halted (20% profit or 20% loss reached)
+        # Check if trading is halted (5% profit or 20% loss reached)
         if self.check_daily_loss_limit():
             logger.warning(f"TRADE BLOCKED: {self.halt_reason}")
             return False
@@ -392,12 +392,14 @@ class LiveTradingManager:
                         f"P&L: {pnl_percent:+.1f}%"
                     )
 
-                # 3. Fixed 20% profit (halt trading)
+                # 3. Fixed 5% profit (halt trading)
                 if not should_exit and pnl_percent >= self.PROFIT_TARGET:
                     should_exit = True
-                    exit_reason = f"FIXED 20% PROFIT: {pnl_percent:+.1f}% reached"
+                    exit_reason = f"FIXED 5% PROFIT: {pnl_percent:+.1f}% reached"
                     # Mark for halt
                     tracked_pos.trading_halted = True
+                    self.is_trading_halted = True
+                    self.halt_reason = "5% daily profit target reached - No more trades today"
 
                 # 4. Market close force exit
                 now = datetime.now()
