@@ -1222,9 +1222,9 @@ class PaperTradingService:
                 logger.info("No new signal generated, proceeding with exit")
                 return False
 
-            # Check if signal confidence is above 70%
-            if signal.confidence < 70:
-                logger.info(f"New signal confidence {signal.confidence}% < 70%, proceeding with exit")
+            # Check if signal confidence is above 80%
+            if signal.confidence < 80:
+                logger.info(f"New signal confidence {signal.confidence}% < 80%, proceeding with exit")
                 return False
 
             # Check if signal direction matches current position
