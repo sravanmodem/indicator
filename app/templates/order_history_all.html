@@ -103,6 +103,42 @@
                     <span>Paper: 100% Halt</span>
                 </div>
             </button>
+
+            <!-- 5% Daily Tab -->
+            <button @click="activeTab = '5_percent_daily'"
+                    :class="activeTab === '5_percent_daily' ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-b-2 border-cyan-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                    </svg>
+                    <span>📊 5% Daily</span>
+                </div>
+            </button>
+
+            <!-- 5% Every 15-Min Tab -->
+            <button @click="activeTab = '5_percent_15min'"
+                    :class="activeTab === '5_percent_15min' ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white border-b-2 border-amber-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span>⏱️ 15-Min</span>
+                </div>
+            </button>
+
+            <!-- Expiry Day Tab -->
+            <button @click="activeTab = 'expiry_day'"
+                    :class="activeTab === 'expiry_day' ? 'bg-gradient-to-r from-rose-600 to-pink-600 text-white border-b-2 border-rose-400' : 'text-slate-400 hover:text-white hover:bg-surface-700/50'"
+                    class="flex-shrink-0 px-6 py-4 font-bold text-sm transition-all border-b-2 border-transparent">
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span>📅 Expiry Day</span>
+                </div>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -251,7 +287,10 @@ function orderHistory() {
             default: { history: [], summary: {} },
             fixed_20_percent: { history: [], summary: {} },
             trailing_stoploss: { history: [], summary: {} },
-            profit_100_halt: { history: [], summary: {} }
+            profit_100_halt: { history: [], summary: {} },
+            '5_percent_daily': { history: [], summary: {} },
+            '5_percent_15min': { history: [], summary: {} },
+            'expiry_day': { history: [], summary: {} }
         },
 
         get currentHistory() {

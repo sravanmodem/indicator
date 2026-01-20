@@ -3,10 +3,11 @@
 {% block title %}Order History - Options Pro{% endblock %}
 
 {% block content %}
-<div x-data="{ filterDays: 30 }">
+<div x-data="{ filterDays: 30, selectedStrategy: '5_percent_daily' }">
     <!-- Header -->
     <div class="glass rounded-2xl p-4 mb-6 bg-gradient-to-r from-surface-900/50 via-indigo-900/20 to-surface-900/50 border border-indigo-500/20">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <!-- Title Row -->
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
             <div class="flex items-center space-x-4">
                 <!-- Logo -->
                 <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
@@ -19,22 +20,53 @@
                     <p class="text-slate-400 text-sm">Track your paper trading performance</p>
                 </div>
             </div>
+        </div>
 
-            <!-- Filter -->
-            <div class="flex items-center space-x-2 bg-surface-800/80 rounded-xl p-1.5 border border-slate-700/50">
-                <button @click="filterDays = 7; loadHistory(7)"
-                        :class="filterDays === 7 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+        <!-- Tabs & Filters Row -->
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+            <!-- Strategy Tabs -->
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <button onclick="document.documentElement.__x.$data.selectedStrategy = '5_percent_daily'; loadHistory(document.documentElement.__x.$data.filterDays)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="selectedStrategy === '5_percent_daily' ? {backgroundImage: 'linear-gradient(to right, rgb(34 211 238), rgb(59 130 246))', color: 'white', boxShadow: '0 10px 15px -3px rgba(34 211 238 / 0.3)'} : {backgroundColor: 'rgba(51 65 85 / 0.5)', color: 'rgb(148 163 184)', border: '1px solid rgb(71 85 105 / 0.5)'}"
+                        class="hover:text-white">
+                    📊 5% Daily
+                </button>
+                <button onclick="document.documentElement.__x.$data.selectedStrategy = '5_percent_15min'; loadHistory(document.documentElement.__x.$data.filterDays)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="selectedStrategy === '5_percent_15min' ? {backgroundImage: 'linear-gradient(to right, rgb(217 119 6), rgb(234 88 12))', color: 'white', boxShadow: '0 10px 15px -3px rgba(217 119 6 / 0.3)'} : {backgroundColor: 'rgba(51 65 85 / 0.5)', color: 'rgb(148 163 184)', border: '1px solid rgb(71 85 105 / 0.5)'}"
+                        class="hover:text-white">
+                    ⏱️ 15-Min
+                </button>
+                <button onclick="document.documentElement.__x.$data.selectedStrategy = 'expiry_day'; loadHistory(document.documentElement.__x.$data.filterDays)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="selectedStrategy === 'expiry_day' ? {backgroundImage: 'linear-gradient(to right, rgb(225 29 72), rgb(236 72 153))', color: 'white', boxShadow: '0 10px 15px -3px rgba(225 29 72 / 0.3)'} : {backgroundColor: 'rgba(51 65 85 / 0.5)', color: 'rgb(148 163 184)', border: '1px solid rgb(71 85 105 / 0.5)'}"
+                        class="hover:text-white">
+                    📅 Expiry Day
+                </button>
+            </div>
+
+            <!-- Spacer -->
+            <div style="flex: 1;"></div>
+
+            <!-- Days Filter -->
+            <div style="display: flex; gap: 0.5rem; align-items: center; background-color: rgba(51 65 85 / 0.5); border-radius: 0.75rem; padding: 0.375rem; border: 1px solid rgb(71 85 105 / 0.5);">
+                <button onclick="document.documentElement.__x.$data.filterDays = 7; loadHistory(7)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="filterDays === 7 ? {backgroundImage: 'linear-gradient(to right, rgb(79 70 229), rgb(139 92 246))', color: 'white', boxShadow: '0 10px 15px -3px rgba(79 70 229 / 0.3)'} : {color: 'rgb(148 163 184)'}"
+                        class="hover:text-white">
                     7 Days
                 </button>
-                <button @click="filterDays = 30; loadHistory(30)"
-                        :class="filterDays === 30 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                <button onclick="document.documentElement.__x.$data.filterDays = 30; loadHistory(30)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="filterDays === 30 ? {backgroundImage: 'linear-gradient(to right, rgb(79 70 229), rgb(139 92 246))', color: 'white', boxShadow: '0 10px 15px -3px rgba(79 70 229 / 0.3)'} : {color: 'rgb(148 163 184)'}"
+                        class="hover:text-white">
                     30 Days
                 </button>
-                <button @click="filterDays = 90; loadHistory(90)"
-                        :class="filterDays === 90 ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'"
-                        class="px-4 py-2 rounded-lg font-bold text-sm transition-all">
+                <button onclick="document.documentElement.__x.$data.filterDays = 90; loadHistory(90)"
+                        style="padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; font-size: 0.875rem; transition: all 0.2s; border: none; cursor: pointer;"
+                        :style="filterDays === 90 ? {backgroundImage: 'linear-gradient(to right, rgb(79 70 229), rgb(139 92 246))', color: 'white', boxShadow: '0 10px 15px -3px rgba(79 70 229 / 0.3)'} : {color: 'rgb(148 163 184)'}"
+                        class="hover:text-white">
                     90 Days
                 </button>
             </div>
@@ -149,18 +181,18 @@
             </div>
             <div class="flex items-center space-x-3">
                 <span class="text-slate-500 text-xs">{{ history|length }} trades</span>
-                <a href="/paper/order-history/download?days=30"
+                <button @click="const strategy = document.querySelector('[x-model=\'selectedStrategy\']').value; window.location.href = '/paper/order-history/download?days=' + filterDays + '&strategy=' + strategy"
                    class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-bold transition-all flex items-center space-x-1">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     <span>Excel</span>
-                </a>
+                </button>
             </div>
         </div>
 
         <div id="history-table"
-             hx-get="/paper/htmx/order-history?days=30"
+             hx-get="/paper/htmx/order-history?days=30&strategy=5_percent_daily"
              hx-trigger="load"
              hx-swap="innerHTML">
             {% include "partials/paper_order_history.html" %}
@@ -172,7 +204,8 @@
 {% block scripts %}
 <script>
 function loadHistory(days) {
-    htmx.ajax('GET', '/paper/htmx/order-history?days=' + days, {target: '#history-table', swap: 'innerHTML'});
+    const strategy = document.querySelector('[x-model="selectedStrategy"]').value;
+    htmx.ajax('GET', '/paper/htmx/order-history?days=' + days + '&strategy=' + strategy, {target: '#history-table', swap: 'innerHTML'});
 }
 </script>
 {% endblock %}

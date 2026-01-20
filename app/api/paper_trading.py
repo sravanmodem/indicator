@@ -826,26 +826,9 @@ async def htmx_orders(request: Request, strategy: str = "default"):
 
 @router.get("/order-history", response_class=HTMLResponse)
 async def order_history_page(request: Request):
-    """Render order history page."""
-    auth = get_auth_service()
-
-    if not auth.is_authenticated:
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/")
-
-    paper = get_paper_trading_service()
-    history = paper.get_order_history(days=30)
-    summary = paper.get_order_history_summary()
-
-    return templates.TemplateResponse(
-        "order_history.html",
-        {
-            "request": request,
-            "user": auth.user_profile,
-            "history": history,
-            "summary": summary,
-        },
-    )
+    """Redirect to admin order history page."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/admin/order-history-all", status_code=302)
 
 
 @router.get("/order-history/data")
