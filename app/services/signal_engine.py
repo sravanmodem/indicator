@@ -533,8 +533,8 @@ class SignalEngine:
                 atr_factor = 1.3  # High volatility - wider SL
 
             # 2. Confidence Factor: Higher confidence = tighter SL
-            # 80%+ confidence = tight, 60-80% = normal, <60% = wide
-            if confidence >= 80:
+            # 70%+ confidence = tight, 60-70% = normal, <60% = wide
+            if confidence >= 70:
                 confidence_factor = 0.8  # High confidence - tighter SL
             elif confidence >= 60:
                 confidence_factor = 1.0  # Normal confidence

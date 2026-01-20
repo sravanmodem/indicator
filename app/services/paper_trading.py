@@ -1049,9 +1049,9 @@ class PaperTradingService:
             logger.warning(f"TRADE BLOCKED: No clear signal direction (got: {signal.direction})")
             return None
 
-        # Check confidence threshold (at least 80%)
-        if signal.confidence < 80:
-            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 80%+)")
+        # Check confidence threshold (at least 60%)
+        if signal.confidence < 60:
+            logger.warning(f"TRADE BLOCKED: Signal confidence too low: {signal.confidence}% (need 60%+)")
             return None
 
         # Get recommended option
@@ -1222,9 +1222,9 @@ class PaperTradingService:
                 logger.info("No new signal generated, proceeding with exit")
                 return False
 
-            # Check if signal confidence is above 80%
-            if signal.confidence < 80:
-                logger.info(f"New signal confidence {signal.confidence}% < 80%, proceeding with exit")
+            # Check if signal confidence is above 60%
+            if signal.confidence < 60:
+                logger.info(f"New signal confidence {signal.confidence}% < 60%, proceeding with exit")
                 return False
 
             # Check if signal direction matches current position
