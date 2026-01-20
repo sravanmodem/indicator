@@ -468,7 +468,8 @@ class PaperTradingService:
             Tuple of (total_lots, total_quantity, split_orders)
         """
         if available_capital is None:
-            available_capital = self.daily_stats.current_capital * self.MAX_CAPITAL_USE
+            # Use starting capital (fixed), not current capital (which changes with trades)
+            available_capital = self.daily_stats.starting_capital * self.MAX_CAPITAL_USE
 
         # Calculate max affordable lots
         cost_per_lot = price * lot_size
@@ -1157,9 +1158,8 @@ class PaperTradingService:
             initial_target=target,
         )
 
-        # Update capital
-        trade_value = quantity * opt.ltp
-        self.daily_stats.current_capital -= trade_value
+        # Keep current_capital fixed at starting_capital (no profit reinvestment)
+        # P&L is tracked separately in realized_pnl and total_pnl
         self.daily_stats.total_trades += 1
 
         # Add to lists
@@ -1542,8 +1542,8 @@ class PaperTradingService:
         self.order_history.append(history_entry)
 
         # Update daily stats with NET P&L (after broker charges)
+        # Keep current_capital fixed at starting_capital (no profit reinvestment)
         self.daily_stats.realized_pnl += net_pnl
-        self.daily_stats.current_capital += position.quantity * position.exit_price
 
         if position.pnl > 0:
             self.daily_stats.winning_trades += 1
