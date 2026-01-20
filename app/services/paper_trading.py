@@ -1076,13 +1076,15 @@ class PaperTradingService:
         logger.info("All pre-checks passed. Executing trade with swing entry analysis...")
 
         # Check for reversal signal - for default strategy only (conservative)
-        # For 5%, 20%, 100% strategies, we're more aggressive (skip reversal wait)
+        # For aggressive strategies (5%, 15min, 20%, 100%), skip reversal check entirely
         if signal.is_reversal_signal and self.strategy == "default":
             logger.info(f"REVERSAL SIGNAL DETECTED: {signal.reversal_reason}")
             logger.info("Waiting for reversal confirmation before entry...")
             return None
-        elif signal.is_reversal_signal:
-            logger.info(f"Reversal detected but strategy={self.strategy} - proceeding anyway for aggressive trading")
+
+        # Log if reversal detected on aggressive strategy (for debugging)
+        if signal.is_reversal_signal and self.strategy != "default":
+            logger.debug(f"Reversal detected on {self.strategy} but proceeding (aggressive strategy ignores reversals)")
 
         # Get option chain for smart entry calculation
         chain_data = await self.data_fetcher.get_option_chain(index=trading_index.index)
