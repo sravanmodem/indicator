@@ -173,13 +173,16 @@ class AutoTrader:
             for strategy in strategies_to_check:
                 try:
                     paper = PaperTradingService(strategy=strategy) if strategy != "default" else PaperTradingService()
+                    logger.info(f"AUTO-TRADE: Checking strategy [{strategy}] - auto_trade_enabled={paper.is_auto_trade}")
 
                     # Skip if auto-trade is disabled for this strategy
                     if not paper.is_auto_trade:
+                        logger.info(f"AUTO-TRADE: Skipping [{strategy}] - auto-trade disabled")
                         continue
 
                     # Skip if already have open position in this strategy
                     if paper.has_open_position():
+                        logger.info(f"AUTO-TRADE: Skipping [{strategy}] - has open position")
                         continue
 
                     # Get trading index
@@ -258,6 +261,7 @@ class AutoTrader:
                         signal.ohlcv_10min = ohlcv_10min
 
                     if not signal or not signal.recommended_option:
+                        logger.info(f"AUTO-TRADE [{strategy}]: No signal or recommended option")
                         continue
 
                     # Skip if same signal as last time (avoid duplicate trades)
@@ -265,6 +269,7 @@ class AutoTrader:
                     if signal_id == self._last_signal_id:
                         # Same signal, skip unless 5 minutes passed
                         if self._last_signal_time and (datetime.now() - self._last_signal_time).seconds < 300:
+                            logger.debug(f"AUTO-TRADE [{strategy}]: Same signal - duplicate skip")
                             continue
 
                     # Log signal
@@ -276,12 +281,12 @@ class AutoTrader:
                     if order:
                         self._last_signal_id = signal_id
                         self._last_signal_time = datetime.now()
-                        logger.info(f"AUTO-TRADE [{strategy}] Paper Executed: {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
+                        logger.info(f"AUTO-TRADE [{strategy}] SUCCESS: Executed {order.symbol} | Qty: {order.quantity} | Price: {order.price:.2f}")
                     else:
-                        logger.debug(f"AUTO-TRADE [{strategy}]: Paper trade signal rejected by conditions")
+                        logger.warning(f"AUTO-TRADE [{strategy}]: Trade REJECTED - check reversal, swing entry, or confidence levels")
 
                 except Exception as e:
-                    logger.error(f"Auto trade error for strategy {strategy}: {e}")
+                    logger.error(f"AUTO-TRADE error for strategy [{strategy}]: {type(e).__name__}: {e}", exc_info=True)
 
         except Exception as e:
             logger.error(f"Auto trade signal check error: {e}")
