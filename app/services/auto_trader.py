@@ -167,6 +167,14 @@ class AutoTrader:
 
             fetcher = get_data_fetcher()
 
+            # Pre-refresh expiry cache for all strategies (share cache across instances)
+            # This ensures expiry data is available before any strategy tries to use it
+            try:
+                default_paper = PaperTradingService()
+                await default_paper.refresh_expiry_cache()
+            except Exception as cache_err:
+                logger.warning(f"Failed to refresh expiry cache: {cache_err}")
+
             # Check signals for all strategies
             strategies_to_check = ["default", "5_percent_daily", "5_percent_15min", "fixed_20_percent", "profit_100_halt"]
 
@@ -185,8 +193,12 @@ class AutoTrader:
                         logger.info(f"AUTO-TRADE: Skipping [{strategy}] - has open position")
                         continue
 
-                    # Get trading index
-                    trading_index = paper.get_trading_index()
+                    # Get trading index (use async version to ensure cache is populated)
+                    try:
+                        trading_index = await paper.get_next_expiry_async(paper.trading_index)
+                    except Exception as expiry_err:
+                        logger.warning(f"Failed to get expiry for {strategy}: {expiry_err}")
+                        trading_index = paper.get_trading_index()
                     tokens = {
                         "NIFTY": NIFTY_INDEX_TOKEN,
                         "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,

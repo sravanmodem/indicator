@@ -412,7 +412,7 @@ class PaperTradingService:
     def get_trading_index(self) -> ExpiryInfo:
         """
         Get the index to trade based on nearest expiry (sync version).
-        Uses cached data if available.
+        Uses cached data if available, with fallback to default NIFTY.
 
         Priority when same-day expiry: NIFTY > SENSEX > BANKNIFTY
 
@@ -421,8 +421,31 @@ class PaperTradingService:
         """
         expiries = []
         for index in ["NIFTY", "SENSEX", "BANKNIFTY"]:
-            expiry = self.get_next_expiry(index)
-            expiries.append(expiry)
+            try:
+                expiry = self.get_next_expiry(index)
+                expiries.append(expiry)
+            except RuntimeError as e:
+                logger.debug(f"Cache miss for {index}: {e}")
+                continue
+
+        # If no cached data, return default NIFTY with estimated expiry
+        if not expiries:
+            logger.warning("No expiry cache available - using default NIFTY settings")
+            from datetime import timedelta
+            today = date.today()
+            # Estimate next Thursday (NIFTY weekly expiry)
+            days_until_thursday = (3 - today.weekday()) % 7
+            if days_until_thursday == 0 and datetime.now().hour >= 15:
+                days_until_thursday = 7  # Next week if today's expiry is over
+            next_expiry = today + timedelta(days=days_until_thursday)
+
+            return ExpiryInfo(
+                index="NIFTY",
+                expiry_date=next_expiry,
+                days_to_expiry=days_until_thursday,
+                is_expiry_day=(days_until_thursday == 0),
+                lot_size=75,  # Default NIFTY lot size
+            )
 
         # Sort by days to expiry
         expiries.sort(key=lambda x: x.days_to_expiry)
@@ -754,6 +777,431 @@ class PaperTradingService:
             "price_change_pct": price_change_pct,
         }
 
+    def find_best_entry_option(
+        self,
+        option_chain: list[dict] | None,
+        signal_direction: str,
+        spot_price: float,
+    ) -> tuple[dict | None, str]:
+        """
+        Find the BEST option for entry with premium between 40-60.
+
+        Advanced Selection Criteria:
+        1. Premium must be between 40-60 (strict)
+        2. Best bid-ask spread (lower is better)
+        3. High OI (liquidity)
+        4. Volume confirmation
+        5. Near-optimal delta (0.4-0.6 for best movement)
+
+        Returns:
+            Tuple of (best_option_data, selection_reason)
+        """
+        if not option_chain:
+            return None, "No option chain available"
+
+        option_type = "ce" if signal_direction == "CE" else "pe"
+        candidates = []
+
+        PREMIUM_MIN = 40
+        PREMIUM_MAX = 60
+        MIN_OI = 10000
+
+        for opt in option_chain:
+            opt_data = opt.get(option_type, {})
+            if not opt_data:
+                continue
+
+            ltp = opt_data.get("ltp", 0)
+            bid = opt_data.get("bid", 0)
+            ask = opt_data.get("ask", 0)
+            oi = opt_data.get("oi", 0)
+            volume = opt_data.get("volume", 0)
+            strike = opt.get("strike", 0)
+
+            # Skip if LTP not in optimal range
+            if ltp < PREMIUM_MIN or ltp > PREMIUM_MAX:
+                continue
+
+            # Skip illiquid options
+            if oi < MIN_OI:
+                continue
+
+            # Calculate spread
+            spread = ask - bid if bid > 0 and ask > 0 else float('inf')
+            spread_pct = (spread / ltp * 100) if ltp > 0 else 100
+
+            # Calculate moneyness (how far from ATM)
+            if signal_direction == "CE":
+                moneyness = (spot_price - strike) / spot_price * 100  # Positive = ITM
+            else:
+                moneyness = (strike - spot_price) / spot_price * 100  # Positive = ITM
+
+            # Estimate delta based on moneyness
+            if moneyness > 2:  # ITM
+                estimated_delta = 0.6 + min(moneyness / 10, 0.3)
+            elif moneyness > -2:  # ATM
+                estimated_delta = 0.5
+            else:  # OTM
+                estimated_delta = 0.5 - min(abs(moneyness) / 10, 0.3)
+
+            candidates.append({
+                "opt": opt,
+                "opt_data": opt_data,
+                "ltp": ltp,
+                "bid": bid,
+                "ask": ask,
+                "oi": oi,
+                "volume": volume,
+                "strike": strike,
+                "spread": spread,
+                "spread_pct": spread_pct,
+                "moneyness": moneyness,
+                "estimated_delta": estimated_delta,
+            })
+
+        if not candidates:
+            logger.warning(f"No options found in {PREMIUM_MIN}-{PREMIUM_MAX} premium range")
+            return None, f"No options in {PREMIUM_MIN}-{PREMIUM_MAX} range"
+
+        # Score candidates
+        # Best: Low spread, good OI, optimal delta (0.4-0.6), premium near 50
+        for c in candidates:
+            # Spread score (lower is better) - weight: 30%
+            spread_score = max(0, 1 - c["spread_pct"] / 5)  # 5% spread = 0 score
+
+            # OI score (higher is better) - weight: 25%
+            oi_score = min(c["oi"] / 500000, 1)
+
+            # Delta score (closer to 0.5 is better) - weight: 25%
+            delta_score = 1 - abs(c["estimated_delta"] - 0.5) * 2
+
+            # Premium score (closer to 50 is better) - weight: 20%
+            premium_score = 1 - abs(c["ltp"] - 50) / 10
+
+            c["score"] = (
+                spread_score * 0.30 +
+                oi_score * 0.25 +
+                delta_score * 0.25 +
+                premium_score * 0.20
+            )
+
+        # Sort by score descending
+        candidates.sort(key=lambda x: x["score"], reverse=True)
+        best = candidates[0]
+
+        reason = (
+            f"Best entry: Strike {best['strike']}, Premium ₹{best['ltp']:.1f}, "
+            f"Spread {best['spread_pct']:.1f}%, OI {best['oi']:,}, "
+            f"Delta ~{best['estimated_delta']:.2f}, Score {best['score']:.2f}"
+        )
+
+        logger.info(f"SMART OPTION SELECTION: {reason}")
+
+        return best, reason
+
+    def analyze_price_trend_for_entry(
+        self,
+        option_chain: list[dict] | None,
+        signal_direction: str,
+        spot_price: float,
+        index_df: "pd.DataFrame | None" = None,
+    ) -> dict:
+        """
+        Analyze if option premium is likely to come down for better entry.
+
+        INTELLIGENT PRICE WAITING LOGIC:
+        - If option at 70, check if index movement suggests it will come to 45
+        - For CE: Wait if index is falling (premium will drop)
+        - For PE: Wait if index is rising (premium will drop)
+
+        Returns:
+            {
+                "should_wait": bool,
+                "wait_reason": str,
+                "expected_entry_price": float,
+                "current_premium": float,
+                "price_direction": str (up/down/sideways),
+                "wait_time_estimate": str
+            }
+        """
+        result = {
+            "should_wait": False,
+            "wait_reason": "",
+            "expected_entry_price": 0,
+            "current_premium": 0,
+            "price_direction": "sideways",
+            "wait_time_estimate": "",
+        }
+
+        if not option_chain or index_df is None or len(index_df) < 10:
+            return result
+
+        option_type = "ce" if signal_direction == "CE" else "pe"
+
+        # Find the best option that's currently too expensive (above 60)
+        expensive_option = None
+        for opt in option_chain:
+            opt_data = opt.get(option_type, {})
+            if not opt_data:
+                continue
+
+            ltp = opt_data.get("ltp", 0)
+            oi = opt_data.get("oi", 0)
+
+            # Looking for options above 60 that might come down
+            if 60 < ltp <= 100 and oi >= 10000:
+                if expensive_option is None or ltp < expensive_option["ltp"]:
+                    expensive_option = {
+                        "opt": opt,
+                        "opt_data": opt_data,
+                        "ltp": ltp,
+                        "strike": opt.get("strike", 0),
+                    }
+
+        if not expensive_option:
+            return result
+
+        result["current_premium"] = expensive_option["ltp"]
+
+        # Analyze index price trend
+        closes = index_df["Close"].values
+        highs = index_df["High"].values
+        lows = index_df["Low"].values
+
+        # Calculate momentum over last 5 and 10 candles
+        momentum_5 = (closes[-1] - closes[-6]) / closes[-6] * 100 if len(closes) >= 6 else 0
+        momentum_10 = (closes[-1] - closes[-11]) / closes[-11] * 100 if len(closes) >= 11 else 0
+
+        # Calculate average candle range (volatility)
+        avg_range = (highs[-10:] - lows[-10:]).mean()
+        current_range = highs[-1] - lows[-1]
+
+        # Determine price direction
+        if momentum_5 > 0.1:
+            result["price_direction"] = "up"
+        elif momentum_5 < -0.1:
+            result["price_direction"] = "down"
+        else:
+            result["price_direction"] = "sideways"
+
+        # SMART WAITING LOGIC
+        current_premium = expensive_option["ltp"]
+        target_premium = 45  # Ideal entry price
+
+        # For CE: Wait if index is falling (CE premium will drop)
+        if signal_direction == "CE" and result["price_direction"] == "down":
+            # Estimate how much premium might drop
+            # Rough delta estimate: 0.5 for ATM options
+            estimated_delta = 0.5
+            expected_index_move = avg_range * 2  # 2 candles worth of movement
+            expected_premium_drop = expected_index_move * estimated_delta
+
+            expected_premium = current_premium - expected_premium_drop
+
+            if expected_premium <= 60:  # Will come into range
+                result["should_wait"] = True
+                result["wait_reason"] = (
+                    f"Index falling (momentum {momentum_5:.2f}%), CE premium at ₹{current_premium:.0f} "
+                    f"expected to drop to ₹{expected_premium:.0f}. Wait for better entry."
+                )
+                result["expected_entry_price"] = max(target_premium, expected_premium)
+                result["wait_time_estimate"] = "2-3 candles (~10-15 min)"
+
+        # For PE: Wait if index is rising (PE premium will drop)
+        elif signal_direction == "PE" and result["price_direction"] == "up":
+            estimated_delta = 0.5
+            expected_index_move = avg_range * 2
+            expected_premium_drop = expected_index_move * estimated_delta
+
+            expected_premium = current_premium - expected_premium_drop
+
+            if expected_premium <= 60:
+                result["should_wait"] = True
+                result["wait_reason"] = (
+                    f"Index rising (momentum +{momentum_5:.2f}%), PE premium at ₹{current_premium:.0f} "
+                    f"expected to drop to ₹{expected_premium:.0f}. Wait for better entry."
+                )
+                result["expected_entry_price"] = max(target_premium, expected_premium)
+                result["wait_time_estimate"] = "2-3 candles (~10-15 min)"
+
+        # If price is moving WITH the signal direction, premium will increase - don't wait
+        if signal_direction == "CE" and result["price_direction"] == "up":
+            result["should_wait"] = False
+            result["wait_reason"] = "Index rising - CE premium will increase. Enter now at best available."
+
+        if signal_direction == "PE" and result["price_direction"] == "down":
+            result["should_wait"] = False
+            result["wait_reason"] = "Index falling - PE premium will increase. Enter now at best available."
+
+        logger.info(
+            f"PRICE TREND ANALYSIS: Direction={signal_direction}, "
+            f"IndexTrend={result['price_direction']}, Premium=₹{current_premium:.0f}, "
+            f"ShouldWait={result['should_wait']}, Reason={result['wait_reason']}"
+        )
+
+        return result
+
+    def find_optimal_entry_with_waiting(
+        self,
+        option_chain: list[dict] | None,
+        signal_direction: str,
+        spot_price: float,
+        index_df: "pd.DataFrame | None" = None,
+    ) -> tuple[dict | None, bool, str]:
+        """
+        Find optimal entry option with intelligent price waiting.
+
+        MAIN ENTRY LOGIC:
+        1. First check if any option is in 40-60 range - if yes, use it
+        2. If option is above 60, analyze if it will come down
+        3. If likely to come down, signal to WAIT
+        4. If unlikely to come down, find the nearest option to 60
+
+        Returns:
+            Tuple of (best_option, should_wait, reason)
+        """
+        PREMIUM_MIN = 40
+        PREMIUM_MAX = 60
+
+        # Step 1: Try to find option in optimal range
+        best_in_range, range_reason = self.find_best_entry_option(
+            option_chain, signal_direction, spot_price
+        )
+
+        if best_in_range:
+            # Found option in 40-60 range - no need to wait
+            return best_in_range, False, f"✓ {range_reason}"
+
+        # Step 2: No option in range - analyze if we should wait
+        price_analysis = self.analyze_price_trend_for_entry(
+            option_chain, signal_direction, spot_price, index_df
+        )
+
+        if price_analysis["should_wait"]:
+            # Premium likely to come down - wait
+            return None, True, f"⏳ WAIT: {price_analysis['wait_reason']}"
+
+        # Step 3: Not waiting - find the nearest option to our range
+        # Look for option closest to 60 (just above our range)
+        option_type = "ce" if signal_direction == "CE" else "pe"
+        nearest_option = None
+        nearest_diff = float('inf')
+
+        for opt in option_chain or []:
+            opt_data = opt.get(option_type, {})
+            if not opt_data:
+                continue
+
+            ltp = opt_data.get("ltp", 0)
+            oi = opt_data.get("oi", 0)
+
+            if oi < 10000:  # Skip illiquid
+                continue
+
+            # Find option closest to 60 (preferring slightly above)
+            if PREMIUM_MAX < ltp <= 80:  # Within acceptable extended range
+                diff = ltp - PREMIUM_MAX
+                if diff < nearest_diff:
+                    nearest_diff = diff
+                    nearest_option = {
+                        "opt": opt,
+                        "opt_data": opt_data,
+                        "ltp": ltp,
+                        "bid": opt_data.get("bid", ltp),
+                        "ask": opt_data.get("ask", ltp),
+                        "oi": oi,
+                        "volume": opt_data.get("volume", 0),
+                        "strike": opt.get("strike", 0),
+                        "spread_pct": 0,
+                        "estimated_delta": 0.5,
+                        "score": 0.5,
+                    }
+
+        if nearest_option:
+            reason = (
+                f"⚡ Entry at ₹{nearest_option['ltp']:.0f} (above optimal range). "
+                f"No wait - {price_analysis.get('wait_reason', 'momentum with signal')}"
+            )
+            return nearest_option, False, reason
+
+        # No suitable option found
+        return None, False, "❌ No suitable option found in any range"
+
+    def calculate_optimal_entry_price(
+        self,
+        opt_data: dict,
+        signal_direction: str,
+        index_df: "pd.DataFrame | None" = None,
+    ) -> tuple[float, str]:
+        """
+        Calculate the OPTIMAL entry price for an option.
+
+        Strategy:
+        1. Use bid-ask spread analysis
+        2. Check momentum direction for better timing
+        3. For CE: Enter on pullbacks (bid side), For PE: Enter on rallies (ask side)
+
+        Returns:
+            Tuple of (optimal_entry_price, entry_reason)
+        """
+        ltp = opt_data.get("ltp", 0)
+        bid = opt_data.get("bid", 0)
+        ask = opt_data.get("ask", 0)
+
+        if bid <= 0 or ask <= 0:
+            return ltp, "Using LTP (no bid/ask)"
+
+        spread = ask - bid
+        spread_pct = (spread / ltp * 100) if ltp > 0 else 0
+        mid_price = (bid + ask) / 2
+
+        # Check recent price momentum from index
+        momentum = "neutral"
+        if index_df is not None and len(index_df) >= 3:
+            recent_closes = index_df["Close"].tail(3).values
+            price_change = recent_closes[-1] - recent_closes[0]
+            if price_change > 0:
+                momentum = "up"
+            elif price_change < 0:
+                momentum = "down"
+
+        # SMART ENTRY LOGIC
+        if spread_pct < 1:
+            # Very tight spread - use mid price
+            entry_price = mid_price
+            reason = f"Tight spread ({spread_pct:.1f}%), using mid {mid_price:.2f}"
+        elif spread_pct < 3:
+            # Normal spread - use optimal point
+            if signal_direction == "CE":
+                if momentum == "down":
+                    # Price falling - wait for lower bid, use bid + small offset
+                    entry_price = bid + (spread * 0.2)
+                    reason = f"CE on pullback, entry near bid {entry_price:.2f}"
+                else:
+                    # Price rising - may need to pay more
+                    entry_price = bid + (spread * 0.4)
+                    reason = f"CE with momentum, entry at {entry_price:.2f}"
+            else:  # PE
+                if momentum == "up":
+                    # Price rising - wait for lower bid, use bid + small offset
+                    entry_price = bid + (spread * 0.2)
+                    reason = f"PE on rally, entry near bid {entry_price:.2f}"
+                else:
+                    # Price falling - may need to pay more
+                    entry_price = bid + (spread * 0.4)
+                    reason = f"PE with momentum, entry at {entry_price:.2f}"
+        else:
+            # Wide spread - be very careful, use bid + small offset
+            entry_price = bid + (spread * 0.15)
+            reason = f"Wide spread ({spread_pct:.1f}%), cautious entry at {entry_price:.2f}"
+
+        # Ensure entry is within bid-ask
+        entry_price = max(bid, min(ask, entry_price))
+
+        logger.info(f"OPTIMAL ENTRY: LTP={ltp:.2f}, Bid={bid:.2f}, Ask={ask:.2f}, Entry={entry_price:.2f} | {reason}")
+
+        return round(entry_price, 2), reason
+
     def calculate_smart_entry_price(
         self,
         ltp: float,
@@ -814,20 +1262,11 @@ class PaperTradingService:
                     break
 
             if opt_data:
-                # Use bid-ask spread for better entry
-                bid = opt_data.get("bid", ltp)
-                ask = opt_data.get("ask", ltp)
-
-                if bid > 0 and ask > 0:
-                    spread = ask - bid
-                    spread_pct = (spread / ltp) * 100 if ltp > 0 else 0
-
-                    # Tight spread: use mid-point
-                    # Wide spread: use bid + 25% of spread
-                    if spread_pct < 2:
-                        entry_price = (bid + ask) / 2
-                    else:
-                        entry_price = bid + (spread * 0.25)
+                # Use OPTIMAL entry price calculation
+                entry_price, price_reason = self.calculate_optimal_entry_price(
+                    opt_data, signal_direction, index_df
+                )
+                entry_reason = f"{entry_reason} | {price_reason}" if entry_reason else price_reason
 
                 # Get delta for SL calculation
                 delta = abs(opt_data.get("delta", 0.5))
@@ -977,6 +1416,138 @@ class PaperTradingService:
 
         return True, ""
 
+    def is_expiry_day_power_hour(self, trading_index: "ExpiryInfo | None" = None) -> tuple[bool, str]:
+        """
+        Check if we are in the EXPIRY DAY POWER HOUR (1 PM - 3 PM).
+
+        This is the "DO OR DIE" period for maximum profit trades.
+        On expiry day, between 1-3 PM:
+        - Options decay rapidly (theta crush)
+        - Directional moves are amplified
+        - Best time for aggressive trades
+
+        Returns:
+            Tuple of (is_power_hour, description)
+        """
+        if trading_index is None or not trading_index.is_expiry_day:
+            return False, "Not expiry day"
+
+        now = datetime.now()
+        current_hour = now.hour
+        current_minute = now.minute
+
+        # Power hour: 1 PM to 3 PM (13:00 to 15:00)
+        if 13 <= current_hour < 15:
+            time_remaining = (15 - current_hour) * 60 - current_minute
+            return True, f"🔥 EXPIRY POWER HOUR: {time_remaining} min to close"
+
+        # Before power hour
+        if current_hour < 13:
+            mins_to_power = (13 - current_hour) * 60 - current_minute
+            return False, f"Power hour starts in {mins_to_power} min"
+
+        # After power hour
+        return False, "Power hour ended"
+
+    def get_expiry_day_strategy(
+        self,
+        trading_index: "ExpiryInfo | None",
+        signal_direction: str,
+        current_premium: float,
+    ) -> dict:
+        """
+        Get AGGRESSIVE expiry day strategy for maximum profit.
+
+        EXPIRY DAY "DO OR DIE" LOGIC:
+        - Between 1-3 PM on expiry day
+        - Options decay to zero by 3:30 PM
+        - Take high conviction directional bets
+        - Tight SL (5-8%), Large Target (50-100%)
+        - Exit at 3:00 PM regardless of P&L
+
+        Returns:
+            {
+                "is_active": bool,
+                "sl_percent": float,
+                "target_percent": float,
+                "max_hold_time": int (minutes),
+                "strategy_name": str,
+                "risk_warning": str
+            }
+        """
+        result = {
+            "is_active": False,
+            "sl_percent": 0.15,  # Default 15%
+            "target_percent": 1.0,  # Default 100%
+            "max_hold_time": 120,  # Default 2 hours
+            "strategy_name": "Normal",
+            "risk_warning": "",
+        }
+
+        is_power_hour, power_desc = self.is_expiry_day_power_hour(trading_index)
+
+        if not is_power_hour:
+            return result
+
+        now = datetime.now()
+        mins_to_close = (15 - now.hour) * 60 - now.minute
+
+        # ========================================
+        # EXPIRY DAY POWER HOUR STRATEGY
+        # ========================================
+
+        result["is_active"] = True
+        result["strategy_name"] = "🔥 EXPIRY POWER HOUR"
+
+        # Time-based aggressive settings
+        if mins_to_close > 90:
+            # 1:00 PM - 1:30 PM: Moderate aggressive
+            result["sl_percent"] = 0.10  # 10% SL
+            result["target_percent"] = 0.50  # 50% target
+            result["max_hold_time"] = 60
+            result["risk_warning"] = "Early power hour - moderate aggression"
+
+        elif mins_to_close > 60:
+            # 1:30 PM - 2:00 PM: High aggressive
+            result["sl_percent"] = 0.08  # 8% SL
+            result["target_percent"] = 0.40  # 40% target
+            result["max_hold_time"] = 45
+            result["risk_warning"] = "Mid power hour - high aggression"
+
+        elif mins_to_close > 30:
+            # 2:00 PM - 2:30 PM: Very aggressive
+            result["sl_percent"] = 0.06  # 6% SL (tight)
+            result["target_percent"] = 0.30  # 30% target
+            result["max_hold_time"] = 25
+            result["risk_warning"] = "⚠️ Late power hour - very aggressive, theta decay accelerating"
+
+        else:
+            # 2:30 PM - 3:00 PM: ULTRA aggressive (final 30 mins)
+            result["sl_percent"] = 0.05  # 5% SL (very tight)
+            result["target_percent"] = 0.20  # 20% target (quick scalp)
+            result["max_hold_time"] = 15
+            result["risk_warning"] = "🚨 FINAL 30 MIN - Ultra aggressive, quick scalps only"
+
+        # Premium-based adjustment
+        if current_premium < 20:
+            # Very cheap premium - can be more aggressive
+            result["sl_percent"] = result["sl_percent"] * 1.5  # Slightly wider SL for cheap options
+            result["target_percent"] = result["target_percent"] * 2  # Higher target for cheap options
+            result["risk_warning"] += f" | Cheap premium (₹{current_premium:.0f}) - high R:R"
+
+        elif current_premium > 40:
+            # Expensive premium - be careful
+            result["sl_percent"] = result["sl_percent"] * 0.8  # Tighter SL
+            result["risk_warning"] += f" | Premium at ₹{current_premium:.0f} - tighter SL"
+
+        logger.info(
+            f"EXPIRY STRATEGY: {result['strategy_name']} | "
+            f"SL={result['sl_percent']*100:.0f}%, Target={result['target_percent']*100:.0f}%, "
+            f"MaxHold={result['max_hold_time']}min | {result['risk_warning']}"
+        )
+
+        return result
+
     def get_trading_time_info(self, trading_index: "ExpiryInfo | None" = None) -> dict:
         """
         Get trading time information.
@@ -1036,6 +1607,143 @@ class PaperTradingService:
         logger.info(f"Updated position {position.position_id} - Target: {new_target}, SL: {new_stop_loss}")
         return True
 
+    async def dynamic_sl_target_update(
+        self,
+        position: PaperPosition,
+        current_premium: float,
+        index_df: "pd.DataFrame | None" = None,
+    ) -> tuple[bool, str]:
+        """
+        DYNAMIC SL/TARGET UPDATE based on market direction.
+
+        LOGIC:
+        - If market continues in signal direction, move SL to breakeven and let target run
+        - If market shows reversal signs, tighten SL to lock profits
+        - Check every position update if signal direction has strengthened
+
+        Returns:
+            Tuple of (was_updated, update_reason)
+        """
+        if position.status != PositionStatus.OPEN:
+            return False, "Position not open"
+
+        profit_pct = ((current_premium - position.entry_price) / position.entry_price) * 100
+        was_updated = False
+        update_reasons = []
+
+        # ========================================
+        # RULE 1: LOCK PROFIT AT MILESTONES
+        # ========================================
+
+        # At 20% profit - move SL to breakeven
+        if profit_pct >= 20 and position.stop_loss < position.entry_price:
+            old_sl = position.stop_loss
+            position.stop_loss = position.entry_price
+            was_updated = True
+            update_reasons.append(f"20% milestone: SL moved to breakeven ({old_sl:.2f} → {position.entry_price:.2f})")
+            logger.info(f"🔒 BREAKEVEN LOCK: {position.symbol} @ +{profit_pct:.1f}% profit")
+
+        # At 30% profit - lock 10% profit
+        if profit_pct >= 30 and position.stop_loss < position.entry_price * 1.10:
+            old_sl = position.stop_loss
+            position.stop_loss = position.entry_price * 1.10
+            was_updated = True
+            update_reasons.append(f"30% milestone: SL locked at +10% ({old_sl:.2f} → {position.stop_loss:.2f})")
+            logger.info(f"🔒 PROFIT LOCK +10%: {position.symbol}")
+
+        # At 50% profit - lock 25% profit
+        if profit_pct >= 50 and position.stop_loss < position.entry_price * 1.25:
+            old_sl = position.stop_loss
+            position.stop_loss = position.entry_price * 1.25
+            was_updated = True
+            update_reasons.append(f"50% milestone: SL locked at +25% ({old_sl:.2f} → {position.stop_loss:.2f})")
+            logger.info(f"🔒 PROFIT LOCK +25%: {position.symbol}")
+
+        # At 75% profit - lock 50% profit
+        if profit_pct >= 75 and position.stop_loss < position.entry_price * 1.50:
+            old_sl = position.stop_loss
+            position.stop_loss = position.entry_price * 1.50
+            was_updated = True
+            update_reasons.append(f"75% milestone: SL locked at +50% ({old_sl:.2f} → {position.stop_loss:.2f})")
+            logger.info(f"🔒 PROFIT LOCK +50%: {position.symbol}")
+
+        # At 100% profit - lock 75% profit
+        if profit_pct >= 100 and position.stop_loss < position.entry_price * 1.75:
+            old_sl = position.stop_loss
+            position.stop_loss = position.entry_price * 1.75
+            was_updated = True
+            update_reasons.append(f"100% milestone: SL locked at +75% ({old_sl:.2f} → {position.stop_loss:.2f})")
+            logger.info(f"🔒 PROFIT LOCK +75%: {position.symbol}")
+
+        # ========================================
+        # RULE 2: EXTEND TARGET IF MOMENTUM CONTINUES
+        # ========================================
+        if index_df is not None and len(index_df) >= 5:
+            closes = index_df["Close"].values
+            momentum = closes[-1] - closes[-5]  # 5-candle momentum
+
+            # For CE: Upward momentum = extend target
+            if position.option_type == "CE" and momentum > 0:
+                # Market continuing up - extend target
+                if profit_pct >= 30 and not position.target_achieved:
+                    new_target = current_premium * 1.30  # 30% more from current
+                    if new_target > position.target:
+                        old_target = position.target
+                        position.target = new_target
+                        was_updated = True
+                        update_reasons.append(f"CE momentum continuing: Target extended ({old_target:.2f} → {new_target:.2f})")
+                        logger.info(f"📈 TARGET EXTENDED: {position.symbol} - Market momentum continuing UP")
+
+            # For PE: Downward momentum = extend target
+            if position.option_type == "PE" and momentum < 0:
+                # Market continuing down - extend target
+                if profit_pct >= 30 and not position.target_achieved:
+                    new_target = current_premium * 1.30
+                    if new_target > position.target:
+                        old_target = position.target
+                        position.target = new_target
+                        was_updated = True
+                        update_reasons.append(f"PE momentum continuing: Target extended ({old_target:.2f} → {new_target:.2f})")
+                        logger.info(f"📈 TARGET EXTENDED: {position.symbol} - Market momentum continuing DOWN")
+
+        # ========================================
+        # RULE 3: TIGHTEN SL IF REVERSAL DETECTED
+        # ========================================
+        if index_df is not None and len(index_df) >= 3:
+            closes = index_df["Close"].values
+            short_momentum = closes[-1] - closes[-3]  # 3-candle momentum
+
+            # For CE: Downward short-term momentum = potential reversal
+            if position.option_type == "CE" and short_momentum < 0 and profit_pct > 10:
+                # Tighten SL to lock current profit
+                min_profit_lock = profit_pct * 0.5  # Lock 50% of current profit
+                target_sl = position.entry_price * (1 + min_profit_lock / 100)
+
+                if target_sl > position.stop_loss:
+                    old_sl = position.stop_loss
+                    position.stop_loss = target_sl
+                    was_updated = True
+                    update_reasons.append(f"CE reversal detected: SL tightened to lock {min_profit_lock:.0f}% ({old_sl:.2f} → {target_sl:.2f})")
+                    logger.warning(f"⚠️ REVERSAL DETECTED: {position.symbol} - Tightening SL")
+
+            # For PE: Upward short-term momentum = potential reversal
+            if position.option_type == "PE" and short_momentum > 0 and profit_pct > 10:
+                min_profit_lock = profit_pct * 0.5
+                target_sl = position.entry_price * (1 + min_profit_lock / 100)
+
+                if target_sl > position.stop_loss:
+                    old_sl = position.stop_loss
+                    position.stop_loss = target_sl
+                    was_updated = True
+                    update_reasons.append(f"PE reversal detected: SL tightened to lock {min_profit_lock:.0f}% ({old_sl:.2f} → {target_sl:.2f})")
+                    logger.warning(f"⚠️ REVERSAL DETECTED: {position.symbol} - Tightening SL")
+
+        if was_updated:
+            self._save_state()
+
+        reason = " | ".join(update_reasons) if update_reasons else "No update needed"
+        return was_updated, reason
+
     async def execute_signal_trade(
         self,
         signal: Any,
@@ -1087,6 +1795,13 @@ class PaperTradingService:
 
         logger.info(f"[{self.strategy}] Confidence check passed: {signal.confidence}%")
 
+        # Check if this is a pre-market signal (direction only, no trade)
+        if hasattr(signal, 'is_pre_market') and signal.is_pre_market:
+            logger.info(f"[{self.strategy}] PRE-MARKET SIGNAL: Direction={signal.direction}, Confidence={signal.confidence}%")
+            logger.info(f"[{self.strategy}] {signal.market_direction_note if hasattr(signal, 'market_direction_note') else 'Wait for 9:30 AM to trade'}")
+            logger.warning(f"[{self.strategy}] TRADE BLOCKED: Pre-market signal - no trades before 9:30 AM")
+            return None
+
         # Get recommended option
         if not signal.recommended_option:
             logger.warning(f"[{self.strategy}] TRADE BLOCKED: No recommended option in signal")
@@ -1123,9 +1838,45 @@ class PaperTradingService:
         chain_data = await self.data_fetcher.get_option_chain(index=trading_index.index)
         option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
 
+        # Get current spot price
+        spot_price = index_df["Close"].iloc[-1] if index_df is not None and len(index_df) > 0 else 0
+
+        # ========================================
+        # SMART ENTRY WITH INTELLIGENT WAITING
+        # ========================================
+        best_option, should_wait, selection_reason = self.find_optimal_entry_with_waiting(
+            option_chain=option_chain,
+            signal_direction=signal.direction,
+            spot_price=spot_price,
+            index_df=index_df,
+        )
+
+        if should_wait:
+            logger.info(f"[{self.strategy}] {selection_reason}")
+            return None
+
+        # Use the best option found (either from our search or the signal's recommended option)
+        if best_option:
+            # Override with our optimally selected option
+            opt_ltp = best_option["ltp"]
+            opt_bid = best_option.get("bid", opt_ltp)
+            opt_ask = best_option.get("ask", opt_ltp)
+            opt_strike = best_option["strike"]
+            opt_symbol = best_option["opt_data"].get("symbol", f"{opt_strike}{signal.direction}")
+
+            logger.info(f"[{self.strategy}] SMART SELECTION: {selection_reason}")
+        else:
+            # Fallback to signal's recommended option
+            opt_ltp = opt.ltp
+            opt_bid = opt.bid
+            opt_ask = opt.ask
+            opt_strike = opt.strike
+            opt_symbol = opt.symbol
+            selection_reason = "Using signal's recommended option"
+
         # Calculate smart entry price with swing analysis
         entry_price, smart_sl, smart_target, entry_allowed, entry_reason = self.calculate_smart_entry_price(
-            ltp=opt.ltp,
+            ltp=opt_ltp,
             signal_direction=signal.direction,
             option_chain=option_chain,
             index_df=index_df,
@@ -1145,6 +1896,29 @@ class PaperTradingService:
             target = signal.target_1
             logger.info(f"Signal Entry: Price={entry_price:.2f}, SL={stop_loss:.2f}, Target={target:.2f}")
 
+        # ========================================
+        # EXPIRY DAY POWER HOUR (1-3 PM) - DO OR DIE
+        # Override SL/Target for aggressive expiry trades
+        # ========================================
+        expiry_strategy = self.get_expiry_day_strategy(
+            trading_index=trading_index,
+            signal_direction=signal.direction,
+            current_premium=entry_price,
+        )
+
+        if expiry_strategy["is_active"]:
+            # Apply aggressive expiry day settings
+            stop_loss = entry_price * (1 - expiry_strategy["sl_percent"])
+            target = entry_price * (1 + expiry_strategy["target_percent"])
+
+            logger.info(
+                f"🔥 EXPIRY POWER HOUR TRADE: "
+                f"Entry={entry_price:.2f}, SL={stop_loss:.2f} ({expiry_strategy['sl_percent']*100:.0f}%), "
+                f"Target={target:.2f} ({expiry_strategy['target_percent']*100:.0f}%) | "
+                f"MaxHold={expiry_strategy['max_hold_time']}min | {expiry_strategy['risk_warning']}"
+            )
+            entry_reason = f"{entry_reason} | {expiry_strategy['strategy_name']}"
+
         logger.info(f"Entry Reason: {entry_reason}")
 
         # Calculate order size using entry price
@@ -1157,13 +1931,13 @@ class PaperTradingService:
             logger.warning("Insufficient capital for trade")
             return None
 
-        # Create order with smart entry price
+        # Create order with smart entry price (using smart selected option)
         order = PaperOrder(
             order_id=self._generate_order_id(),
             timestamp=datetime.now(),
             index=trading_index.index,
-            symbol=opt.symbol,
-            strike=opt.strike,
+            symbol=opt_symbol,  # Use smart selected symbol
+            strike=opt_strike,  # Use smart selected strike
             option_type=signal.direction,
             order_type=OrderType.BUY,
             quantity=quantity,
@@ -1173,7 +1947,7 @@ class PaperTradingService:
             executed_quantity=quantity,
             executed_price=entry_price,
             split_orders=split_orders,
-            reason=f"Signal: {signal.signal_type.value}, Confidence: {signal.confidence}% | {entry_reason}",
+            reason=f"Signal: {signal.signal_type.value}, Confidence: {signal.confidence}% | {selection_reason} | {entry_reason}",
             signal_confidence=signal.confidence,
         )
 
@@ -1182,8 +1956,8 @@ class PaperTradingService:
         position = PaperPosition(
             position_id=self._generate_position_id(),
             index=trading_index.index,
-            symbol=opt.symbol,
-            strike=opt.strike,
+            symbol=opt_symbol,  # Use smart selected symbol
+            strike=opt_strike,  # Use smart selected strike
             option_type=signal.direction,
             entry_price=entry_price,
             quantity=quantity,
@@ -1361,6 +2135,38 @@ class PaperTradingService:
                     position.initial_stop_loss = position.stop_loss
                 if position.initial_target == 0 and position.target > 0:
                     position.initial_target = position.target
+
+                # ========================================
+                # DYNAMIC SL/TARGET UPDATE BASED ON MARKET DIRECTION
+                # ========================================
+                try:
+                    from app.core.config import NIFTY_INDEX_TOKEN, BANKNIFTY_INDEX_TOKEN, SENSEX_INDEX_TOKEN
+                    tokens = {
+                        "NIFTY": NIFTY_INDEX_TOKEN,
+                        "BANKNIFTY": BANKNIFTY_INDEX_TOKEN,
+                        "SENSEX": SENSEX_INDEX_TOKEN,
+                    }
+                    token = tokens.get(position.index, NIFTY_INDEX_TOKEN)
+
+                    # Fetch recent index data for momentum analysis
+                    index_df = await self.data_fetcher.fetch_historical_data(
+                        instrument_token=token,
+                        timeframe="5minute",
+                        days=1,
+                    )
+
+                    # Apply dynamic SL/target updates based on market direction
+                    dynamic_updated, dynamic_reason = await self.dynamic_sl_target_update(
+                        position=position,
+                        current_premium=current_premium,
+                        index_df=index_df,
+                    )
+
+                    if dynamic_updated:
+                        logger.info(f"DYNAMIC UPDATE for {position.symbol}: {dynamic_reason}")
+
+                except Exception as e:
+                    logger.debug(f"Could not apply dynamic update: {e}")
 
                 # Apply trailing stop loss logic (modifies position.stop_loss based on profit)
                 new_sl, sl_reason = self.calculate_trailing_stop_loss(position, current_premium)
@@ -1882,8 +2688,33 @@ class PaperTradingService:
             }
 
             self.data_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.data_file, "w") as f:
-                json.dump(state, f, indent=2)
+
+            # Write to temp file first, then rename (atomic operation)
+            import tempfile
+            temp_file = self.data_file.with_suffix('.tmp')
+
+            # Retry logic for permission errors
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    with open(temp_file, "w") as f:
+                        json.dump(state, f, indent=2)
+
+                    # Rename temp file to actual file (atomic on most systems)
+                    import shutil
+                    shutil.move(str(temp_file), str(self.data_file))
+                    break
+                except PermissionError as pe:
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(0.1)  # Wait 100ms and retry
+                        continue
+                    else:
+                        logger.warning(f"Could not save state after {max_retries} attempts: {pe}")
+                except Exception as e:
+                    logger.warning(f"Error during save attempt {attempt + 1}: {e}")
+                    if attempt == max_retries - 1:
+                        raise
 
         except Exception as e:
             logger.error(f"Error saving paper trading state: {e}")

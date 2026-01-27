@@ -463,11 +463,14 @@ class DataFetcher:
                     "oi": "OI",
                 })
 
-            logger.debug(f"Fetched {len(df)} candles for token {instrument_token}")
+            if len(df) > 0:
+                logger.info(f"Fetched {len(df)} candles for token {instrument_token} ({timeframe}, {days} days)")
+            else:
+                logger.warning(f"No data returned for token {instrument_token} ({timeframe}, {days} days)")
             return df
 
         except Exception as e:
-            logger.error(f"Failed to fetch historical data: {e}")
+            logger.error(f"Failed to fetch historical data for token {instrument_token}: {e}")
             return pd.DataFrame()
 
     async def fetch_quote(self, instruments: list[str]) -> dict[str, Any]:

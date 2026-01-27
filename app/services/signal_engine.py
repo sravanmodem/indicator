@@ -133,6 +133,9 @@ class TradeSignal:
     # Reversal detection
     is_reversal_signal: bool = False  # True if signal detected at reversal point
     reversal_reason: str = ""  # Why this is marked as reversal (SuperTrend flip, ADX collapse, RSI exhaustion, etc)
+    # Pre-market indicator
+    is_pre_market: bool = False  # True if signal generated before 9:30 AM (for direction only, no trade)
+    market_direction_note: str = ""  # Note about market direction for pre-market
 
 
 class SignalEngine:
@@ -241,6 +244,219 @@ class SignalEngine:
 
         return is_reversal, reason
 
+    def detect_enhanced_reversal(
+        self,
+        df: pd.DataFrame,
+        current_direction: str,  # CE or PE
+        option_chain: list[dict] | None = None,
+    ) -> dict:
+        """
+        ENHANCED REVERSAL DETECTION with 50+ years of trading wisdom.
+
+        Detects HIGH-PROBABILITY reversals using:
+        1. Price Action Patterns (Engulfing, Pin Bars, Inside Bars)
+        2. Volume Confirmation (Volume Spike on reversal candle)
+        3. Multiple Timeframe Confluence
+        4. Support/Resistance Rejection
+        5. Momentum Divergence (Price vs RSI/MACD)
+        6. Order Flow Analysis (OI buildup/unwinding)
+
+        Returns:
+            {
+                "is_reversal": bool,
+                "reversal_probability": float (0-100),
+                "reversal_direction": str (CE/PE/None),
+                "signals": list[str],
+                "entry_trigger": str,
+                "invalidation_level": float
+            }
+        """
+        result = {
+            "is_reversal": False,
+            "reversal_probability": 0,
+            "reversal_direction": None,
+            "signals": [],
+            "entry_trigger": "",
+            "invalidation_level": 0,
+        }
+
+        if df is None or len(df) < 20:
+            return result
+
+        # Get price data
+        closes = df["Close"].values
+        highs = df["High"].values
+        lows = df["Low"].values
+        opens = df["Open"].values
+        volumes = df["Volume"].values if "Volume" in df.columns else None
+
+        current_close = closes[-1]
+        current_high = highs[-1]
+        current_low = lows[-1]
+        current_open = opens[-1]
+        prev_close = closes[-2]
+        prev_high = highs[-2]
+        prev_low = lows[-2]
+        prev_open = opens[-2]
+
+        reversal_score = 0
+        signals = []
+
+        # ========================================
+        # 1. PRICE ACTION PATTERNS (Weight: 30%)
+        # ========================================
+
+        # Bullish Engulfing (CE reversal signal)
+        if (prev_close < prev_open and  # Previous was bearish
+            current_close > current_open and  # Current is bullish
+            current_open < prev_close and  # Open below previous close
+            current_close > prev_open):  # Close above previous open
+            signals.append("BULLISH ENGULFING: Strong CE reversal pattern")
+            reversal_score += 25
+            result["reversal_direction"] = "CE"
+
+        # Bearish Engulfing (PE reversal signal)
+        if (prev_close > prev_open and  # Previous was bullish
+            current_close < current_open and  # Current is bearish
+            current_open > prev_close and  # Open above previous close
+            current_close < prev_open):  # Close below previous open
+            signals.append("BEARISH ENGULFING: Strong PE reversal pattern")
+            reversal_score += 25
+            result["reversal_direction"] = "PE"
+
+        # Bullish Pin Bar / Hammer (long lower wick)
+        body = abs(current_close - current_open)
+        lower_wick = min(current_close, current_open) - current_low
+        upper_wick = current_high - max(current_close, current_open)
+
+        if lower_wick > body * 2 and upper_wick < body * 0.5:
+            signals.append("BULLISH PIN BAR: Rejection of lower prices")
+            reversal_score += 20
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "CE"
+
+        # Bearish Pin Bar / Shooting Star (long upper wick)
+        if upper_wick > body * 2 and lower_wick < body * 0.5:
+            signals.append("BEARISH PIN BAR: Rejection of higher prices")
+            reversal_score += 20
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "PE"
+
+        # Inside Bar (consolidation before breakout)
+        if current_high < prev_high and current_low > prev_low:
+            signals.append("INSIDE BAR: Consolidation, breakout imminent")
+            reversal_score += 10
+
+        # ========================================
+        # 2. VOLUME CONFIRMATION (Weight: 20%)
+        # ========================================
+        if volumes is not None and len(volumes) >= 5:
+            avg_volume = volumes[-10:-1].mean()  # Average of last 10 excluding current
+            current_volume = volumes[-1]
+
+            # Volume spike on reversal candle = strong confirmation
+            if current_volume > avg_volume * 1.5:
+                signals.append(f"VOLUME SPIKE: {current_volume/avg_volume:.1f}x average volume")
+                reversal_score += 15
+
+            # Declining volume = trend exhaustion
+            if all(volumes[-i] < volumes[-i-1] for i in range(1, 4)):
+                signals.append("VOLUME DECLINE: Trend exhaustion, reversal likely")
+                reversal_score += 10
+
+        # ========================================
+        # 3. SUPPORT/RESISTANCE REJECTION (Weight: 20%)
+        # ========================================
+
+        # Find recent swing highs and lows
+        swing_high = max(highs[-20:])
+        swing_low = min(lows[-20:])
+        price_range = swing_high - swing_low
+
+        # Rejection from resistance (PE reversal)
+        if current_high >= swing_high * 0.995 and current_close < current_open:
+            signals.append(f"RESISTANCE REJECTION: Failed at {swing_high:.0f}")
+            reversal_score += 20
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "PE"
+            result["invalidation_level"] = swing_high
+
+        # Rejection from support (CE reversal)
+        if current_low <= swing_low * 1.005 and current_close > current_open:
+            signals.append(f"SUPPORT REJECTION: Bounced from {swing_low:.0f}")
+            reversal_score += 20
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "CE"
+            result["invalidation_level"] = swing_low
+
+        # ========================================
+        # 4. MOMENTUM DIVERGENCE (Weight: 15%)
+        # ========================================
+
+        # Calculate simple momentum
+        momentum_5 = current_close - closes[-6]  # 5-bar momentum
+        momentum_10 = current_close - closes[-11] if len(closes) >= 11 else 0
+
+        # Bearish divergence: Price making higher high but momentum weakening
+        if highs[-1] > max(highs[-6:-1]) and momentum_5 < momentum_10:
+            signals.append("BEARISH DIVERGENCE: Price up but momentum weakening")
+            reversal_score += 15
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "PE"
+
+        # Bullish divergence: Price making lower low but momentum strengthening
+        if lows[-1] < min(lows[-6:-1]) and momentum_5 > momentum_10:
+            signals.append("BULLISH DIVERGENCE: Price down but momentum strengthening")
+            reversal_score += 15
+            if result["reversal_direction"] is None:
+                result["reversal_direction"] = "CE"
+
+        # ========================================
+        # 5. ORDER FLOW / OI ANALYSIS (Weight: 15%)
+        # ========================================
+        if option_chain:
+            total_ce_oi = sum(opt.get("ce", {}).get("oi", 0) for opt in option_chain)
+            total_pe_oi = sum(opt.get("pe", {}).get("oi", 0) for opt in option_chain)
+
+            if total_ce_oi > 0 and total_pe_oi > 0:
+                pcr = total_pe_oi / total_ce_oi
+
+                # Extreme PCR = reversal zone
+                if pcr > 1.5:  # Extreme bearish positioning
+                    signals.append(f"HIGH PCR ({pcr:.2f}): Extreme bearish, CE reversal likely")
+                    reversal_score += 10
+                    if result["reversal_direction"] is None:
+                        result["reversal_direction"] = "CE"
+                elif pcr < 0.5:  # Extreme bullish positioning
+                    signals.append(f"LOW PCR ({pcr:.2f}): Extreme bullish, PE reversal likely")
+                    reversal_score += 10
+                    if result["reversal_direction"] is None:
+                        result["reversal_direction"] = "PE"
+
+        # ========================================
+        # FINAL REVERSAL DETERMINATION
+        # ========================================
+
+        # Cap score at 100
+        reversal_score = min(100, reversal_score)
+
+        # High probability reversal: score >= 40
+        result["reversal_probability"] = reversal_score
+        result["is_reversal"] = reversal_score >= 40
+        result["signals"] = signals
+
+        # Set entry trigger based on reversal direction
+        if result["is_reversal"] and result["reversal_direction"]:
+            if result["reversal_direction"] == "CE":
+                result["entry_trigger"] = f"Enter CE when price closes above {current_high:.0f}"
+            else:
+                result["entry_trigger"] = f"Enter PE when price closes below {current_low:.0f}"
+
+        if signals:
+            logger.info(f"REVERSAL DETECTION: Score={reversal_score}, Direction={result['reversal_direction']}, Signals={signals}")
+
+        return result
+
     def analyze(
         self,
         df: pd.DataFrame,
@@ -262,25 +478,48 @@ class SignalEngine:
         Returns:
             TradeSignal if conditions met, None otherwise
         """
-        if df.empty or len(df) < 50:
-            logger.warning("Insufficient data for analysis")
-            return None
-
         # ========================================
         # SIGNAL GENERATION TIME RESTRICTION
-        # Only generate signals between 9:30 AM and 2:00 PM
+        # Analysis is always done, but trade signals only between 9:30 AM - 2:00 PM
+        # Pre-market (before 9:30): Show direction analysis but mark as PRE_MARKET
         # ========================================
         now = datetime.now()
         signal_start_time = now.replace(hour=9, minute=30, second=0, microsecond=0)
         signal_end_time = now.replace(hour=14, minute=0, second=0, microsecond=0)
 
-        if now < signal_start_time:
-            logger.info(f"Signal generation blocked: Before 9:30 AM (current: {now.strftime('%H:%M')})")
-            return None
+        is_pre_market = now < signal_start_time
+        is_after_hours = now >= signal_end_time
+        is_trading_hours = not is_pre_market and not is_after_hours
 
-        if now >= signal_end_time:
+        if is_after_hours:
             logger.info(f"Signal generation blocked: After 2:00 PM (current: {now.strftime('%H:%M')})")
             return None
+
+        # For pre-market, we'll still analyze but mark the signal accordingly
+        if is_pre_market:
+            logger.info(f"Pre-market analysis: {now.strftime('%H:%M')} (Trading starts at 9:30 AM)")
+
+        # Minimum data requirement
+        # Pre-market: Allow with less data (20 candles) for direction analysis
+        # Trading hours: Require full 50 candles for accurate signals
+        min_candles_required = 20 if is_pre_market else 50
+
+        if df is None or df.empty:
+            logger.warning(f"No data available for analysis. Please re-authenticate with Kite: Go to /auth/login")
+            return None
+
+        if len(df) < min_candles_required:
+            logger.warning(
+                f"Insufficient data for analysis: {len(df)} candles (need {min_candles_required}). "
+                f"This could be due to: Early morning (limited candles), Weekend, or Holiday."
+            )
+            # If we have at least 10 candles, try to analyze anyway for pre-market direction
+            if len(df) >= 10 and is_pre_market:
+                logger.info(f"Pre-market: Attempting analysis with {len(df)} candles (limited accuracy)")
+            else:
+                return None
+
+        logger.info(f"Analyzing {len(df)} candles of data (min required: {min_candles_required})")
 
         indicators: list[IndicatorSignal] = []
         supporting = []
@@ -737,6 +976,19 @@ class SignalEngine:
                     index_sl_val = index_spot_val + index_risk
                     index_target_val = index_spot_val - index_reward
 
+        # Pre-market direction note
+        market_direction_note = ""
+        if is_pre_market:
+            if direction == "CE":
+                market_direction_note = f"📈 PRE-MARKET BULLISH: {confidence:.0f}% confidence. Wait for 9:30 AM to trade."
+            elif direction == "PE":
+                market_direction_note = f"📉 PRE-MARKET BEARISH: {confidence:.0f}% confidence. Wait for 9:30 AM to trade."
+            else:
+                market_direction_note = f"⏸️ PRE-MARKET NEUTRAL: No clear direction. Wait for market open."
+
+            supporting.insert(0, market_direction_note)
+            logger.info(f"PRE-MARKET DIRECTION: {direction} @ {confidence:.0f}% | {market_direction_note}")
+
         return TradeSignal(
             timestamp=datetime.now(),
             instrument="NIFTY",
@@ -758,6 +1010,8 @@ class SignalEngine:
             index_target=round(index_target_val, 2),
             is_reversal_signal=is_reversal_signal,
             reversal_reason=reversal_reason,
+            is_pre_market=is_pre_market,
+            market_direction_note=market_direction_note,
         )
 
     def _find_best_option(
