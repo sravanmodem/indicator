@@ -95,7 +95,7 @@
                     {% if stats.status.is_halted %}
                     <span class="w-2.5 h-2.5 rounded-full bg-red-400 animate-pulse"></span>
                     <span class="text-red-400 text-xs font-bold">HALTED</span>
-                    {% elif stats.pnl.percent >= 5 and strategy in ['5_percent_daily', '5_percent_15min'] %}
+                    {% elif (stats.pnl.percent >= 5 and strategy in ['5_percent_daily', '5_percent_15min']) or (stats.pnl.percent >= 10 and strategy == 'expiry_day') %}
                     <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
                     <span class="text-green-400 text-xs font-bold">TARGET</span>
                     {% else %}

@@ -1082,9 +1082,18 @@ async def htmx_signal_panel_with_ltp(request: Request, strategy: str = "default"
         chain_data = await fetcher.get_option_chain(index=trading_index.index)
         option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
 
-        # Generate signal (separate from LTP)
-        engine = get_signal_engine(TradingStyle.INTRADAY)
-        signal = engine.analyze(df=df, option_chain=option_chain)
+        # Generate signal (separate from LTP) - use specialized engines for dedicated strategies
+        if strategy == "5_percent_15min":
+            from app.services.signal_engine_15min import get_signal_engine_15min
+            engine_15min = get_signal_engine_15min()
+            signal = await engine_15min.generate_signal(df=df, option_chain=option_chain)
+        elif strategy == "expiry_day":
+            from app.services.signal_engine_expiry_day import get_signal_engine_expiry_day
+            engine_expiry = get_signal_engine_expiry_day()
+            signal = await engine_expiry.generate_signal(df=df, option_chain=option_chain)
+        else:
+            engine = get_signal_engine(TradingStyle.INTRADAY)
+            signal = engine.analyze(df=df, option_chain=option_chain)
 
         # Get current spot price (LTP of index)
         spot_price = 0
