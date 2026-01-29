@@ -464,6 +464,7 @@ class SignalEngine:
         spot_price: float | None = None,
         vix_value: float | None = None,
         prev_day_ohlc: dict | None = None,
+        bypass_time_check: bool = False,
     ) -> TradeSignal | None:
         """
         Analyze market data and generate trade signal.
@@ -474,6 +475,7 @@ class SignalEngine:
             spot_price: Current spot price
             vix_value: Current VIX value
             prev_day_ohlc: Previous day OHLC for pivots
+            bypass_time_check: If True, skip time restriction (for expiry day trading)
 
         Returns:
             TradeSignal if conditions met, None otherwise
@@ -491,7 +493,7 @@ class SignalEngine:
         is_after_hours = now >= signal_end_time
         is_trading_hours = not is_pre_market and not is_after_hours
 
-        if is_after_hours:
+        if not bypass_time_check and is_after_hours:
             logger.info(f"Signal generation blocked: After 2:00 PM (current: {now.strftime('%H:%M')})")
             return None
 

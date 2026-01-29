@@ -176,7 +176,7 @@ class AutoTrader:
                 logger.warning(f"Failed to refresh expiry cache: {cache_err}")
 
             # Check signals for all strategies
-            strategies_to_check = ["default", "5_percent_daily", "5_percent_15min", "fixed_20_percent", "profit_100_halt"]
+            strategies_to_check = ["default", "5_percent_daily", "5_percent_15min", "fixed_20_percent", "profit_100_halt", "expiry_day"]
 
             for strategy in strategies_to_check:
                 try:
@@ -234,12 +234,17 @@ class AutoTrader:
                     chain_data = await fetcher.get_option_chain(index=trading_index.index)
                     option_chain = chain_data.get("chain", []) if "error" not in chain_data else None
 
-                    # Generate signal (use 15-min dedicated engine for 5_percent_15min strategy)
+                    # Generate signal (use dedicated engines for specialized strategies)
                     if strategy == "5_percent_15min":
                         from app.services.signal_engine_15min import get_signal_engine_15min
                         engine_15min = get_signal_engine_15min()
                         signal = await engine_15min.generate_signal(df=df, option_chain=option_chain)
-                        logger.info(f"AUTO-TRADE: Using dedicated 15-minute signal engine (90% confidence required)")
+                        logger.info(f"AUTO-TRADE [{strategy}]: Using dedicated 15-minute signal engine (55%+ confidence required)")
+                    elif strategy == "expiry_day":
+                        from app.services.signal_engine_expiry_day import get_signal_engine_expiry_day
+                        engine_expiry = get_signal_engine_expiry_day()
+                        logger.info(f"AUTO-TRADE [{strategy}]: Using DEDICATED expiry day signal engine (50%+ confidence required)")
+                        signal = await engine_expiry.generate_signal(df=df, option_chain=option_chain)
                     else:
                         engine = get_signal_engine(TradingStyle.INTRADAY)
                         signal = engine.analyze(df=df, option_chain=option_chain)
